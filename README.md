@@ -7,6 +7,16 @@ importer for R3-era `.max` files. "maxlike" is a working name; rename freely.
 Stack: C++17, Win32 + classic common controls behind a thin in-house wrapper,
 OpenGL 3.3 (GLAD) viewports, CMake + MSVC. Icons are drawn from scratch.
 
+## Build
+
+Requires Visual Studio 2019+ (Desktop development with C++) and CMake 3.20+.
+
+```sh
+cmake -S . -B build
+cmake --build build --config Debug
+build\Debug\maxlike.exe
+```
+
 ## Branches
 
 | Branch | Purpose |
