@@ -11,8 +11,8 @@ Code complete; awaiting a run on Windows to tick the last two items.
 - [x] Thin wrapper: `win::Window` (`this` in `GWLP_USERDATA`, lazy class registration, `Dpi()`/`Scale()`), `win::App` message loop
 - [x] `theme` with every colour and metric from `01-ui-look.md`; UI font helper
 - [x] Manifest: PerMonitorV2 DPI awareness, no comctl32 v6 (classic controls)
-- [ ] Verified on Windows: window opens maximised, titled `Untitled - maxlike`, face-coloured client, diagnostic line shows correct DPI
-- [ ] Verified moving between monitors with different scaling rescales the font
+- [x] Verified on Windows: window opens maximised, titled `Untitled - maxlike`, face-coloured client, diagnostic line shows correct DPI
+- [x] Verified moving between monitors with different scaling rescales the font
 
 ## Build
 ```sh
