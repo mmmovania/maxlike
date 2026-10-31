@@ -1,9 +1,10 @@
 #pragma once
 #include <windows.h>
 #include <cstdint>
+#include "ui/Metrics.h"
 
 // All colours and pixel metrics of the R3.1 look, from docs/spec/01-ui-look.md.
-// Metrics are 96-DPI values; scale with Window::Scale() or theme::Scale().
+// Metrics (ui/Metrics.h) are 96-DPI values; scale with Window::Scale().
 namespace theme {
 
 struct Rgb {
@@ -42,20 +43,8 @@ inline constexpr int   kGridMajorEvery     = 10;     // minor lines per major li
 inline constexpr float kOrthoUnitsPerPixel = 0.46f;  // default ortho zoom at 100%
 inline constexpr float kPerspectiveFovDeg  = 45.0f;
 
-// ---- Layout metrics at 96 DPI (approximate, refine in Phase 1) ----
-struct Metrics {
-    static constexpr int TabPanelHeight     = 16;
-    static constexpr int MainToolbarHeight  = 38;
-    static constexpr int CommandPanelWidth  = 180;
-    static constexpr int ViewportGap        = 6;   // between viewports, incl. frames
-    static constexpr int ViewportLabelInset = 6;
-    static constexpr int TripodSize         = 40;
-    static constexpr int TimeSliderHeight   = 18;
-    static constexpr int TrackBarHeight     = 16;
-    static constexpr int StatusAreaHeight   = 50;
-    static constexpr int MinWindowWidth     = 800;
-    static constexpr int MinWindowHeight    = 600;
-};
+// Layout metrics live in ui/Metrics.h (namespace metrics) so they can be
+// unit-tested without <windows.h>.
 
 inline int Scale(int px96, UINT dpi) { return MulDiv(px96, static_cast<int>(dpi), 96); }
 

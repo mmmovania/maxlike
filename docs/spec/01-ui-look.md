@@ -28,17 +28,20 @@ viewport and fill this in.
 - Measured minor spacing in Top view: ~21.55 px.
 - Perspective default FOV 45°; grid drawn to a fixed home-grid extent.
 
-## Layout at 1920×1040 (client coordinates are approximate)
-| Region | Rect / size |
-|---|---|
-| Menu bar | y 24–42 |
-| Tab panel | y 46–60 |
-| Main toolbar | y 62–98, buttons ~30 px |
-| Viewport area | x 0–1736, y 100–956 |
-| Viewport split | vertical at x ~868, horizontal at y ~528; gap ~6 px incl. frames |
-| Command panel | x ~1740–1920 (~180 px wide) |
-| Time slider | y ~957–973, label `0 / 100` |
-| Status area | y ~990–1040 |
+## Layout (measured, client coordinates at 100%)
+Client area = below the menu bar; a maximised 1920×1040 window gives a 1920×998 client.
+Encoded in `src/ui/Metrics.h` and `src/ui/FrameLayout.cpp`, tested in
+`tests/test_frame_layout.cpp`.
+
+| Region | Rect at 1920×998 | Rule |
+|---|---|---|
+| Tab panel | 0,4 – 1920,19 | 4 px gap, 15 px high, full width |
+| Main toolbar | 0,19 – 1920,57 | 38 px high, full width |
+| Viewports | 0,57 – 1736,915 | fills the left column |
+| Time slider | 0,915 – 1736,932 | 17 px, left column |
+| Track bar | 0,932 – 1736,948 | 16 px, left column |
+| Command panel | 1736,57 – 1920,948 | 184 px wide, `EDGE_RAISED` |
+| Status area | 0,948 – 1920,998 | 50 px, full width |
 
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |

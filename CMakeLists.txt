@@ -19,6 +19,13 @@ add_executable(maxlike WIN32
     src/ui/Theme.h
     src/ui/MainFrame.cpp
     src/ui/MainFrame.h
+    src/ui/Metrics.h
+    src/ui/FrameLayout.cpp
+    src/ui/FrameLayout.h
+    src/ui/Bevel.cpp
+    src/ui/Bevel.h
+    src/ui/Placeholder.cpp
+    src/ui/Placeholder.h
     res/maxlike.rc
 )
 
@@ -41,3 +48,19 @@ else()
 endif()
 
 target_link_libraries(maxlike PRIVATE user32 gdi32)
+
+# ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
+enable_testing()
+
+add_executable(maxlike_tests
+    tests/test_frame_layout.cpp
+    src/ui/FrameLayout.cpp
+)
+target_include_directories(maxlike_tests PRIVATE src)
+if(MSVC)
+    target_compile_options(maxlike_tests PRIVATE /W4 /permissive- /utf-8)
+else()
+    target_compile_options(maxlike_tests PRIVATE -Wall -Wextra)
+    target_link_options(maxlike_tests PRIVATE -static)
+endif()
+add_test(NAME frame_layout COMMAND maxlike_tests)
