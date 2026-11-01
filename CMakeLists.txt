@@ -26,6 +26,12 @@ add_executable(maxlike WIN32
     src/ui/Bevel.h
     src/ui/Placeholder.cpp
     src/ui/Placeholder.h
+    src/ui/CommandTable.cpp
+    src/ui/CommandTable.h
+    src/ui/MenuSpec.cpp
+    src/ui/MenuSpec.h
+    src/ui/MenuBuilder.cpp
+    src/ui/MenuBuilder.h
     res/maxlike.rc
 )
 
@@ -52,15 +58,19 @@ target_link_libraries(maxlike PRIVATE user32 gdi32)
 # ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
 enable_testing()
 
-add_executable(maxlike_tests
-    tests/test_frame_layout.cpp
-    src/ui/FrameLayout.cpp
-)
-target_include_directories(maxlike_tests PRIVATE src)
-if(MSVC)
-    target_compile_options(maxlike_tests PRIVATE /W4 /permissive- /utf-8)
-else()
-    target_compile_options(maxlike_tests PRIVATE -Wall -Wextra)
-    target_link_options(maxlike_tests PRIVATE -static)
-endif()
-add_test(NAME frame_layout COMMAND maxlike_tests)
+# Each test is its own small console program; CTest runs them all.
+function(maxlike_add_test name)
+    add_executable(${name} ${ARGN})
+    target_include_directories(${name} PRIVATE src)
+    if(MSVC)
+        target_compile_options(${name} PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(${name} PRIVATE -Wall -Wextra)
+        target_link_options(${name} PRIVATE -static)
+    endif()
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+maxlike_add_test(test_frame_layout tests/test_frame_layout.cpp src/ui/FrameLayout.cpp)
+maxlike_add_test(test_menu_spec
+    tests/test_menu_spec.cpp src/ui/MenuSpec.cpp src/ui/CommandTable.cpp)

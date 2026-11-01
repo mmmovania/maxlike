@@ -17,6 +17,11 @@ bool Placeholder::Create(HWND parent) {
     return win::Window::Create(p);
 }
 
+void Placeholder::SetLabel(std::wstring label) {
+    label_ = std::move(label);
+    if (Hwnd()) InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
 void Placeholder::OnPaint() {
     PAINTSTRUCT ps;
     HDC dc = BeginPaint(Hwnd(), &ps);

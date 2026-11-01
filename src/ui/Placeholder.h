@@ -16,6 +16,7 @@ public:
                 COLORREF fill = kSystemFace, COLORREF text = kSystemFace);
 
     bool Create(HWND parent);
+    void SetLabel(std::wstring label);
 
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.Placeholder"; }

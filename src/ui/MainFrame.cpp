@@ -1,5 +1,7 @@
 #include "ui/MainFrame.h"
 #include "ui/FrameLayout.h"
+#include "ui/MenuBuilder.h"
+#include "ui/MenuSpec.h"
 #include "ui/Theme.h"
 
 namespace ui {
@@ -17,7 +19,13 @@ bool MainFrame::Create() {
     p.style  = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
     p.width  = 1280;
     p.height = 800;
-    return win::Window::Create(p);
+    // A top-level window's menu is passed in the "menu or ID" slot. Once the
+    // window owns it, DestroyWindow destroys the menu too.
+    p.menuOrId = BuildMenuBar(MainMenuSpec(), commands_);
+    if (win::Window::Create(p))
+        return true;
+    DestroyMenu(p.menuOrId); // creation failed: the menu was never attached
+    return false;
 }
 
 void MainFrame::SetDocumentName(const std::wstring& name) {
@@ -73,6 +81,23 @@ void MainFrame::RecreateFonts() {
     if (old) DeleteObject(old);
 }
 
+void MainFrame::OnCommand(const std::string& command) {
+    if (command == "file.exit") {
+        // Same path as the close button, so a future "save changes?" prompt
+        // in WM_CLOSE covers both.
+        PostMessageW(Hwnd(), WM_CLOSE, 0, 0);
+    } else if (command == "help.about") {
+        const std::string version = MAXLIKE_VERSION;
+        std::wstring text = L"maxlike " + std::wstring(version.begin(), version.end()) +
+                            L"\n\nA 3D Studio MAX R3.1 look-alike for Windows.";
+        MessageBoxW(Hwnd(), text.c_str(), L"About maxlike", MB_OK | MB_ICONINFORMATION);
+    } else {
+        // Not implemented yet: show which command fired in the status area.
+        std::wstring name(command.begin(), command.end()); // command names are ASCII
+        statusArea_.SetLabel(L"Status area   (last command: " + name + L", not implemented)");
+    }
+}
+
 void MainFrame::OnPaint() {
     // Only the gaps between regions are visible here; WS_CLIPCHILDREN keeps
     // this fill from painting over the child windows.
@@ -89,6 +114,18 @@ LRESULT MainFrame::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             return -1; // cancels creation; CreateWindowExW returns null
         RecreateFonts();
         return 0;
+
+    case WM_COMMAND:
+        // HIWORD(wp): 0 = menu, 1 = accelerator, otherwise a control notification
+        // (then lp is the control's HWND). Menus and accelerators carry the ID.
+        if (HIWORD(wp) <= 1 && lp == 0) {
+            const std::string& name = commands_.Name(LOWORD(wp));
+            if (!name.empty()) {
+                OnCommand(name);
+                return 0;
+            }
+        }
+        break;
 
     case WM_SIZE:
         if (wp != SIZE_MINIMIZED)

@@ -1,5 +1,6 @@
 #pragma once
 #include "win/Window.h"
+#include "ui/CommandTable.h"
 #include "ui/Placeholder.h"
 #include <array>
 #include <string>
@@ -23,10 +24,12 @@ private:
     void LayoutRegions(int clientWidth, int clientHeight);
     void RecreateFonts();
     void OnPaint();
+    void OnCommand(const std::string& command);
 
     std::array<Placeholder*, 7> Regions();
 
     HFONT uiFont_ = nullptr;
+    CommandTable commands_;
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout. Placeholders for now; each is
