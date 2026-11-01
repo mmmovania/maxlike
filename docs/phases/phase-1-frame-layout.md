@@ -22,7 +22,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 
 ## Step 1.2 verification
 - [x] Builds warning-free; both test programs pass (MinGW + Wine)
-- [ ] On Windows: 11 menus open; Alt+F opens File; File > Exit closes; Help > About shows
+- [x] On Windows: 11 menus open; Alt+F opens File; File > Exit closes; Help > About shows
       the box; other items show their command name in the status area; viewport area is
       now 1736 × 858
 - [ ] Menu items checked against R3.1 (see `docs/spec/03-menus.md`)
