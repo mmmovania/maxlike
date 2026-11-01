@@ -15,7 +15,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 
 ## Step 1.1 verification
 - [x] Builds warning-free; `ctest` passes (checked with MinGW + Wine)
-- [ ] On Windows: regions appear as labelled placeholders, sizes at 1920×1080 maximised
+- [x] On Windows: regions appear as labelled placeholders, sizes at 1920×1080 maximised
       (before the menu exists, the client is 19 px taller than the reference, so only
       the viewport height differs: 877 instead of 858)
 
