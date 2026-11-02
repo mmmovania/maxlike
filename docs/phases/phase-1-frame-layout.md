@@ -35,7 +35,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] Builds warning-free; three test programs pass (MinGW + Wine)
 - [x] Pixel comparison with the reference under Wine: 0 differing pixels in the tab panel
       (label text masked; Wine's face colour #F5F5F5 treated as #F0F0F0)
-- [ ] On Windows: tabs look like R3's; clicking a tab activates it and the toolbar
+- [x] On Windows: tabs look like R3's; clicking a tab activates it and the toolbar
       placeholder shows the strip name
 
 ## Step 1.4a verification
@@ -43,7 +43,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] All 27 button, 4 combo and 11 separator positions match the reference (unit test)
 - [x] Pixel comparison under Wine, icons and combo interiors masked: 4 differing pixels
       out of 25,778 (the soft shadow of R3's own arrow icon below its cell)
-- [ ] On Windows: toolbar looks right; hover, click and the two radio groups behave;
+- [x] On Windows: toolbar looks right; hover, click and the two radio groups behave;
       clicking a button shows its command in the status area
 - [ ] Unverified against R3.1: hover look, pressed look, tooltip names
 
