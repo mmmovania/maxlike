@@ -40,6 +40,12 @@ inline constexpr Rgb kTabInactive     {0xA0, 0xA0, 0xB3};
 inline constexpr Rgb kTabInactiveEdge {0xA0, 0xA0, 0xA0};
 inline constexpr Rgb kTabActiveEdge   {0x00, 0x00, 0x00};
 
+// ---- Toolbar buttons (measured) ----
+inline constexpr Rgb kButtonHighlight  {0xFF, 0xFF, 0xFF};
+inline constexpr Rgb kButtonShadow     {0xA0, 0xA0, 0xA0};
+inline constexpr Rgb kButtonModeActive {0xC0, 0xFF, 0xC0}; // active mode, e.g. Select Object
+inline constexpr Rgb kButtonChecked    {0xE1, 0xE1, 0xE1}; // other checked buttons, e.g. XY
+
 // ---- Status area ----
 inline constexpr Rgb kListenerBg     {0xDB, 0xC3, 0xC3};
 

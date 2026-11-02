@@ -1,0 +1,98 @@
+#include "ui/ToolbarSpec.h"
+#include "ui/Metrics.h"
+
+namespace ui::toolbar {
+
+namespace {
+Item Btn(const char* cmd, const wchar_t* tip, int icon) {
+    Item i; i.kind = Kind::Button; i.command = cmd; i.tooltip = tip; i.icon = icon; return i;
+}
+Item Fly(const char* cmd, const wchar_t* tip, int icon) {
+    Item i = Btn(cmd, tip, icon); i.flyout = true; return i;
+}
+Item Radio(Item i, const char* group, bool checked = false) {
+    i.group = group; i.checked = checked; return i;
+}
+Item Sep() { Item i; i.kind = Kind::Separator; return i; }
+Item Gap(int w) { Item i; i.kind = Kind::Gap; i.width = w; return i; }
+Item Combo(const char* cmd, const wchar_t* tip, int w, const wchar_t* text) {
+    Item i; i.kind = Kind::Combo; i.command = cmd; i.tooltip = tip; i.width = w; i.text = text;
+    return i;
+}
+} // namespace
+
+// Order and geometry measured from the reference screenshot. Tooltip names are
+// from memory of R3.1 and still to be verified (docs/spec/01-ui-look.md).
+const std::vector<Item>& MainToolbarSpec() {
+    static const std::vector<Item> items = {
+        Btn("help.whats_this",   L"Help Mode",                   kIconHelp),
+        Sep(),
+        Btn("edit.undo",         L"Undo",                        kIconUndo),
+        Btn("edit.redo",         L"Redo",                        kIconRedo),
+        Sep(),
+        Btn("tool.link",         L"Select and Link",             kIconLink),
+        Btn("tool.unlink",       L"Unlink Selection",            kIconUnlink),
+        Sep(),
+        Btn("tool.bind_warp",    L"Bind to Space Warp",          kIconBindWarp),
+        Sep(),
+        Radio(Btn("tool.select", L"Select Object",               kIconSelect), "mode", true),
+        Fly("tool.region",       L"Rectangular Selection Region", kIconRegionRect),
+        Gap(2),
+        Combo("tool.selection_filter", L"Selection Filter", 70, L"All"),
+        Sep(),
+        Btn("edit.select_by_name", L"Select by Name",            kIconSelectByName),
+        Sep(),
+        Radio(Btn("tool.move",   L"Select and Move",             kIconMove), "mode"),
+        Radio(Btn("tool.rotate", L"Select and Rotate",           kIconRotate), "mode"),
+        Radio(Fly("tool.scale",  L"Select and Uniform Scale",    kIconScale), "mode"),
+        Sep(),
+        Combo("tool.ref_coord", L"Reference Coordinate System", 70, L"View"),
+        Fly("tool.pivot",        L"Use Pivot Point Center",      kIconPivotCenter),
+        Sep(),
+        Radio(Btn("constraint.x",  L"Restrict to X",             kIconX), "axis"),
+        Radio(Btn("constraint.y",  L"Restrict to Y",             kIconY), "axis"),
+        Radio(Btn("constraint.z",  L"Restrict to Z",             kIconZ), "axis"),
+        Radio(Fly("constraint.xy", L"Restrict to XY Plane",      kIconXY), "axis", true),
+        Btn("tool.ik",           L"Inverse Kinematics Toggle",   kIconIK),
+        Sep(),
+        Btn("tools.mirror",      L"Mirror Selected Objects",     kIconMirror),
+        Fly("tools.array",       L"Array",                       kIconArray),
+        Fly("tools.align",       L"Align",                       kIconAlign),
+        Combo("edit.named_selection", L"Named Selection Sets", 120, L""),
+        Sep(),
+        Btn("trackview.open",    L"Open Track View",             kIconTrackView),
+        Btn("schematic.open",    L"Open Schematic View",         kIconSchematic),
+        Sep(),
+        Btn("tools.material_editor", L"Material Editor",         kIconMaterialEditor),
+        Btn("render.render",     L"Render Scene",                kIconRenderScene),
+        Fly("render.quick",      L"Quick Render",                kIconQuickRender),
+        Gap(2),
+        Combo("render.type", L"Render Type", 70, L"View"),
+        Btn("render.last",       L"Render Last",                 kIconRenderLast),
+    };
+    return items;
+}
+
+std::vector<Rect> LayoutToolbar(const std::vector<Item>& items, int h, unsigned dpi) {
+    auto s = [dpi](int v) { return metrics::Scale(v, dpi); };
+    std::vector<Rect> rects;
+    rects.reserve(items.size());
+    int x = kLeft; // running position at 100%; scaled per edge so items never drift apart
+    for (const Item& it : items) {
+        int w = 0;
+        switch (it.kind) {
+        case Kind::Button:    w = kButtonWidth; break;
+        case Kind::Separator: w = kSeparatorWidth; break;
+        case Kind::Gap:       w = it.width; break;
+        case Kind::Combo:     w = it.width; break;
+        }
+        Rect r{s(x), 0, s(x + w), h};
+        if (it.kind == Kind::Button) { r.top = s(kTop); r.bottom = s(kTop + kButtonHeight); }
+        if (it.kind == Kind::Combo)  { r.top = s(kTop); r.bottom = s(kTop + kComboHeight); }
+        rects.push_back(r);
+        x += w;
+    }
+    return rects;
+}
+
+} // namespace ui::toolbar

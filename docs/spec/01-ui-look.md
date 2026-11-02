@@ -66,6 +66,46 @@ Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).
 
 Label: top-left, ~6 px inset. Tripod: bottom-left, ~40×40 px.
 
+## Main toolbar (measured, step 1.4a)
+Code: `src/ui/ToolbarSpec.*` (items + layout), `src/ui/Toolbar.*` (drawing, input).
+
+- Items start at x = 4. Buttons 32 × 31 at y = 4, edge to edge; icon 24 × 24 at (4, 3).
+- Separator: 6 px wide; etched line `#A0A0A0` at +3, white at +4, rows 12–27.
+- Combos: classic sunken edge, 21 px high at y = 4; widths 70, 70, 120, 70.
+- Explicit 2-px gaps before the "All" combo and before the render-type combo.
+- Checked button: outer ring `#A0A0A0` / white, inner ring face / white; the left column
+  and top row belong to the top-left colour except the top-right pixel; fill `#C0FFC0`
+  for the active mode (Select/Move/Rotate/Scale), `#E1E1E1` for other checked buttons.
+- Flyout marker (button-relative row, col): white band (25,29) (26,28) (26,29) (27,27)
+  (27,28) (28,26) (28,27), black triangle (27,29) (28,28) (28,29); on a sunken button the
+  band is black and the triangle `#A0A0A0`.
+- Frame: white column at x = 0, `#A0A0A0` column at width − 2 (same as the tab panel).
+- Radio groups: mode (Select ✔, Move, Rotate, Scale) and axis (X, Y, Z, XY ✔).
+- Unverified: hover look (a thin raised ring for now), pressed look, tooltip names.
+
+## Tab panel (measured, step 1.3)
+Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).
+
+- 11 tabs, fixed width 89 px, first tab at x = 4, no gaps, 15 px high; labels centred.
+- Each tab, columns/rows relative to its top-left (w = 89, h = 15):
+  row 0 highlight cols 2..w-4 and dark col w-3; row 1 highlight col 1, dark col w-2;
+  rows 2..h-2 highlight col 0, dark col w-1; bottom row highlight across inactive tabs,
+  only col 0 for the active tab (open towards the toolbar).
+- Inactive: fill `#A0A0B3`, dark edge `#A0A0A0`. Active: face fill, dark edge `#000000`.
+- The bottom highlight continues from the last tab to 4 px from the right edge.
+- Frame around tab panel + toolbar: highlight column at x = 0, `#A0A0A0` column at
+  x = width − 2 (continues into the toolbar area; finish in step 1.4).
+
+## Viewports (default)
+| Pos | View | Construction plane | Tripod labels |
+|---|---|---|---|
+| Top-left | Top | XY | x right, y up |
+| Top-right | Front | XZ | x right, z up |
+| Bottom-left | Left | YZ | y left, z up (check screenshot) |
+| Bottom-right | Perspective | XY | x, y, z |
+
+Label: top-left, ~6 px inset. Tripod: bottom-left, ~40×40 px.
+
 ## Main toolbar (left to right)
 Help, Undo, Redo, Select and Link, Unlink, Bind to Space Warp, Select Object,
 Region type (flyout), Selection filter combo (`All`), Select by Name, Move, Rotate,

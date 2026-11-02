@@ -43,18 +43,18 @@ std::array<win::Window*, 7> MainFrame::Regions() {
 }
 
 bool MainFrame::CreateRegions() {
-    if (!tabPanel_.Create(Hwnd()))
+    if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd()))
         return false;
-    for (Placeholder* r : {&mainToolbar_, &viewports_, &timeSlider_,
-                           &trackBar_, &commandPanel_, &statusArea_})
+    for (Placeholder* r : {&viewports_, &timeSlider_, &trackBar_, &commandPanel_, &statusArea_})
         if (!r->Create(Hwnd()))
             return false;
 
-    // Until step 1.4 builds the real button strips, show which one is selected.
     tabPanel_.onTabChanged = [this](int index) {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];
-        mainToolbar_.SetLabel(L"Main toolbar   (strip: " + tab.label + L")");
+        mainToolbar_.ShowStrip(index, tab.label);
     };
+    // Toolbar buttons and menu items share one command handler.
+    mainToolbar_.onCommand = [this](const std::string& command) { OnCommand(command); };
     return true;
 }
 

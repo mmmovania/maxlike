@@ -36,10 +36,15 @@ add_executable(maxlike WIN32
     src/ui/TabStrip.h
     src/ui/TabPanel.cpp
     src/ui/TabPanel.h
+    src/ui/ToolbarSpec.cpp
+    src/ui/ToolbarSpec.h
+    src/ui/Toolbar.cpp
+    src/ui/Toolbar.h
+    res/resource.h
     res/maxlike.rc
 )
 
-target_include_directories(maxlike PRIVATE src)
+target_include_directories(maxlike PRIVATE src res)
 
 target_compile_definitions(maxlike PRIVATE
     UNICODE _UNICODE
@@ -57,7 +62,7 @@ else()
     target_link_options(maxlike PRIVATE -municode -static)
 endif()
 
-target_link_libraries(maxlike PRIVATE user32 gdi32)
+target_link_libraries(maxlike PRIVATE user32 gdi32 msimg32) # msimg32: TransparentBlt
 
 # ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
 enable_testing()
@@ -79,3 +84,4 @@ maxlike_add_test(test_frame_layout tests/test_frame_layout.cpp src/ui/FrameLayou
 maxlike_add_test(test_menu_spec
     tests/test_menu_spec.cpp src/ui/MenuSpec.cpp src/ui/CommandTable.cpp)
 maxlike_add_test(test_tab_strip tests/test_tab_strip.cpp src/ui/TabStrip.cpp)
+maxlike_add_test(test_toolbar_spec tests/test_toolbar_spec.cpp src/ui/ToolbarSpec.cpp)

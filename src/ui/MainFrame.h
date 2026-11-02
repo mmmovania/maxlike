@@ -3,6 +3,7 @@
 #include "ui/CommandTable.h"
 #include "ui/Placeholder.h"
 #include "ui/TabPanel.h"
+#include "ui/Toolbar.h"
 #include <array>
 #include <string>
 
@@ -36,7 +37,7 @@ private:
     // Regions, in the order of FrameLayout. Placeholders are replaced by
     // their real controls step by step.
     TabPanel    tabPanel_;
-    Placeholder mainToolbar_ {L"Main toolbar",  Edge::Outline};
+    Toolbar     mainToolbar_;
     Placeholder viewports_   {L"Viewports",     Edge::ViewportFrame,
                               RGB(0xB0, 0xB0, 0xB0), RGB(0xE5, 0xE5, 0xE5)};
     Placeholder timeSlider_  {L"Time slider",   Edge::Outline};
