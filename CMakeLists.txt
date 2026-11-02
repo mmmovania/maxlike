@@ -42,6 +42,12 @@ add_executable(maxlike WIN32
     src/ui/Toolbar.h
     src/ui/FlyoutStrip.cpp
     src/ui/FlyoutStrip.h
+    src/ui/TimeSliderGeometry.cpp
+    src/ui/TimeSliderGeometry.h
+    src/ui/TimeSlider.cpp
+    src/ui/TimeSlider.h
+    src/ui/TrackBar.cpp
+    src/ui/TrackBar.h
     res/resource.h
     res/maxlike.rc
 )
@@ -91,3 +97,4 @@ maxlike_add_test(test_menu_spec
     tests/test_menu_spec.cpp src/ui/MenuSpec.cpp src/ui/CommandTable.cpp)
 maxlike_add_test(test_tab_strip tests/test_tab_strip.cpp src/ui/TabStrip.cpp)
 maxlike_add_test(test_toolbar_spec tests/test_toolbar_spec.cpp src/ui/ToolbarSpec.cpp)
+maxlike_add_test(test_time_slider tests/test_time_slider.cpp src/ui/TimeSliderGeometry.cpp)

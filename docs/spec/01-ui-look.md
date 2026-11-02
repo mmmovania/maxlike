@@ -56,6 +56,20 @@ Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).
 - Frame around tab panel + toolbar: highlight column at x = 0, `#A0A0A0` column at
   x = width − 2 (continues into the toolbar area; finish in step 1.4).
 
+## Time slider and track bar (measured, step 1.5a)
+Code: `src/ui/TimeSliderGeometry.*`, `src/ui/TimeSlider.*`, `src/ui/TrackBar.*`.
+
+- Time slider (17 px): trough `#E1E1E1`. A 157-px block slides along it: "<" (16 px),
+  thumb (125 px), ">" (16 px); at frame 0 it starts at x = 0, at the last frame it ends
+  at the right edge.
+- Arrow buttons: rings white / `#696969` and `#E3E3E3` / `#A0A0A0` (Windows corner
+  convention); 1-px chevron 7 rows tall from row 5, spanning columns 6–9.
+- Thumb: ring white / black (R3 corner convention), inner `#A0A0A0` at the right and
+  bottom, one white pixel at the inner bottom-left; label "frame / end", centred.
+- Track bar (16 px): rows 0–1 white, 2 `#A0A0A0`, 3–13 `#E1E1E1`, 14 white,
+  15 `#A0A0A0`; the last column stays `#E1E1E1`. A "[" marker in `#1E1E1E` at x = 0
+  at frame 0 (meaning unverified; drawn at the current frame).
+
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |
 |---|---|---|---|
@@ -108,6 +122,20 @@ Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).
 - The bottom highlight continues from the last tab to 4 px from the right edge.
 - Frame around tab panel + toolbar: highlight column at x = 0, `#A0A0A0` column at
   x = width − 2 (continues into the toolbar area; finish in step 1.4).
+
+## Time slider and track bar (measured, step 1.5a)
+Code: `src/ui/TimeSliderGeometry.*`, `src/ui/TimeSlider.*`, `src/ui/TrackBar.*`.
+
+- Time slider (17 px): trough `#E1E1E1`. A 157-px block slides along it: "<" (16 px),
+  thumb (125 px), ">" (16 px); at frame 0 it starts at x = 0, at the last frame it ends
+  at the right edge.
+- Arrow buttons: rings white / `#696969` and `#E3E3E3` / `#A0A0A0` (Windows corner
+  convention); 1-px chevron 7 rows tall from row 5, spanning columns 6–9.
+- Thumb: ring white / black (R3 corner convention), inner `#A0A0A0` at the right and
+  bottom, one white pixel at the inner bottom-left; label "frame / end", centred.
+- Track bar (16 px): rows 0–1 white, 2 `#A0A0A0`, 3–13 `#E1E1E1`, 14 white,
+  15 `#A0A0A0`; the last column stays `#E1E1E1`. A "[" marker in `#1E1E1E` at x = 0
+  at frame 0 (meaning unverified; drawn at the current frame).
 
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |

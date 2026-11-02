@@ -43,9 +43,10 @@ std::array<win::Window*, 7> MainFrame::Regions() {
 }
 
 bool MainFrame::CreateRegions() {
-    if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd()))
+    if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd()) ||
+        !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()))
         return false;
-    for (Placeholder* r : {&viewports_, &timeSlider_, &trackBar_, &commandPanel_, &statusArea_})
+    for (Placeholder* r : {&viewports_, &commandPanel_, &statusArea_})
         if (!r->Create(Hwnd()))
             return false;
 
@@ -53,6 +54,13 @@ bool MainFrame::CreateRegions() {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];
         mainToolbar_.ShowStrip(index, tab.label);
     };
+    // The track bar follows the time slider. Later the current frame will live in
+    // the scene's animation state, and both will just display it.
+    timeSlider_.onFrameChanged = [this](int frame) {
+        trackBar_.SetFrame(frame);
+        statusArea_.SetLabel(L"Status area   (frame " + std::to_wstring(frame) + L")");
+    };
+
     // Toolbar buttons and menu items share one command handler.
     mainToolbar_.onCommand = [this](const std::string& command) { OnCommand(command); };
     mainToolbar_.onComboChanged = [this](const std::string& command, const std::wstring& text) {

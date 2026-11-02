@@ -18,7 +18,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       with R3's entries; a tooltip control for every button and combo
 - [x] **1.4c Main toolbar: flyouts**: press-and-hold opens a `FlyoutStrip` popup; drag and
       release picks an alternative, which becomes the button's face and runs its command
-- [ ] 1.5 Time slider, track bar, status area
+- [x] **1.5a Time slider and track bar**: custom-drawn `TimeSlider` (drag, arrows with
+      auto-repeat, click-to-jump) and `TrackBar`; geometry in `TimeSliderGeometry` (unit-tested)
+- [ ] 1.5b Status area, left: MAXScript mini-listener, prompt lines, lock, X/Y/Z, grid
+- [ ] 1.5c Status area, right: snap toggles, Animate, playback, frame field, navigation
 - [ ] 1.6 Overlay check against the reference screenshot
 
 ## Step 1.1 verification
@@ -66,6 +69,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [ ] On Windows: a quick click on a flyout button acts immediately; holding opens the
       strip; releasing outside the strip cancels
 - [x] Unverified against R3.1: flyout alternatives, strip look, hold delay (300 ms)
+
+## Step 1.5a verification
+- [x] Builds warning-free; five test programs pass (MinGW + Wine)
+- [x] Pixel comparison under Wine of both bars (label text masked): 0 differing pixels
+- [x] Under Wine: dragging the thumb to frame 50 and clicking ">" gives 51; the track-bar
+      marker follows
+- [ ] On Windows: drag, arrows (hold to repeat), and clicking the trough all work
+- [ ] Unverified against R3.1: pressed arrow look, repeat timing, trough click behaviour,
+      meaning of the track-bar "[" marker
 
 ## Notes
 - Measurements are client-relative at 100%: client top = bottom of the menu bar

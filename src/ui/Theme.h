@@ -46,6 +46,12 @@ inline constexpr Rgb kButtonShadow     {0xA0, 0xA0, 0xA0};
 inline constexpr Rgb kButtonModeActive {0xC0, 0xFF, 0xC0}; // active mode, e.g. Select Object
 inline constexpr Rgb kButtonChecked    {0xE1, 0xE1, 0xE1}; // other checked buttons, e.g. XY
 
+// ---- Time slider and track bar (measured) ----
+inline constexpr Rgb kSliderTrough {0xE1, 0xE1, 0xE1};
+inline constexpr Rgb kDarkShadow   {0x69, 0x69, 0x69};
+inline constexpr Rgb kLight        {0xE3, 0xE3, 0xE3};
+inline constexpr Rgb kTrackMarker  {0x1E, 0x1E, 0x1E};
+
 // ---- Status area ----
 inline constexpr Rgb kListenerBg     {0xDB, 0xC3, 0xC3};
 

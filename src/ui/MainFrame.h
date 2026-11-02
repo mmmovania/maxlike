@@ -3,6 +3,8 @@
 #include "ui/CommandTable.h"
 #include "ui/Placeholder.h"
 #include "ui/TabPanel.h"
+#include "ui/TimeSlider.h"
+#include "ui/TrackBar.h"
 #include "ui/Toolbar.h"
 #include <array>
 #include <string>
@@ -40,8 +42,8 @@ private:
     Toolbar     mainToolbar_;
     Placeholder viewports_   {L"Viewports",     Edge::ViewportFrame,
                               RGB(0xB0, 0xB0, 0xB0), RGB(0xE5, 0xE5, 0xE5)};
-    Placeholder timeSlider_  {L"Time slider",   Edge::Outline};
-    Placeholder trackBar_    {L"Track bar",     Edge::Sunken};
+    TimeSlider  timeSlider_;
+    TrackBar    trackBar_;
     Placeholder commandPanel_{L"Command panel", Edge::Raised};
     Placeholder statusArea_  {L"Status area",   Edge::Outline};
 };
