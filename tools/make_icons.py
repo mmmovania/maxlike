@@ -64,6 +64,32 @@ def letter(d, ch, x, y):
             R(9 - i, i, 11 - i, i)
 
 
+def small_letter(d, ch, x):
+    """8x8 letters for the plane constraints (XY, YZ, ZX), 2-px strokes."""
+    y = 8
+    if ch == "X":
+        for i in range(8):
+            d.point([(x + i, y + i), (x + 7 - i, y + i), (x + i + 1, y + i), (x + 8 - i, y + i)], fill=DARK)
+    elif ch == "Y":
+        for i in range(4):
+            d.point([(x + i, y + i), (x + 7 - i, y + i), (x + i + 1, y + i), (x + 8 - i, y + i)], fill=DARK)
+        d.rectangle([x + 3, y + 4, x + 5, y + 7], fill=DARK)
+    elif ch == "Z":
+        d.rectangle([x, y, x + 8, y + 1], fill=DARK); d.rectangle([x, y + 6, x + 8, y + 7], fill=DARK)
+        for i in range(2, 6):
+            d.point([(x + 7 - i, y + i), (x + 8 - i, y + i)], fill=DARK)
+
+
+def small_pair(d, a, b):
+    small_letter(d, a, 2); small_letter(d, b, 13)
+
+
+def dashed_points(d, pts):
+    for i, p in enumerate(pts):
+        if i % 2 == 0:
+            d.point([p], fill=INK)
+
+
 def icon(d, n):
     if n == 0:   # help: cursor + question mark
         arrow_cursor(d, 3, 4)
@@ -114,18 +140,7 @@ def icon(d, n):
     elif n == 13: letter(d, "X", 6, 7)
     elif n == 14: letter(d, "Y", 6, 7)
     elif n == 15: letter(d, "Z", 6, 7)
-    elif n == 16:  # XY
-        def small(ch, x):
-            if ch == "X":
-                for i in range(8):
-                    d.point([(x + i, 8 + i), (x + 7 - i, 8 + i)], fill=DARK)
-                    d.point([(x + i + 1, 8 + i), (x + 8 - i, 8 + i)], fill=DARK)
-            else:
-                for i in range(4):
-                    d.point([(x + i, 8 + i), (x + 7 - i, 8 + i)], fill=DARK)
-                    d.point([(x + i + 1, 8 + i), (x + 8 - i, 8 + i)], fill=DARK)
-                d.rectangle([x + 3, 12, x + 5, 15], fill=DARK)
-        small("X", 2); small("Y", 13)
+    elif n == 16: small_pair(d, "X", "Y")                    # XY
     elif n == 17:  # IK: three joints connected
         pts = [(4, 18), (11, 6), (19, 15)]
         d.line(pts, fill=GREY, width=2)
@@ -170,8 +185,62 @@ def icon(d, n):
         d.arc([8, 2, 21, 15], 200, 340, fill=DARK, width=2)
         d.polygon([(18, 3), (22, 7), (17, 8)], fill=DARK)
 
+    # ---- flyout alternatives (step 1.4c) ----
+    elif n == 27:  # circular region
+        import math
+        dashed_points(d, [(11.5 + 9 * math.cos(a / 40 * 2 * math.pi), 11.5 + 9 * math.sin(a / 40 * 2 * math.pi)) for a in range(40)])
+        d.ellipse([6, 6, 17, 17], fill=LBLUE)
+    elif n == 28:  # fence region
+        poly = [(3, 6), (12, 2), (20, 8), (17, 20), (6, 17)]
+        d.polygon(poly, fill=LBLUE)
+        for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1]):
+            steps = max(abs(x1 - x0), abs(y1 - y0))
+            dashed_points(d, [(x0 + (x1 - x0) * t / steps, y0 + (y1 - y0) * t / steps) for t in range(steps)])
+    elif n == 29:  # non-uniform scale: box stretched sideways
+        d.rectangle([3, 7, 20, 16], outline=DARK)
+        d.rectangle([7, 9, 16, 14], fill=RED, outline=INK)
+        d.polygon([(0, 11), (3, 8), (3, 15)], fill=DARK); d.polygon([(23, 11), (20, 8), (20, 15)], fill=DARK)
+    elif n == 30:  # squash: flattened box, arrows pressing in
+        d.rectangle([3, 9, 20, 15], fill=RED, outline=INK)
+        d.polygon([(11, 7), (8, 3), (15, 3)], fill=DARK); d.polygon([(11, 17), (8, 21), (15, 21)], fill=DARK)
+    elif n == 31:  # selection center: target between two boxes
+        box(d, 2, 2, 7, 7); box(d, 16, 16, 21, 21)
+        d.ellipse([8, 8, 15, 15], outline=RED)
+        d.line([(11, 6), (11, 17)], fill=INK); d.line([(6, 11), (17, 11)], fill=INK)
+    elif n == 32:  # transform coordinate center: axis tripod with a target at the origin
+        d.line([(5, 18), (21, 18)], fill=RED); d.line([(5, 18), (5, 2)], fill=GREEN)
+        d.ellipse([2, 15, 8, 21], outline=INK)
+        box(d, 12, 5, 19, 12)
+    elif n == 33: small_pair(d, "Y", "Z")                    # YZ
+    elif n == 34: small_pair(d, "Z", "X")                    # ZX
+    elif n == 35:  # snapshot: copies along a path
+        for i, c in enumerate(((200, 210, 240), (150, 180, 240), LBLUE)):
+            box(d, 2 + i * 6, 12 - i * 4, 9 + i * 6, 19 - i * 4, fill=c)
+    elif n == 36:  # spacing tool: dots spaced along a curve
+        d.arc([2, 4, 30, 40], 190, 270, fill=GREY)
+        for x, y in ((3, 18), (7, 12), (12, 8), (18, 6)):
+            d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=BLUE)
+    elif n == 37:  # normal align: two surfaces with normals meeting
+        d.line([(2, 20), (10, 12)], fill=BLUE, width=2); d.line([(13, 12), (21, 20)], fill=TEAL, width=2)
+        d.line([(6, 16), (10, 6)], fill=RED); d.line([(17, 16), (13, 6)], fill=RED)
+    elif n == 38:  # place highlight: a small sun shining on a surface
+        d.ellipse([3, 3, 10, 10], fill=YELLOW, outline=INK)
+        d.line([(10, 10), (17, 17)], fill=YELLOW)
+        d.line([(12, 20), (22, 14)], fill=BLUE, width=2)
+    elif n == 39:  # align camera: camera body with a lens
+        d.rectangle([2, 8, 14, 17], fill=GREY, outline=INK)
+        d.polygon([(14, 10), (21, 6), (21, 19), (14, 15)], fill=LBLUE, outline=INK)
+        d.ellipse([4, 4, 8, 8], outline=INK); d.ellipse([9, 4, 13, 8], outline=INK)
+    elif n == 40:  # align to view: box turning to face the viewer
+        d.rectangle([3, 3, 20, 20], outline=GREY)
+        box(d, 7, 7, 16, 16)
+        d.polygon([(19, 1), (22, 4), (19, 7)], fill=DARK)
+    elif n == 41:  # quick render (draft): outlined sphere with a spark
+        d.ellipse([3, 7, 15, 19], fill=WHITE, outline=TEAL)
+        d.polygon([(17, 2), (21, 2), (18, 7), (21, 7), (14, 14), (16, 8), (14, 8)], fill=YELLOW, outline=INK)
 
-COUNT = 27  # must equal ui::toolbar::kIconCount
+
+COUNT = 42  # must equal ui::toolbar::kIconCount
 
 img = Image.new("RGB", (S * COUNT, S), KEY)
 for n in range(COUNT):

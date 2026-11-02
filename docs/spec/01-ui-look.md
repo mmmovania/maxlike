@@ -87,8 +87,14 @@ Code: `src/ui/ToolbarSpec.*` (items + layout), `src/ui/Toolbar.*` (drawing, inpu
   Reference Coordinate System: View, Screen, World, Parent, Local, Grid, Pick;
   Render Type: View, Selected, Region, Crop, Blowup; Named Selection Sets: editable, empty.
 - Tooltips: standard tooltip control in the UI font, one per button and combo.
+- Flyouts (step 1.4c), alternatives from memory and unverified:
+  Region: Rectangular, Circular, Fence · Scale: Uniform, Non-uniform, Squash ·
+  Pivot: Pivot Point, Selection, Transform Coordinate Center · Plane: XY, YZ, ZX ·
+  Array: Array, Snapshot, Spacing Tool · Align: Align, Normal Align, Place Highlight,
+  Align Camera, Align to View · Quick Render: Production, Draft.
+  Holding 300 ms opens a vertical strip whose first cell lies over the button.
 - Unverified: hover look (a thin raised ring for now), pressed look, tooltip texts,
-  combo entries.
+  combo entries, flyout alternatives, flyout strip look and delay.
 
 ## Tab panel (measured, step 1.3)
 Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).

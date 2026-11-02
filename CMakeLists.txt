@@ -40,11 +40,17 @@ add_executable(maxlike WIN32
     src/ui/ToolbarSpec.h
     src/ui/Toolbar.cpp
     src/ui/Toolbar.h
+    src/ui/FlyoutStrip.cpp
+    src/ui/FlyoutStrip.h
     res/resource.h
     res/maxlike.rc
 )
 
 target_include_directories(maxlike PRIVATE src res)
+
+# The .rc file pulls in these files; tell the build so editing them recompiles it.
+set_source_files_properties(res/maxlike.rc PROPERTIES OBJECT_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/toolbar_icons.bmp;${CMAKE_CURRENT_SOURCE_DIR}/res/maxlike.manifest;${CMAKE_CURRENT_SOURCE_DIR}/res/resource.h")
 
 target_compile_definitions(maxlike PRIVATE
     UNICODE _UNICODE

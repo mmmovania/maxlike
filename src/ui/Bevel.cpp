@@ -18,6 +18,13 @@ void DrawRing(HDC dc, const RECT& r, COLORREF tl, COLORREF br) {
     FillSolid(dc, {r.right - 1, r.top, r.right, r.bottom}, br);          // right
 }
 
+void DrawButtonRing(HDC dc, const RECT& r, COLORREF tl, COLORREF br) {
+    FillSolid(dc, {r.left, r.top, r.left + 1, r.bottom}, tl);           // left
+    FillSolid(dc, {r.left, r.top, r.right - 1, r.top + 1}, tl);         // top
+    FillSolid(dc, {r.right - 1, r.top, r.right, r.bottom}, br);         // right
+    FillSolid(dc, {r.left + 1, r.bottom - 1, r.right, r.bottom}, br);   // bottom
+}
+
 static RECT Shrink(RECT r, int n) {
     InflateRect(&r, -n, -n);
     return r;

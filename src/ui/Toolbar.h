@@ -1,5 +1,6 @@
 #pragma once
 #include "win/Window.h"
+#include "ui/FlyoutStrip.h"
 #include "ui/ToolbarSpec.h"
 #include <functional>
 #include <string>
@@ -32,6 +33,9 @@ private:
     void Relayout();
     int  HitTest(int x, int y) const;        // index of a button, or -1
     void Activate(size_t index);             // a completed click
+    void OpenFlyout();                       // the held button's strip
+    void CloseFlyout();
+    void ChooseAlternative(size_t index, int alternative);
     void InvalidateItem(int index);
 
     void OnPaint();
@@ -42,6 +46,8 @@ private:
     std::vector<toolbar::Item> items_;
     std::vector<Rect> rects_;
     std::vector<bool> checked_;
+    FlyoutStrip flyout_;
+    int  flyoutItem_ = -1;   // item whose strip is open
     int  hot_ = -1;          // button under the mouse
     int  pressed_ = -1;      // button the mouse went down on
     bool trackingLeave_ = false;

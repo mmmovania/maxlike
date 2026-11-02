@@ -13,6 +13,10 @@ using toolbar::Kind;
 // Child-window IDs of the combo boxes: kComboIdBase + item index.
 static constexpr int kComboIdBase = 1000;
 
+// Holding a flyout button this long opens its strip. NOTE: R3's delay is not verified.
+static constexpr UINT_PTR kFlyoutTimer = 1;
+static constexpr UINT kFlyoutDelayMs = 300;
+
 Toolbar::~Toolbar() {
     if (icons_) DeleteObject(icons_);
 }
@@ -165,6 +169,51 @@ void Toolbar::InvalidateItem(int index) {
     InvalidateRect(Hwnd(), &rc, FALSE);
 }
 
+void Toolbar::OpenFlyout() {
+    if (pressed_ < 0 || pressed_ != hot_) return; // released or dragged away already
+    const size_t i = static_cast<size_t>(pressed_);
+    if (items_[i].flyout.empty()) return;
+
+    // The strip's first cell goes exactly over the button, in screen coordinates.
+    const Rect& r = rects_[i];
+    POINT tl{r.left, r.top}, br{r.right, r.bottom};
+    ClientToScreen(Hwnd(), &tl);
+    ClientToScreen(Hwnd(), &br);
+    int current = 0;
+    for (size_t a = 0; a < items_[i].flyout.size(); ++a)
+        if (items_[i].flyout[a].command == items_[i].command) current = static_cast<int>(a);
+    if (flyout_.Open(Hwnd(), items_[i].flyout, current, icons_, RECT{tl.x, tl.y, br.x, br.y})) {
+        flyoutItem_ = pressed_;
+        POINT pt;
+        GetCursorPos(&pt);
+        flyout_.SetHot(flyout_.CellAt(pt));
+    }
+}
+
+void Toolbar::CloseFlyout() {
+    KillTimer(Hwnd(), kFlyoutTimer);
+    flyout_.Close();
+    flyoutItem_ = -1;
+}
+
+void Toolbar::ChooseAlternative(size_t index, int alternative) {
+    toolbar::Item& it = items_[index];
+    const toolbar::Alternative& a = it.flyout[static_cast<size_t>(alternative)];
+    it.command = a.command;
+    it.tooltip = a.tooltip;
+    it.icon    = a.icon;
+    if (tooltip_) {
+        // The tooltip keeps a pointer to the text, so tell it about the new string.
+        TTTOOLINFOW ti{};
+        ti.cbSize = TTTOOLINFOW_V2_SIZE;
+        ti.hwnd = Hwnd();
+        ti.uId = index;
+        ti.lpszText = const_cast<wchar_t*>(it.tooltip.c_str());
+        SendMessageW(tooltip_, TTM_UPDATETIPTEXTW, 0, reinterpret_cast<LPARAM>(&ti));
+    }
+    InvalidateItem(static_cast<int>(index));
+}
+
 void Toolbar::Activate(size_t index) {
     const toolbar::Item& it = items_[index];
     if (!it.group.empty()) {
@@ -181,14 +230,8 @@ void Toolbar::Activate(size_t index) {
 
 // ---- painting ------------------------------------------------------------
 
-// Measured button frame (R3 checked button), corners as in the reference:
-// top-left colour owns the left column and the top row except its last pixel;
-// bottom-right colour owns the right column and the bottom row except its first pixel.
 static void ButtonRing(HDC dc, const Rect& r, COLORREF tl, COLORREF br) {
-    FillSolid(dc, {r.left, r.top, r.left + 1, r.bottom}, tl);           // left
-    FillSolid(dc, {r.left, r.top, r.right - 1, r.top + 1}, tl);         // top
-    FillSolid(dc, {r.right - 1, r.top, r.right, r.bottom}, br);         // right
-    FillSolid(dc, {r.left + 1, r.bottom - 1, r.right, r.bottom}, br);   // bottom
+    DrawButtonRing(dc, RECT{r.left, r.top, r.right, r.bottom}, tl, br);
 }
 
 static Rect Inset(Rect r, int n) { return {r.left + n, r.top + n, r.right - n, r.bottom - n}; }
@@ -226,7 +269,7 @@ void Toolbar::PaintButton(HDC dc, HDC iconDc, size_t i) {
     // Cells are (row, column) relative to the button's top-left at 100%. A raised
     // button draws the band in highlight and the triangle in black; a sunken
     // (checked or pressed) button draws the band in black and the triangle in shadow.
-    if (it.flyout) {
+    if (!it.flyout.empty()) {
         static const int band[][2] = {{25, 29}, {26, 28}, {26, 29}, {27, 27}, {27, 28}, {28, 26}, {28, 27}};
         static const int tri[][2]  = {{27, 29}, {28, 28}, {28, 29}};
         const bool sunken = checked || down;
@@ -329,6 +372,14 @@ LRESULT Toolbar::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             TRACKMOUSEEVENT tme{sizeof(tme), TME_LEAVE, Hwnd(), 0};
             trackingLeave_ = TrackMouseEvent(&tme) != FALSE;
         }
+        if (flyout_.IsOpen()) {
+            // While a strip is open the mouse is still captured by us; just tell
+            // the strip which cell is under the mouse.
+            POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            ClientToScreen(Hwnd(), &pt);
+            flyout_.SetHot(flyout_.CellAt(pt));
+            return 0;
+        }
         const int hit = HitTest(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
         if (hit != hot_) {
             InvalidateItem(hot_);
@@ -349,10 +400,35 @@ LRESULT Toolbar::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             hot_ = hit;
             SetCapture(Hwnd()); // keep getting mouse messages even outside the window
             InvalidateItem(hit);
+            if (!items_[static_cast<size_t>(hit)].flyout.empty())
+                SetTimer(Hwnd(), kFlyoutTimer, kFlyoutDelayMs, nullptr); // press-and-hold
         }
         return 0;
     }
+    case WM_TIMER:
+        if (wp == kFlyoutTimer) {
+            KillTimer(Hwnd(), kFlyoutTimer); // one-shot
+            OpenFlyout();
+            return 0;
+        }
+        break;
     case WM_LBUTTONUP:
+        KillTimer(Hwnd(), kFlyoutTimer); // a quick click never opens the strip
+        if (flyout_.IsOpen()) {
+            // Read everything before releasing capture: ReleaseCapture sends
+            // WM_CAPTURECHANGED immediately, which resets the state.
+            const int item = flyoutItem_;
+            const int choice = flyout_.Hot();
+            CloseFlyout();
+            pressed_ = -1;
+            ReleaseCapture();
+            InvalidateItem(item);
+            if (choice >= 0) {
+                ChooseAlternative(static_cast<size_t>(item), choice);
+                Activate(static_cast<size_t>(item));
+            }
+            return 0;
+        }
         if (pressed_ >= 0) {
             const int was = pressed_;
             const bool inside = (HitTest(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) == was);
@@ -363,6 +439,8 @@ LRESULT Toolbar::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_CAPTURECHANGED:
+        // Someone else took the mouse (e.g. a dialog popped up): cancel everything.
+        CloseFlyout();
         if (pressed_ >= 0) { InvalidateItem(pressed_); pressed_ = -1; }
         return 0;
     }

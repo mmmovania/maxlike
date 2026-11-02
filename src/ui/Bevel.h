@@ -17,6 +17,11 @@ void FillSolid(HDC dc, const RECT& r, COLORREF c);
 // One 1-px ring: top and left in `tl`, bottom and right in `br`.
 void DrawRing(HDC dc, const RECT& r, COLORREF tl, COLORREF br);
 
+// R3 button ring (measured): the top-left colour owns the left column and the
+// top row except its last pixel; the bottom-right colour owns the right column
+// and the bottom row except its first pixel.
+void DrawButtonRing(HDC dc, const RECT& r, COLORREF tl, COLORREF br);
+
 // Draw `edge` just inside `r` and return the rectangle left inside it.
 RECT DrawFrameEdge(HDC dc, RECT r, Edge edge);
 

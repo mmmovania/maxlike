@@ -9,12 +9,20 @@ namespace ui::toolbar {
 
 enum class Kind { Button, Separator, Gap, Combo };
 
+// One choice in a flyout. The button shows the currently chosen one.
+struct Alternative {
+    std::string  command;
+    std::wstring tooltip;
+    int icon = -1;
+};
+
 struct Item {
     Kind kind = Kind::Button;
     std::string  command;      // Button: command name sent when clicked
     std::wstring tooltip;      // Button: hover text (shown from step 1.4b)
     int  icon = -1;            // Button: index into the icon strip (Icon enum)
-    bool flyout = false;       // Button: has a flyout (small corner triangle)
+    std::vector<Alternative> flyout; // Button: flyout choices (empty = no flyout);
+                                     // command/tooltip/icon above start as flyout[0]
     std::string group;         // Button: radio group; "" = plain button
     bool checked = false;      // Button: initially checked (one per group)
     int  width = 0;            // Gap/Combo: width at 100%
@@ -30,6 +38,11 @@ enum Icon {
     kIconPivotCenter, kIconX, kIconY, kIconZ, kIconXY, kIconIK,
     kIconMirror, kIconArray, kIconAlign, kIconTrackView, kIconSchematic,
     kIconMaterialEditor, kIconRenderScene, kIconQuickRender, kIconRenderLast,
+    // flyout alternatives (step 1.4c)
+    kIconRegionCircle, kIconRegionFence, kIconScaleNonUniform, kIconScaleSquash,
+    kIconPivotSelection, kIconPivotTransform, kIconYZ, kIconZX,
+    kIconSnapshot, kIconSpacing, kIconNormalAlign, kIconPlaceHighlight,
+    kIconAlignCamera, kIconAlignToView, kIconQuickRenderDraft,
     kIconCount
 };
 

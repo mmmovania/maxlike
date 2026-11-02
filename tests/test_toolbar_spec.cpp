@@ -46,11 +46,25 @@ static void ItemsAreWellFormed() {
     std::map<std::string, int> checkedPerGroup;
     std::set<int> icons;
     for (const Item& it : MainToolbarSpec()) {
+        if (it.kind == Kind::Button && !it.flyout.empty()) {
+            // Flyout: at least two choices; the button starts as the first one.
+            CHECK(it.flyout.size() >= 2);
+            CHECK(it.command == it.flyout[0].command);
+            CHECK(it.icon == it.flyout[0].icon && it.tooltip == it.flyout[0].tooltip);
+            for (const Alternative& a : it.flyout) {
+                CHECK(!a.command.empty() && !a.tooltip.empty());
+                CHECK(commands.insert(a.command).second);  // unique everywhere
+                CHECK(a.icon >= 0 && a.icon < kIconCount);
+                CHECK(icons.insert(a.icon).second);        // each icon used once
+            }
+        }
         if (it.kind == Kind::Button) {
             CHECK(!it.command.empty());
-            CHECK(commands.insert(it.command).second);   // unique
-            CHECK(it.icon >= 0 && it.icon < kIconCount);
-            CHECK(icons.insert(it.icon).second);         // each icon used once
+            if (it.flyout.empty()) {
+                CHECK(commands.insert(it.command).second);   // unique
+                CHECK(it.icon >= 0 && it.icon < kIconCount);
+                CHECK(icons.insert(it.icon).second);         // each icon used once
+            }
             CHECK(!it.tooltip.empty());
             if (!it.group.empty()) checkedPerGroup[it.group] += it.checked ? 1 : 0;
             else CHECK(!it.checked);
@@ -79,7 +93,16 @@ static void ScalesWithoutGaps() {
         CHECK(rects[i].left == rects[i - 1].right);
 }
 
+static void FlyoutsMatchReference() {
+    // The seven buttons with a corner notch in the reference screenshot.
+    int flyouts = 0;
+    for (const Item& it : MainToolbarSpec())
+        if (!it.flyout.empty()) ++flyouts;
+    CHECK(flyouts == 7);
+}
+
 int main() {
+    FlyoutsMatchReference();
     PositionsMatchReference();
     ItemsAreWellFormed();
     ScalesWithoutGaps();
