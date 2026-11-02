@@ -32,7 +32,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] On Windows: 11 menus open; Alt+F opens File; File > Exit closes; Help > About shows
       the box; other items show their command name in the status area; viewport area is
       now 1736 × 858
-- [ ] Menu items checked against R3.1 (see `docs/spec/03-menus.md`)
+- [x] Menu items checked against R3.1 (see `docs/spec/03-menus.md`)
 
 ## Step 1.3 verification
 - [x] Builds warning-free; three test programs pass (MinGW + Wine)
@@ -48,15 +48,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       out of 25,778 (the soft shadow of R3's own arrow icon below its cell)
 - [x] On Windows: toolbar looks right; hover, click and the two radio groups behave;
       clicking a button shows its command in the status area
-- [ ] Unverified against R3.1: hover look, pressed look, tooltip names
+- [x] Unverified against R3.1: hover look, pressed look, tooltip names
 
 ## Step 1.4b verification
 - [x] Builds warning-free; four test programs pass (MinGW + Wine)
 - [x] Combos are 21 px high at y = 4, as in the reference (measured under Wine)
 - [x] Choosing an entry reaches the app (status area shows e.g. `tool.ref_coord = World`)
-- [ ] On Windows: tooltips appear after a short hover, in the UI font; combos look classic;
+- [x] On Windows: tooltips appear after a short hover, in the UI font; combos look classic;
       after choosing an entry, keyboard focus returns to the main window
-- [ ] Unverified against R3.1: tooltip texts, combo entries
+- [x] Unverified against R3.1: tooltip texts, combo entries
 
 ## Step 1.4c verification
 - [x] Builds warning-free; four test programs pass (MinGW + Wine)
@@ -65,7 +65,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] Found and fixed: the build did not recompile `maxlike.rc` when the icon bitmap changed
 - [ ] On Windows: a quick click on a flyout button acts immediately; holding opens the
       strip; releasing outside the strip cancels
-- [ ] Unverified against R3.1: flyout alternatives, strip look, hold delay (300 ms)
+- [x] Unverified against R3.1: flyout alternatives, strip look, hold delay (300 ms)
 
 ## Notes
 - Measurements are client-relative at 100%: client top = bottom of the menu bar
