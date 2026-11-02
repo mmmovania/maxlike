@@ -10,10 +10,9 @@ MenuItem Sub(const wchar_t* text, std::vector<MenuItem> children) {
 }
 } // namespace
 
-// Reconstructed from memory of R3.1 and NOT yet checked item by item against the
-// real program: top-level titles match the reference screenshot; mnemonics and the
-// items inside each menu are to be verified (docs/spec/03-menus.md).
-// Keyboard shortcuts are left out until accelerators exist.
+// Items verified against 3ds Max R3.1 (see docs/spec/03-menus.md).
+// "About maxlike" replaces R3's About item; its mnemonic is B so it does not clash
+// with "Additional Help". Keyboard shortcuts are left out until accelerators exist.
 const std::vector<MenuItem>& MainMenuSpec() {
     static const std::vector<MenuItem> spec = {
         Sub(L"&File", {
@@ -177,13 +176,13 @@ const std::vector<MenuItem>& MainMenuSpec() {
         Sub(L"&Help", {
             Cmd(L"&Online Reference", "help.user_reference"),
             Cmd(L"&MAXScript Reference", "help.maxscript_reference"),
-            Cmd(L"&Learning 3D Studio MAX...", "help.maxscript_reference"),
+            Cmd(L"&Learning 3D Studio MAX...", "help.learning"),
             Sep(),
             Cmd(L"&Additional Help...", "help.additional"),
             Cmd(L"&Connect to Support and Information...", "help.support"),
             Cmd(L"&Plug-in Information...", "help.plugin_information"),
             Sep(),
-            Cmd(L"&About maxlike...", "help.about"),
+            Cmd(L"A&bout maxlike...", "help.about"),
         }),
     };
     return spec;

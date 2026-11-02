@@ -4,24 +4,24 @@ Source of truth in code: `src/ui/MenuSpec.cpp` (data), built by `src/ui/MenuBuil
 Commands are referred to by name (`file.open`); `CommandTable` maps names to WM_COMMAND IDs.
 
 ## Status
-| Menu | Title | Items |
-|---|---|---|
-| File | ✔ (reference screenshot) | ○ from memory |
-| Edit | ✔ | ○ |
-| Tools | ✔ | ○ |
-| Group | ✔ | ○ |
-| Views | ✔ | ○ |
-| Rendering | ✔ | ○ |
-| Track View | ✔ | ○ |
-| Schematic View | ✔ | ○ |
-| Customize | ✔ | ○ |
-| MAXScript | ✔ | ○ |
-| Help | ✔ | ○ ("About" renamed for maxlike) |
+| Menu | Title | Items, order, separators | Underlined letters |
+|---|---|---|---|
+| File | ✔ | ✔ | ○ |
+| Edit | ✔ | ✔ | ○ |
+| Tools | ✔ | ✔ | ○ |
+| Group | ✔ | ✔ | ○ |
+| Views | ✔ | ✔ | ○ |
+| Rendering | ✔ | ✔ | ○ |
+| Track View | ✔ | ✔ | ○ |
+| Schematic View | ✔ | ✔ | ○ |
+| Customize | ✔ | ✔ | ○ |
+| MAXScript | ✔ | ✔ | ○ |
+| Help | ✔ | ✔ (About renamed for maxlike) | ○ |
 
 ✔ verified against R3.1 · ○ unverified
 
-To verify a menu: open it in R3.1, take a screenshot, and correct `MenuSpec.cpp`
-(text, order, separators, submenus, underlined letter). Then mark it ✔ here.
+Items were corrected against R3.1 by the project owner. Underlined (mnemonic)
+letters still need checking: press Alt in R3.1 and compare.
 
 ## Rules (enforced by tests/test_menu_spec.cpp)
 - Top-level titles match the reference, in order.
