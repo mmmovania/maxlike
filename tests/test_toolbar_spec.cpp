@@ -55,7 +55,17 @@ static void ItemsAreWellFormed() {
             if (!it.group.empty()) checkedPerGroup[it.group] += it.checked ? 1 : 0;
             else CHECK(!it.checked);
         }
-        if (it.kind == Kind::Combo) CHECK(it.width > 0 && !it.command.empty());
+        if (it.kind == Kind::Combo) {
+            CHECK(it.width > 0 && !it.command.empty() && !it.tooltip.empty());
+            if (it.editable) {
+                CHECK(it.choices.empty() && it.text.empty());   // starts empty
+            } else {
+                // The initial text must be one of the entries, and entries are unique.
+                std::set<std::wstring> unique(it.choices.begin(), it.choices.end());
+                CHECK(unique.size() == it.choices.size());
+                CHECK(unique.count(it.text) == 1);
+            }
+        }
     }
     CHECK(static_cast<int>(icons.size()) == kIconCount);   // every icon used
     CHECK(checkedPerGroup.size() == 2);                     // "mode" and "axis"

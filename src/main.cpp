@@ -1,8 +1,13 @@
 #include "win/App.h"
 #include "ui/MainFrame.h"
+#include <commctrl.h>
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int /*cmdShow*/) {
     win::App::Init(instance);
+
+    // Register the common-control window classes we use (tooltips).
+    INITCOMMONCONTROLSEX icc{sizeof(icc), ICC_WIN95_CLASSES};
+    InitCommonControlsEx(&icc);
 
     ui::MainFrame frame;
     if (!frame.Create()) {

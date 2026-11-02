@@ -3,11 +3,15 @@
 #include "ui/Theme.h"
 #include "win/App.h"
 #include "resource.h"   // res/resource.h
+#include <commctrl.h>
 #include <windowsx.h>
 
 namespace ui {
 
 using toolbar::Kind;
+
+// Child-window IDs of the combo boxes: kComboIdBase + item index.
+static constexpr int kComboIdBase = 1000;
 
 Toolbar::~Toolbar() {
     if (icons_) DeleteObject(icons_);
@@ -25,17 +29,82 @@ bool Toolbar::Create(HWND parent) {
                                              0, 0, LR_CREATEDIBSECTION));
     CreateParams p;
     p.title  = L"Main toolbar";
-    p.style  = WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS;
+    // WS_CLIPCHILDREN: our painting must not draw over the combo boxes.
+    p.style  = WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     p.x = p.y = 0;
     p.width = p.height = 0;
     p.parent = parent;
-    return win::Window::Create(p);
+    if (!win::Window::Create(p))
+        return false;
+    CreateCombos();
+    CreateTooltips();
+    return true;
+}
+
+void Toolbar::CreateCombos() {
+    combos_.assign(items_.size(), nullptr);
+    for (size_t i = 0; i < items_.size(); ++i) {
+        const toolbar::Item& it = items_[i];
+        if (it.kind != Kind::Combo) continue;
+        // DROPDOWNLIST: pick from a list only. DROPDOWN: a list plus an edit box.
+        const DWORD kindStyle = it.editable ? (CBS_DROPDOWN | CBS_AUTOHSCROLL) : CBS_DROPDOWNLIST;
+        HWND combo = CreateWindowExW(0, L"COMBOBOX", L"",
+                                     WS_CHILD | WS_VISIBLE | WS_VSCROLL | kindStyle,
+                                     0, 0, 0, 0, Hwnd(),
+                                     reinterpret_cast<HMENU>(static_cast<INT_PTR>(kComboIdBase + i)),
+                                     win::App::Instance(), nullptr);
+        for (const auto& choice : it.choices)
+            SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(choice.c_str()));
+        const LRESULT sel = SendMessageW(combo, CB_FINDSTRINGEXACT, static_cast<WPARAM>(-1),
+                                         reinterpret_cast<LPARAM>(it.text.c_str()));
+        if (sel != CB_ERR) SendMessageW(combo, CB_SETCURSEL, static_cast<WPARAM>(sel), 0);
+        combos_[i] = combo;
+    }
+}
+
+// The comctl32 version this app uses (v5, for the classic look) predates the last
+// field of TTTOOLINFOW; passing the full sizeof makes TTM_ADDTOOL fail. Use the V2 size.
+static TTTOOLINFOW MakeToolInfo(HWND owner) {
+    TTTOOLINFOW ti{};
+    ti.cbSize = TTTOOLINFOW_V2_SIZE;
+    ti.hwnd = owner;
+    return ti;
+}
+
+void Toolbar::CreateTooltips() {
+    tooltip_ = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+                               WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
+                               CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                               Hwnd(), nullptr, win::App::Instance(), nullptr);
+    if (!tooltip_) return;
+    for (size_t i = 0; i < items_.size(); ++i) {
+        const toolbar::Item& it = items_[i];
+        TTTOOLINFOW ti = MakeToolInfo(Hwnd());
+        ti.lpszText = const_cast<wchar_t*>(it.tooltip.c_str());
+        if (it.kind == Kind::Button) {
+            // A rectangle of our window is the "tool"; TTF_SUBCLASS lets the tooltip
+            // watch our mouse messages itself.
+            ti.uFlags = TTF_SUBCLASS;
+            ti.uId = i;
+        } else if (it.kind == Kind::Combo && combos_[i]) {
+            // A whole child window is the "tool".
+            ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+            ti.uId = reinterpret_cast<UINT_PTR>(combos_[i]);
+        } else {
+            continue;
+        }
+        SendMessageW(tooltip_, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&ti));
+    }
 }
 
 void Toolbar::ShowStrip(int index, const std::wstring& label) {
     strip_ = index;
     stripLabel_ = label;
     hot_ = pressed_ = -1;
+    const bool main = (index == 0);
+    for (HWND combo : combos_)
+        if (combo) ShowWindow(combo, main ? SW_SHOW : SW_HIDE);
+    if (tooltip_) SendMessageW(tooltip_, TTM_ACTIVATE, main, 0);
     InvalidateRect(Hwnd(), nullptr, FALSE);
 }
 
@@ -43,6 +112,39 @@ void Toolbar::Relayout() {
     RECT rc;
     GetClientRect(Hwnd(), &rc);
     rects_ = toolbar::LayoutToolbar(items_, rc.bottom, Dpi());
+
+    for (size_t i = 0; i < items_.size(); ++i) {
+        const Rect& r = rects_[i];
+        if (combos_.size() > i && combos_[i]) {
+            // For a combo box the height passed here is the *dropped-down* height;
+            // the closed height follows from the font (21 px with our 8 pt font).
+            SetWindowPos(combos_[i], nullptr, r.left, r.top, r.Width(), Scale(200),
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        if (tooltip_ && items_[i].kind == Kind::Button) {
+            TTTOOLINFOW ti = MakeToolInfo(Hwnd());
+            ti.uId = i;
+            ti.rect = {r.left, r.top, r.right, r.bottom};
+            SendMessageW(tooltip_, TTM_NEWTOOLRECTW, 0, reinterpret_cast<LPARAM>(&ti));
+        }
+    }
+}
+
+void Toolbar::OnComboCommand(size_t index, int code) {
+    HWND combo = combos_[index];
+    if (code == CBN_SELCHANGE) {
+        const LRESULT sel = SendMessageW(combo, CB_GETCURSEL, 0, 0);
+        if (sel == CB_ERR) return;
+        const LRESULT len = SendMessageW(combo, CB_GETLBTEXTLEN, static_cast<WPARAM>(sel), 0);
+        std::wstring text(static_cast<size_t>(len > 0 ? len : 0), L'\0');
+        if (len > 0)
+            SendMessageW(combo, CB_GETLBTEXT, static_cast<WPARAM>(sel), reinterpret_cast<LPARAM>(text.data()));
+        if (onComboChanged) onComboChanged(items_[index].command, text);
+    } else if (code == CBN_CLOSEUP && !items_[index].editable) {
+        // Hand the keyboard back to the main window, as R3 does, so shortcut keys
+        // keep working instead of scrolling through the list.
+        SetFocus(GetAncestor(Hwnd(), GA_ROOT));
+    }
 }
 
 int Toolbar::HitTest(int x, int y) const {
@@ -146,17 +248,6 @@ void Toolbar::PaintSeparator(HDC dc, const Rect& r) {
     FillSolid(dc, {x + 1, top, x + 2, bottom}, theme::kButtonHighlight.Ref());
 }
 
-void Toolbar::PaintCombo(HDC dc, size_t i) {
-    // Placeholder until step 1.4b replaces it with a real combo box.
-    const Rect& r = rects_[i];
-    RECT rc{r.left, r.top, r.right, r.bottom};
-    DrawEdge(dc, &rc, EDGE_SUNKEN, BF_RECT | BF_ADJUST);
-    FillRect(dc, &rc, GetSysColorBrush(COLOR_WINDOW));
-    rc.left += Scale(2);
-    SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
-    DrawTextW(dc, items_[i].text.c_str(), -1, &rc, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-}
-
 void Toolbar::OnPaint() {
     PAINTSTRUCT ps;
     HDC dc = BeginPaint(Hwnd(), &ps);
@@ -178,7 +269,7 @@ void Toolbar::OnPaint() {
             switch (items_[i].kind) {
             case Kind::Button:    PaintButton(dc, iconDc, i); break;
             case Kind::Separator: PaintSeparator(dc, rects_[i]); break;
-            case Kind::Combo:     PaintCombo(dc, i); break;
+            case Kind::Combo:     break; // real child windows draw themselves
             case Kind::Gap:       break;
             }
         }
@@ -212,8 +303,23 @@ LRESULT Toolbar::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_SETFONT:
         font_ = reinterpret_cast<HFONT>(wp);
+        // Pass it on: combo boxes and tooltips use our font, as in R3.
+        for (HWND combo : combos_)
+            if (combo) SendMessageW(combo, WM_SETFONT, wp, lp);
+        if (tooltip_) SendMessageW(tooltip_, WM_SETFONT, wp, FALSE);
+        Relayout(); // the combo height depends on the font
         if (LOWORD(lp)) InvalidateRect(Hwnd(), nullptr, FALSE);
         return 0;
+
+    case WM_COMMAND: {
+        // Notifications from our combo boxes: control ID in LOWORD, code in HIWORD.
+        const int id = LOWORD(wp) - kComboIdBase;
+        if (id >= 0 && static_cast<size_t>(id) < combos_.size() && combos_[static_cast<size_t>(id)]) {
+            OnComboCommand(static_cast<size_t>(id), HIWORD(wp));
+            return 0;
+        }
+        break;
+    }
     case WM_GETFONT:
         return reinterpret_cast<LRESULT>(font_);
 

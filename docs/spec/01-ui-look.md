@@ -81,7 +81,14 @@ Code: `src/ui/ToolbarSpec.*` (items + layout), `src/ui/Toolbar.*` (drawing, inpu
   band is black and the triangle `#A0A0A0`.
 - Frame: white column at x = 0, `#A0A0A0` column at width − 2 (same as the tab panel).
 - Radio groups: mode (Select ✔, Move, Rotate, Scale) and axis (X, Y, Z, XY ✔).
-- Unverified: hover look (a thin raised ring for now), pressed look, tooltip names.
+- Combos (step 1.4b) are native classic `COMBOBOX` controls; their closed height (21 px)
+  follows from the 8 pt UI font. Entries, from memory and unverified:
+  Selection Filter: All, Geometry, Shapes, Lights, Cameras, Helpers, Warps;
+  Reference Coordinate System: View, Screen, World, Parent, Local, Grid, Pick;
+  Render Type: View, Selected, Region, Crop, Blowup; Named Selection Sets: editable, empty.
+- Tooltips: standard tooltip control in the UI font, one per button and combo.
+- Unverified: hover look (a thin raised ring for now), pressed look, tooltip texts,
+  combo entries.
 
 ## Tab panel (measured, step 1.3)
 Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).

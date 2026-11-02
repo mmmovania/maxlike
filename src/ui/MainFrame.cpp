@@ -55,6 +55,10 @@ bool MainFrame::CreateRegions() {
     };
     // Toolbar buttons and menu items share one command handler.
     mainToolbar_.onCommand = [this](const std::string& command) { OnCommand(command); };
+    mainToolbar_.onComboChanged = [this](const std::string& command, const std::wstring& text) {
+        const std::wstring name(command.begin(), command.end()); // command names are ASCII
+        statusArea_.SetLabel(L"Status area   (" + name + L" = " + text + L", not implemented)");
+    };
     return true;
 }
 

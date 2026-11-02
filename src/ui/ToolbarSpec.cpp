@@ -15,14 +15,18 @@ Item Radio(Item i, const char* group, bool checked = false) {
 }
 Item Sep() { Item i; i.kind = Kind::Separator; return i; }
 Item Gap(int w) { Item i; i.kind = Kind::Gap; i.width = w; return i; }
-Item Combo(const char* cmd, const wchar_t* tip, int w, const wchar_t* text) {
+Item Combo(const char* cmd, const wchar_t* tip, int w, const wchar_t* text,
+           std::vector<std::wstring> choices) {
     Item i; i.kind = Kind::Combo; i.command = cmd; i.tooltip = tip; i.width = w; i.text = text;
+    i.choices = std::move(choices);
     return i;
 }
+Item Editable(Item i) { i.editable = true; return i; }
 } // namespace
 
-// Order and geometry measured from the reference screenshot. Tooltip names are
-// from memory of R3.1 and still to be verified (docs/spec/01-ui-look.md).
+// Order and geometry measured from the reference screenshot. Tooltip names and
+// combo entries are from memory of R3.1 and still to be verified
+// (docs/spec/01-ui-look.md).
 const std::vector<Item>& MainToolbarSpec() {
     static const std::vector<Item> items = {
         Btn("help.whats_this",   L"Help Mode",                   kIconHelp),
@@ -38,7 +42,8 @@ const std::vector<Item>& MainToolbarSpec() {
         Radio(Btn("tool.select", L"Select Object",               kIconSelect), "mode", true),
         Fly("tool.region",       L"Rectangular Selection Region", kIconRegionRect),
         Gap(2),
-        Combo("tool.selection_filter", L"Selection Filter", 70, L"All"),
+        Combo("tool.selection_filter", L"Selection Filter", 70, L"All",
+              {L"All", L"Geometry", L"Shapes", L"Lights", L"Cameras", L"Helpers", L"Warps"}),
         Sep(),
         Btn("edit.select_by_name", L"Select by Name",            kIconSelectByName),
         Sep(),
@@ -46,7 +51,8 @@ const std::vector<Item>& MainToolbarSpec() {
         Radio(Btn("tool.rotate", L"Select and Rotate",           kIconRotate), "mode"),
         Radio(Fly("tool.scale",  L"Select and Uniform Scale",    kIconScale), "mode"),
         Sep(),
-        Combo("tool.ref_coord", L"Reference Coordinate System", 70, L"View"),
+        Combo("tool.ref_coord", L"Reference Coordinate System", 70, L"View",
+              {L"View", L"Screen", L"World", L"Parent", L"Local", L"Grid", L"Pick"}),
         Fly("tool.pivot",        L"Use Pivot Point Center",      kIconPivotCenter),
         Sep(),
         Radio(Btn("constraint.x",  L"Restrict to X",             kIconX), "axis"),
@@ -58,7 +64,7 @@ const std::vector<Item>& MainToolbarSpec() {
         Btn("tools.mirror",      L"Mirror Selected Objects",     kIconMirror),
         Fly("tools.array",       L"Array",                       kIconArray),
         Fly("tools.align",       L"Align",                       kIconAlign),
-        Combo("edit.named_selection", L"Named Selection Sets", 120, L""),
+        Editable(Combo("edit.named_selection", L"Named Selection Sets", 120, L"", {})),
         Sep(),
         Btn("trackview.open",    L"Open Track View",             kIconTrackView),
         Btn("schematic.open",    L"Open Schematic View",         kIconSchematic),
@@ -67,7 +73,8 @@ const std::vector<Item>& MainToolbarSpec() {
         Btn("render.render",     L"Render Scene",                kIconRenderScene),
         Fly("render.quick",      L"Quick Render",                kIconQuickRender),
         Gap(2),
-        Combo("render.type", L"Render Type", 70, L"View"),
+        Combo("render.type", L"Render Type", 70, L"View",
+              {L"View", L"Selected", L"Region", L"Crop", L"Blowup"}),
         Btn("render.last",       L"Render Last",                 kIconRenderLast),
     };
     return items;
