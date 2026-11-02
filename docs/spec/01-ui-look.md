@@ -43,6 +43,19 @@ Encoded in `src/ui/Metrics.h` and `src/ui/FrameLayout.cpp`, tested in
 | Command panel | 1736,57 – 1920,948 | 184 px wide, `EDGE_RAISED` |
 | Status area | 0,948 – 1920,998 | 50 px, full width |
 
+## Tab panel (measured, step 1.3)
+Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).
+
+- 11 tabs, fixed width 89 px, first tab at x = 4, no gaps, 15 px high; labels centred.
+- Each tab, columns/rows relative to its top-left (w = 89, h = 15):
+  row 0 highlight cols 2..w-4 and dark col w-3; row 1 highlight col 1, dark col w-2;
+  rows 2..h-2 highlight col 0, dark col w-1; bottom row highlight across inactive tabs,
+  only col 0 for the active tab (open towards the toolbar).
+- Inactive: fill `#A0A0B3`, dark edge `#A0A0A0`. Active: face fill, dark edge `#000000`.
+- The bottom highlight continues from the last tab to 4 px from the right edge.
+- Frame around tab panel + toolbar: highlight column at x = 0, `#A0A0A0` column at
+  x = width − 2 (continues into the toolbar area; finish in step 1.4).
+
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |
 |---|---|---|---|

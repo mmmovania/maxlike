@@ -34,6 +34,12 @@ inline constexpr Rgb kFrameInnerBR   {0xC0, 0xC0, 0xC0};
 // TODO(spec): active viewport highlight colour is unverified.
 inline constexpr Rgb kViewportActive {0xFF, 0xFF, 0xFF};
 
+// ---- Tab panel (measured) ----
+inline constexpr Rgb kTabHighlight    {0xFF, 0xFF, 0xFF};
+inline constexpr Rgb kTabInactive     {0xA0, 0xA0, 0xB3};
+inline constexpr Rgb kTabInactiveEdge {0xA0, 0xA0, 0xA0};
+inline constexpr Rgb kTabActiveEdge   {0x00, 0x00, 0x00};
+
 // ---- Status area ----
 inline constexpr Rgb kListenerBg     {0xDB, 0xC3, 0xC3};
 

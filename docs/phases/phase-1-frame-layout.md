@@ -9,7 +9,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       region windows, bevel helpers, font handed to children with `WM_SETFONT`
 - [x] **1.2 Menu bar**: menus as data (`MenuSpec`), `CommandTable` name↔ID, `BuildMenuBar`,
       `WM_COMMAND` dispatch by name; tests in `tests/test_menu_spec.cpp`
-- [ ] 1.3 Tab panel
+- [x] **1.3 Tab panel**: custom-drawn `TabPanel`, geometry in `TabStrip` (unit-tested);
+      matches the reference pixel for pixel apart from label text
 - [ ] 1.4 Main toolbar (buttons, flyouts, combos)
 - [ ] 1.5 Time slider, track bar, status area
 - [ ] 1.6 Overlay check against the reference screenshot
@@ -27,6 +28,13 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       now 1736 × 858
 - [ ] Menu items checked against R3.1 (see `docs/spec/03-menus.md`)
 
+## Step 1.3 verification
+- [x] Builds warning-free; three test programs pass (MinGW + Wine)
+- [x] Pixel comparison with the reference under Wine: 0 differing pixels in the tab panel
+      (label text masked; Wine's face colour #F5F5F5 treated as #F0F0F0)
+- [ ] On Windows: tabs look like R3's; clicking a tab activates it and the toolbar
+      placeholder shows the strip name
+
 ## Notes
 - Measurements are client-relative at 100%: client top = bottom of the menu bar
   (screen y 42 in the reference), client size 1920×998.
@@ -35,4 +43,3 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
   `C0 00 00`. Re-measure per viewport in Phase 2.
 - The command panel edge is exactly `DrawEdge(EDGE_RAISED)` with system colours
   (`FFFFFF/E3E3E3` top-left, `A0A0A0/696969` bottom-right).
-- Inactive tabs in the tab panel are `#A0A0B3` (for step 1.3).

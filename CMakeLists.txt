@@ -32,6 +32,10 @@ add_executable(maxlike WIN32
     src/ui/MenuSpec.h
     src/ui/MenuBuilder.cpp
     src/ui/MenuBuilder.h
+    src/ui/TabStrip.cpp
+    src/ui/TabStrip.h
+    src/ui/TabPanel.cpp
+    src/ui/TabPanel.h
     res/maxlike.rc
 )
 
@@ -74,3 +78,4 @@ endfunction()
 maxlike_add_test(test_frame_layout tests/test_frame_layout.cpp src/ui/FrameLayout.cpp)
 maxlike_add_test(test_menu_spec
     tests/test_menu_spec.cpp src/ui/MenuSpec.cpp src/ui/CommandTable.cpp)
+maxlike_add_test(test_tab_strip tests/test_tab_strip.cpp src/ui/TabStrip.cpp)

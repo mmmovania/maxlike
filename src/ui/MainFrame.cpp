@@ -2,6 +2,7 @@
 #include "ui/FrameLayout.h"
 #include "ui/MenuBuilder.h"
 #include "ui/MenuSpec.h"
+#include "ui/TabStrip.h"
 #include "ui/Theme.h"
 
 namespace ui {
@@ -36,22 +37,31 @@ void MainFrame::SetDocumentName(const std::wstring& name) {
     }
 }
 
-std::array<Placeholder*, 7> MainFrame::Regions() {
+std::array<win::Window*, 7> MainFrame::Regions() {
     return {&tabPanel_, &mainToolbar_, &viewports_, &timeSlider_,
             &trackBar_, &commandPanel_, &statusArea_};
 }
 
 bool MainFrame::CreateRegions() {
-    for (Placeholder* r : Regions())
+    if (!tabPanel_.Create(Hwnd()))
+        return false;
+    for (Placeholder* r : {&mainToolbar_, &viewports_, &timeSlider_,
+                           &trackBar_, &commandPanel_, &statusArea_})
         if (!r->Create(Hwnd()))
             return false;
+
+    // Until step 1.4 builds the real button strips, show which one is selected.
+    tabPanel_.onTabChanged = [this](int index) {
+        const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];
+        mainToolbar_.SetLabel(L"Main toolbar   (strip: " + tab.label + L")");
+    };
     return true;
 }
 
 void MainFrame::LayoutRegions(int w, int h) {
     const FrameLayout L = ComputeFrameLayout(w, h, Dpi());
 
-    struct Item { Placeholder* wnd; const Rect* r; };
+    struct Item { win::Window* wnd; const Rect* r; };
     const Item items[] = {
         {&tabPanel_, &L.tabPanel},     {&mainToolbar_, &L.mainToolbar},
         {&viewports_, &L.viewports},   {&timeSlider_, &L.timeSlider},
@@ -75,7 +85,7 @@ void MainFrame::RecreateFonts() {
     uiFont_ = theme::CreateUiFont(Dpi());
     // Hand the new font to every child before deleting the old one, so no
     // child is ever left holding a deleted font.
-    for (Placeholder* r : Regions())
+    for (win::Window* r : Regions())
         if (r->Hwnd())
             SendMessageW(r->Hwnd(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     if (old) DeleteObject(old);
