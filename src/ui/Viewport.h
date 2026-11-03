@@ -2,8 +2,9 @@
 #include "win/Window.h"
 #include <functional>
 #include <string>
+#include "view/OrthoGrid.h"
 
-namespace gl { class GLContext; }
+namespace gl { class GLContext; class LineRenderer; }
 
 namespace ui {
 
@@ -15,7 +16,8 @@ class Viewport : public win::Window {
 public:
     std::function<void()> onActivate; // the user clicked into this viewport
 
-    bool Create(HWND parent, gl::GLContext& context, ViewType type);
+    // `lines` is the panel's shared line renderer (created lazily on first paint).
+    bool Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines, ViewType type);
     ViewType Type() const { return type_; }
 
 protected:
@@ -29,8 +31,12 @@ private:
     void Render(HDC dc);
     void PaintFallback(HDC dc); // GDI drawing when OpenGL is unavailable
 
+    void DrawOrthoGrid(int width, int height);
+
     gl::GLContext* context_ = nullptr;
+    gl::LineRenderer* lines_ = nullptr;
     ViewType type_ = ViewType::Top;
+    view::OrthoView ortho_;   // what an ortho view shows (pan/zoom in step 2.5)
 };
 
 } // namespace ui

@@ -24,9 +24,13 @@ Active viewport (measured in Phase 2): the reference shows Top active, with a wh
 
 ## Grid
 - Spacing 10 units; major line every 10 minor lines; status bar shows `Grid = 10.0`.
-- Default ortho zoom ~0.46 units/px (≈ 40 cells / 400 units across an 863 px view).
-- Measured minor spacing in Top view: ~21.55 px.
-- Perspective default FOV 45°; grid drawn to a fixed home-grid extent.
+- Colours: minor `#8D8D8D`, major `#747474`, axes `#000000`; drawn minor, major, axis.
+- Ortho views (measured, step 2.2a; all 180 lines of the three ortho views reproduced):
+  400 world units span `W − 0.5` pixels across; the visible height is `400·H/W` units
+  over `H − 0.5` pixels; a line at coordinate `u` lands in column
+  `floor((W−1)/2 + 0.745 + u·scaleX)` and a line at `v` in row
+  `floor((H−1)/2 + 0.22 − v·scaleY)` (top-down). Code: `src/view/OrthoGrid.*`.
+- Perspective: default FOV 45°; camera to be fitted to the reference (step 2.2b).
 
 ## Layout (measured, client coordinates at 100%)
 Client area = below the menu bar; a maximised 1920×1040 window gives a 1920×998 client.

@@ -17,6 +17,9 @@ cmake --build build --config Debug
 build\Debug\maxlike.exe
 ```
 
+`maxlike.exe --client-size 1920x998` opens the window un-maximised with exactly the
+client size of the R3.1 reference screenshot (useful for pixel comparisons).
+
 ## Branches
 
 | Branch | Purpose |

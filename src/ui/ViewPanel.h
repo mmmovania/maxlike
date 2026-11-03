@@ -1,6 +1,7 @@
 #pragma once
 #include "win/Window.h"
 #include "gl/GLContext.h"
+#include "gl/LineRenderer.h"
 #include "ui/Viewport.h"
 #include "ui/ViewportLayout.h"
 #include <array>
@@ -22,9 +23,11 @@ protected:
 
 private:
     void Relayout();
+    void ReleaseGpuObjects();
     void OnPaint();
 
-    gl::GLContext context_;           // declared before the viewports: destroyed after them
+    gl::GLContext context_;           // declared first: destroyed last
+    gl::LineRenderer lines_;          // shared by all viewports (needs the context current)
     std::array<Viewport, viewports::kCount> views_;
     viewports::Layout layout_{};
     int active_ = viewports::kTopLeft; // the reference screenshot shows Top active

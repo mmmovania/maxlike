@@ -8,7 +8,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] **2.1 OpenGL in a Win32 window**: `ViewPanel` with four `Viewport` child windows
       (`CS_OWNDC`), one shared OpenGL 3.3 core context (`gl::GLContext`, GLAD loader in
       `third_party/glad`), measured frames with the white active border; click to activate
-- [ ] 2.2 Cameras and the grid (Top / Front / Left / Perspective, Z-up)
+- [x] **2.2a Ortho grid and first shader**: `view::OrthoGridLines` computes R3's grid in
+      pixels (fitted to all 180 reference lines); `gl::LineRenderer` (GLSL 3.30 shader,
+      VAO/VBO) draws it; `--client-size WxH` option for reproducible comparisons
+- [ ] 2.2b Perspective camera (fitted to the reference) and the perspective grid
 - [ ] 2.3 Labels and axis tripods
 - [ ] 2.4 Viewport interaction: right-click label menu, Min/Max toggle, splitter dragging
 - [ ] 2.5 Navigation: pan, zoom, orbit; the status-area navigation buttons
@@ -25,6 +28,20 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] On Windows: four grey viewports with frames; clicking moves the white border;
       no "OpenGL 3.3 is not available" message
 
+## Step 2.2a verification
+- [x] Builds warning-free; eight test programs pass (MinGW + Wine)
+- [x] `test_ortho_grid` contains every measured grid line of the three ortho views
+- [x] Pixel comparison of Top, Front and Left at the reference size
+      (`--client-size 1920x998`), labels masked: 94 differing pixels out of 1,083,564,
+      all of them axis-tripod letters (step 2.3)
+- [x] Found and fixed before it shipped: GPU-object cleanup (now `LineRenderer::Release`
+      on the panel's `WM_DESTROY`, while the viewport windows still exist)
+- [ ] On Windows: the grids in Top, Front and Left look like R3's; Perspective is still
+      plain grey
+
 ## Notes
+- `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact
+  client size; use it for screenshots that are compared with the reference.
+- R3 changes the grid spacing when zooming far out or in; not implemented yet (2.5).
 - If OpenGL 3.3 core is unavailable (very old drivers, some remote-desktop sessions), the
   viewports show a message instead of failing.

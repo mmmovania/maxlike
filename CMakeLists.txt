@@ -67,6 +67,10 @@ add_executable(maxlike WIN32
     src/ui/ViewPanel.h
     src/gl/GLContext.cpp
     src/gl/GLContext.h
+    src/gl/LineRenderer.cpp
+    src/gl/LineRenderer.h
+    src/view/OrthoGrid.cpp
+    src/view/OrthoGrid.h
     res/resource.h
     res/maxlike.rc
 )
@@ -119,3 +123,4 @@ maxlike_add_test(test_toolbar_spec tests/test_toolbar_spec.cpp src/ui/ToolbarSpe
 maxlike_add_test(test_time_slider tests/test_time_slider.cpp src/ui/TimeSliderGeometry.cpp)
 maxlike_add_test(test_status_layout tests/test_status_layout.cpp src/ui/StatusLayout.cpp)
 maxlike_add_test(test_viewport_layout tests/test_viewport_layout.cpp src/ui/ViewportLayout.cpp)
+maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp)

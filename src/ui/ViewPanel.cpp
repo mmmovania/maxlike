@@ -4,6 +4,19 @@
 
 namespace ui {
 
+// GPU objects must be deleted while the context is current, which needs a window
+// with the context's pixel format. WM_DESTROY reaches the panel *before* its child
+// viewports are destroyed, so that is the moment to do it.
+void ViewPanel::ReleaseGpuObjects() {
+    if (!context_.IsValid() || !views_[0].Hwnd()) return;
+    HDC dc = GetDC(views_[0].Hwnd());
+    if (context_.MakeCurrent(dc)) {
+        lines_.Release();
+        wglMakeCurrent(nullptr, nullptr);
+    }
+    ReleaseDC(views_[0].Hwnd(), dc);
+}
+
 bool ViewPanel::Create(HWND parent) {
     CreateParams p;
     p.title = L"Viewports";
@@ -20,7 +33,7 @@ bool ViewPanel::Create(HWND parent) {
     // The shared context first; each viewport then takes its pixel format on creation.
     context_.Create(); // on failure the viewports draw a message instead
     for (int i = 0; i < viewports::kCount; ++i)
-        if (!views_[static_cast<size_t>(i)].Create(Hwnd(), context_, types[i]))
+        if (!views_[static_cast<size_t>(i)].Create(Hwnd(), context_, lines_, types[i]))
             return false;
     for (int i = 0; i < viewports::kCount; ++i)
         views_[static_cast<size_t>(i)].onActivate = [this, i] { SetActive(i); };
@@ -85,6 +98,9 @@ LRESULT ViewPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 1;
     case WM_PAINT:
         OnPaint();
+        return 0;
+    case WM_DESTROY:
+        ReleaseGpuObjects();
         return 0;
     }
     return win::Window::HandleMessage(msg, wp, lp);

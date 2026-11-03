@@ -1,13 +1,15 @@
 #include <glad/gl.h>
 #include "ui/Viewport.h"
 #include "gl/GLContext.h"
+#include "gl/LineRenderer.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
 
 namespace ui {
 
-bool Viewport::Create(HWND parent, gl::GLContext& context, ViewType type) {
+bool Viewport::Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines, ViewType type) {
     context_ = &context;
+    lines_ = &lines;
     type_ = type;
     CreateParams p;
     p.title = L"Viewport";
@@ -26,8 +28,31 @@ void Viewport::Render(HDC dc) {
     glViewport(0, 0, rc.right, rc.bottom);
     glClearColor(theme::kViewportBg.R(), theme::kViewportBg.G(), theme::kViewportBg.B(), 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // Step 2.2 draws the grid here, step 2.3 the label and axis tripod.
+
+    // OpenGL objects must be created with the context current, so the shared line
+    // renderer is created on the first paint of whichever viewport comes first.
+    if (!lines_->IsValid()) lines_->Create();
+    if (type_ != ViewType::Perspective)
+        DrawOrthoGrid(rc.right, rc.bottom);
+    // Step 2.2b: the perspective grid. Step 2.3: label and axis tripod.
+
     SwapBuffers(dc); // show the finished back buffer
+}
+
+// Minor lines first, then major, then the axes, so darker lines are always on top.
+void Viewport::DrawOrthoGrid(int w, int h) {
+    std::vector<gl::LineRenderer::PixelLine> batch[3];
+    for (const view::GridLine& l : view::OrthoGridLines(w, h, ortho_)) {
+        // Through the pixel centres, extended past both ends so no end pixel is lost.
+        const float c = static_cast<float>(l.pixel) + 0.5f;
+        const gl::LineRenderer::PixelLine line = l.vertical
+            ? gl::LineRenderer::PixelLine{c, -1.0f, c, static_cast<float>(h) + 1.0f}
+            : gl::LineRenderer::PixelLine{-1.0f, c, static_cast<float>(w) + 1.0f, c};
+        batch[static_cast<int>(l.kind)].push_back(line);
+    }
+    const theme::Rgb colours[3] = {theme::kGridMinor, theme::kGridMajor, theme::kGridAxis};
+    for (int k = 0; k < 3; ++k)
+        lines_->Draw(batch[k], w, h, colours[k].R(), colours[k].G(), colours[k].B());
 }
 
 void Viewport::PaintFallback(HDC dc) {
