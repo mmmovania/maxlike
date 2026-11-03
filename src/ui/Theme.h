@@ -1,9 +1,10 @@
 #pragma once
 #include <windows.h>
 #include <cstdint>
+#include "ui/Metrics.h"
 
 // All colours and pixel metrics of the R3.1 look, from docs/spec/01-ui-look.md.
-// Metrics are 96-DPI values; scale with Window::Scale() or theme::Scale().
+// Metrics (ui/Metrics.h) are 96-DPI values; scale with Window::Scale().
 namespace theme {
 
 struct Rgb {
@@ -33,6 +34,26 @@ inline constexpr Rgb kFrameInnerBR   {0xC0, 0xC0, 0xC0};
 // TODO(spec): active viewport highlight colour is unverified.
 inline constexpr Rgb kViewportActive {0xFF, 0xFF, 0xFF};
 
+// ---- Tab panel (measured) ----
+inline constexpr Rgb kTabHighlight    {0xFF, 0xFF, 0xFF};
+inline constexpr Rgb kTabInactive     {0xA0, 0xA0, 0xB3};
+inline constexpr Rgb kTabInactiveEdge {0xA0, 0xA0, 0xA0};
+inline constexpr Rgb kTabActiveEdge   {0x00, 0x00, 0x00};
+
+// ---- Toolbar buttons (measured) ----
+inline constexpr Rgb kButtonHighlight  {0xFF, 0xFF, 0xFF};
+inline constexpr Rgb kButtonShadow     {0xA0, 0xA0, 0xA0};
+inline constexpr Rgb kButtonModeActive {0xC0, 0xFF, 0xC0}; // active mode, e.g. Select Object
+inline constexpr Rgb kButtonChecked    {0xE1, 0xE1, 0xE1}; // other checked buttons, e.g. XY
+// NOTE: R3's exact colour for Animate when on is not verified.
+inline constexpr Rgb kButtonAlarm      {0xD0, 0x30, 0x30}; // Animate on
+
+// ---- Time slider and track bar (measured) ----
+inline constexpr Rgb kSliderTrough {0xE1, 0xE1, 0xE1};
+inline constexpr Rgb kDarkShadow   {0x69, 0x69, 0x69};
+inline constexpr Rgb kLight        {0xE3, 0xE3, 0xE3};
+inline constexpr Rgb kTrackMarker  {0x1E, 0x1E, 0x1E};
+
 // ---- Status area ----
 inline constexpr Rgb kListenerBg     {0xDB, 0xC3, 0xC3};
 
@@ -42,20 +63,8 @@ inline constexpr int   kGridMajorEvery     = 10;     // minor lines per major li
 inline constexpr float kOrthoUnitsPerPixel = 0.46f;  // default ortho zoom at 100%
 inline constexpr float kPerspectiveFovDeg  = 45.0f;
 
-// ---- Layout metrics at 96 DPI (approximate, refine in Phase 1) ----
-struct Metrics {
-    static constexpr int TabPanelHeight     = 16;
-    static constexpr int MainToolbarHeight  = 38;
-    static constexpr int CommandPanelWidth  = 180;
-    static constexpr int ViewportGap        = 6;   // between viewports, incl. frames
-    static constexpr int ViewportLabelInset = 6;
-    static constexpr int TripodSize         = 40;
-    static constexpr int TimeSliderHeight   = 18;
-    static constexpr int TrackBarHeight     = 16;
-    static constexpr int StatusAreaHeight   = 50;
-    static constexpr int MinWindowWidth     = 800;
-    static constexpr int MinWindowHeight    = 600;
-};
+// Layout metrics live in ui/Metrics.h (namespace metrics) so they can be
+// unit-tested without <windows.h>.
 
 inline int Scale(int px96, UINT dpi) { return MulDiv(px96, static_cast<int>(dpi), 96); }
 
