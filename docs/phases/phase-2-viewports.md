@@ -11,7 +11,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] **2.2a Ortho grid and first shader**: `view::OrthoGridLines` computes R3's grid in
       pixels (fitted to all 180 reference lines); `gl::LineRenderer` (GLSL 3.30 shader,
       VAO/VBO) draws it; `--client-size WxH` option for reproducible comparisons
-- [ ] 2.2b Perspective camera (fitted to the reference) and the perspective grid
+- [x] **2.2b Perspective camera and grid**: R3's default camera fitted to the reference
+      (target at the origin, distance 250, elevation 15°, 45° horizontal FOV); `math::Mat4`
+      with `LookAt` / `PerspectiveHorizontal`; one matrix-based shader for both grids
 - [ ] 2.3 Labels and axis tripods
 - [ ] 2.4 Viewport interaction: right-click label menu, Min/Max toggle, splitter dragging
 - [ ] 2.5 Navigation: pan, zoom, orbit; the status-area navigation buttons
@@ -38,6 +40,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
       on the panel's `WM_DESTROY`, while the viewport windows still exist)
 - [ ] On Windows: the grids in Top, Front and Left look like R3's; Perspective is still
       plain grey
+
+## Step 2.2b verification
+- [x] Builds warning-free; nine test programs pass (MinGW + Wine); `test_perspective`
+      projects all 32 measured grid rows to within 1 px
+- [x] Perspective view at the reference size: every reference line pixel has one of ours
+      within 1 px and vice versa (34,093 vs 34,097 line pixels); 88.6 % identical pixels,
+      the rest are 1-px rasterisation differences on diagonal lines
+- [x] Ortho views unchanged: 0 differing pixels (tripods masked)
+- [ ] On Windows: the perspective grid looks like R3's
 
 ## Notes
 - `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact

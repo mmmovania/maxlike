@@ -32,27 +32,45 @@ void Viewport::Render(HDC dc) {
     // OpenGL objects must be created with the context current, so the shared line
     // renderer is created on the first paint of whichever viewport comes first.
     if (!lines_->IsValid()) lines_->Create();
-    if (type_ != ViewType::Perspective)
+    if (type_ == ViewType::Perspective)
+        DrawPerspectiveGrid(rc.right, rc.bottom);
+    else
         DrawOrthoGrid(rc.right, rc.bottom);
-    // Step 2.2b: the perspective grid. Step 2.3: label and axis tripod.
+    // Step 2.3: label and axis tripod.
 
     SwapBuffers(dc); // show the finished back buffer
 }
 
 // Minor lines first, then major, then the axes, so darker lines are always on top.
+static const theme::Rgb kGridColours[3] = {theme::kGridMinor, theme::kGridMajor, theme::kGridAxis};
+
+// Ortho: lines computed in pixels (exactly R3's), drawn through pixel centres and
+// extended past both ends so no end pixel is lost.
 void Viewport::DrawOrthoGrid(int w, int h) {
-    std::vector<gl::LineRenderer::PixelLine> batch[3];
+    using Line = gl::LineRenderer::Line;
+    std::vector<Line> batch[3];
     for (const view::GridLine& l : view::OrthoGridLines(w, h, ortho_)) {
-        // Through the pixel centres, extended past both ends so no end pixel is lost.
         const float c = static_cast<float>(l.pixel) + 0.5f;
-        const gl::LineRenderer::PixelLine line = l.vertical
-            ? gl::LineRenderer::PixelLine{c, -1.0f, c, static_cast<float>(h) + 1.0f}
-            : gl::LineRenderer::PixelLine{-1.0f, c, static_cast<float>(w) + 1.0f, c};
+        const Line line = l.vertical ? Line{c, -1.0f, 0, c, static_cast<float>(h) + 1.0f, 0}
+                                     : Line{-1.0f, c, 0, static_cast<float>(w) + 1.0f, c, 0};
         batch[static_cast<int>(l.kind)].push_back(line);
     }
-    const theme::Rgb colours[3] = {theme::kGridMinor, theme::kGridMajor, theme::kGridAxis};
+    const math::Mat4 toClip = math::PixelToClip(w, h);
     for (int k = 0; k < 3; ++k)
-        lines_->Draw(batch[k], w, h, colours[k].R(), colours[k].G(), colours[k].B());
+        lines_->Draw(batch[k], toClip, kGridColours[k].R(), kGridColours[k].G(), kGridColours[k].B());
+}
+
+// Perspective: the home grid in world space, through the camera's matrices.
+void Viewport::DrawPerspectiveGrid(int w, int h) {
+    using Line = gl::LineRenderer::Line;
+    std::vector<Line> batch[3];
+    for (const view::WorldLine& l : view::HomeGridLines()) {
+        batch[l.kind].push_back({static_cast<float>(l.a.x), static_cast<float>(l.a.y), static_cast<float>(l.a.z),
+                                 static_cast<float>(l.b.x), static_cast<float>(l.b.y), static_cast<float>(l.b.z)});
+    }
+    const math::Mat4 viewProj = perspective_.ProjectionMatrix(w, h) * perspective_.ViewMatrix();
+    for (int k = 0; k < 3; ++k)
+        lines_->Draw(batch[k], viewProj, kGridColours[k].R(), kGridColours[k].G(), kGridColours[k].B());
 }
 
 void Viewport::PaintFallback(HDC dc) {

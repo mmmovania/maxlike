@@ -30,7 +30,10 @@ Active viewport (measured in Phase 2): the reference shows Top active, with a wh
   over `H − 0.5` pixels; a line at coordinate `u` lands in column
   `floor((W−1)/2 + 0.745 + u·scaleX)` and a line at `v` in row
   `floor((H−1)/2 + 0.22 − v·scaleY)` (top-down). Code: `src/view/OrthoGrid.*`.
-- Perspective: default FOV 45°; camera to be fitted to the reference (step 2.2b).
+- Perspective (fitted, step 2.2b): the camera looks at the origin from 250 units away,
+  15° above the ground, from the −Y side (looking along +Y), horizontal FOV 45°; the
+  home grid spans ±200 units (its far edge is the line Y = 200). Every line pixel lies
+  within 1 px of R3's. Code: `src/view/PerspectiveView.*`, `src/math/Mat4.*`.
 
 ## Layout (measured, client coordinates at 100%)
 Client area = below the menu bar; a maximised 1920×1040 window gives a 1920×998 client.

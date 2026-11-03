@@ -3,6 +3,7 @@
 #include <functional>
 #include <string>
 #include "view/OrthoGrid.h"
+#include "view/PerspectiveView.h"
 
 namespace gl { class GLContext; class LineRenderer; }
 
@@ -32,11 +33,13 @@ private:
     void PaintFallback(HDC dc); // GDI drawing when OpenGL is unavailable
 
     void DrawOrthoGrid(int width, int height);
+    void DrawPerspectiveGrid(int width, int height);
 
     gl::GLContext* context_ = nullptr;
     gl::LineRenderer* lines_ = nullptr;
     ViewType type_ = ViewType::Top;
-    view::OrthoView ortho_;   // what an ortho view shows (pan/zoom in step 2.5)
+    view::OrthoView ortho_;              // what an ortho view shows (pan/zoom in step 2.5)
+    view::PerspectiveView perspective_;  // the perspective camera (orbit in step 2.5)
 };
 
 } // namespace ui

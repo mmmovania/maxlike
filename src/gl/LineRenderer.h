@@ -1,15 +1,17 @@
 #pragma once
+#include "math/Mat4.h"
 #include <string>
 #include <vector>
 
 namespace gl {
 
-// Draws 1-px lines given in window pixels (top-down, like GDI), in one colour per
-// call. Owns a small shader program and a vertex buffer. All methods must be called
-// with the OpenGL context current; Create once, then Draw any number of times.
+// Draws 1-px lines in one colour per call. Every point is multiplied by a matrix in
+// the vertex shader, so the same renderer draws lines given in window pixels (matrix
+// = math::PixelToClip) and lines in the 3D world (matrix = projection * view).
+// All methods need the OpenGL context current; Create once, then Draw many times.
 class LineRenderer {
 public:
-    struct PixelLine { float x0, y0, x1, y1; }; // pixel coordinates; centre of pixel i is i + 0.5
+    struct Line { float x0, y0, z0, x1, y1, z1; };
 
     LineRenderer() = default;
     LineRenderer(const LineRenderer&) = delete;            // owns GPU objects:
@@ -20,14 +22,14 @@ public:
     bool IsValid() const { return program_ != 0; }
     const std::string& Error() const { return error_; }
 
-    // Draw `lines` in a viewport of `width` x `height` pixels with an RGB colour.
-    void Draw(const std::vector<PixelLine>& lines, int width, int height, float r, float g, float b);
+    // Draw `lines`, transformed by `matrix`, in an RGB colour.
+    void Draw(const std::vector<Line>& lines, const math::Mat4& matrix, float r, float g, float b);
 
 private:
     unsigned program_ = 0;  // GLuint
     unsigned vao_ = 0;
     unsigned vbo_ = 0;
-    int uViewport_ = -1;    // uniform locations
+    int uMatrix_ = -1;      // uniform locations
     int uColor_ = -1;
     std::string error_;
 };

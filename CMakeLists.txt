@@ -71,6 +71,10 @@ add_executable(maxlike WIN32
     src/gl/LineRenderer.h
     src/view/OrthoGrid.cpp
     src/view/OrthoGrid.h
+    src/view/PerspectiveView.cpp
+    src/view/PerspectiveView.h
+    src/math/Mat4.cpp
+    src/math/Mat4.h
     res/resource.h
     res/maxlike.rc
 )
@@ -124,3 +128,4 @@ maxlike_add_test(test_time_slider tests/test_time_slider.cpp src/ui/TimeSliderGe
 maxlike_add_test(test_status_layout tests/test_status_layout.cpp src/ui/StatusLayout.cpp)
 maxlike_add_test(test_viewport_layout tests/test_viewport_layout.cpp src/ui/ViewportLayout.cpp)
 maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp)
+maxlike_add_test(test_perspective tests/test_perspective.cpp src/math/Mat4.cpp src/view/PerspectiveView.cpp src/view/OrthoGrid.cpp)
