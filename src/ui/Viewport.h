@@ -4,6 +4,7 @@
 #include <string>
 #include "view/OrthoGrid.h"
 #include "view/PerspectiveView.h"
+#include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; }
 
@@ -20,6 +21,7 @@ public:
     // `lines` is the panel's shared line renderer (created lazily on first paint).
     bool Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines, ViewType type);
     ViewType Type() const { return type_; }
+    const wchar_t* Name() const;
 
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.Viewport"; }
@@ -34,12 +36,16 @@ private:
 
     void DrawOrthoGrid(int width, int height);
     void DrawPerspectiveGrid(int width, int height);
+    void DrawLabelAndTripod(int width, int height);
+    void ScreenAxes(double out[3][2]) const; // how X, Y, Z appear in this view
 
     gl::GLContext* context_ = nullptr;
     gl::LineRenderer* lines_ = nullptr;
     ViewType type_ = ViewType::Top;
     view::OrthoView ortho_;              // what an ortho view shows (pan/zoom in step 2.5)
     view::PerspectiveView perspective_;  // the perspective camera (orbit in step 2.5)
+    TextPixels label_;                   // the view's name, as pixels
+    UINT labelDpi_ = 0;                  // DPI the label was rendered for
 };
 
 } // namespace ui

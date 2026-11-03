@@ -25,7 +25,14 @@ public:
     // Draw `lines`, transformed by `matrix`, in an RGB colour.
     void Draw(const std::vector<Line>& lines, const math::Mat4& matrix, float r, float g, float b);
 
+    // Draw single pixels (1-px points) at `points` (x, y, z triples), transformed by
+    // `matrix`. With math::PixelToClip and coordinates i + 0.5, exactly pixel i.
+    void DrawPoints(const std::vector<float>& points, const math::Mat4& matrix, float r, float g, float b);
+
 private:
+    void Submit(const float* data, size_t floats, unsigned mode, const math::Mat4& matrix,
+                float r, float g, float b);
+
     unsigned program_ = 0;  // GLuint
     unsigned vao_ = 0;
     unsigned vbo_ = 0;

@@ -14,7 +14,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] **2.2b Perspective camera and grid**: R3's default camera fitted to the reference
       (target at the origin, distance 250, elevation 15°, 45° horizontal FOV); `math::Mat4`
       with `LookAt` / `PerspectiveHorizontal`; one matrix-based shader for both grids
-- [ ] 2.3 Labels and axis tripods
+- [x] **2.3 Labels and axis tripods**: tripods computed as exact pixels (`view::TripodPixels`,
+      measured rule and glyphs); labels drawn by GDI into an off-screen bitmap and read back
+      (`ui::RenderText`); both drawn as 1-px points
 - [ ] 2.4 Viewport interaction: right-click label menu, Min/Max toggle, splitter dragging
 - [ ] 2.5 Navigation: pan, zoom, orbit; the status-area navigation buttons
 - [ ] 2.6 Pixel check and `docs/tech/phase2-tech-docs.md`
@@ -49,6 +51,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
       the rest are 1-px rasterisation differences on diagonal lines
 - [x] Ortho views unchanged: 0 differing pixels (tripods masked)
 - [x] On Windows: the perspective grid looks like R3's
+
+## Step 2.3 verification
+- [x] Builds warning-free; ten test programs pass (MinGW + Wine); `test_tripod` holds all
+      four measured tripods (64 x 40 pixels each), identical
+- [x] Top, Front, Left at the reference size, grid + tripod: 0 differing pixels out of
+      1,089,324 (labels masked: Wine has no MS Sans Serif)
+- [x] Perspective tripod: the same 128 coloured pixels as the reference
+- [ ] On Windows: labels "Top", "Front", "Left", "Perspective" look like R3's
+      (font is a best guess: MS Sans Serif Bold 10 pt; compare letter shapes)
 
 ## Notes
 - `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact

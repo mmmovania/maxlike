@@ -87,7 +87,17 @@ bool LineRenderer::Create() {
 }
 
 void LineRenderer::Draw(const std::vector<Line>& lines, const math::Mat4& matrix, float r, float g, float b) {
-    if (!program_ || lines.empty()) return;
+    Submit(reinterpret_cast<const float*>(lines.data()), lines.size() * 6, GL_LINES, matrix, r, g, b);
+}
+
+void LineRenderer::DrawPoints(const std::vector<float>& points, const math::Mat4& matrix, float r, float g, float b) {
+    Submit(points.data(), points.size(), GL_POINTS, matrix, r, g, b);
+}
+
+// Upload `floats` floats (x, y, z per vertex) and draw them as lines or points.
+void LineRenderer::Submit(const float* data, size_t floats, unsigned mode, const math::Mat4& matrix,
+                          float r, float g, float b) {
+    if (!program_ || floats < 3) return;
     glUseProgram(program_);
     float m[16];
     matrix.ToFloats(m);
@@ -95,10 +105,9 @@ void LineRenderer::Draw(const std::vector<Line>& lines, const math::Mat4& matrix
     glUniform3f(uColor_, r, g, b);
     glBindVertexArray(vao_);
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    // Upload this batch (two points per line). Small and simple: a few hundred lines.
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(lines.size() * sizeof(Line)),
-                 lines.data(), GL_STREAM_DRAW);
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(lines.size() * 2));
+    // Upload this batch. Small and simple: at most a few thousand vertices.
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(floats * sizeof(float)), data, GL_STREAM_DRAW);
+    glDrawArrays(mode, 0, static_cast<GLsizei>(floats / 3));
     glBindVertexArray(0);
 }
 

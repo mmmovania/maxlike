@@ -116,6 +116,18 @@ Code: `src/ui/ViewportLayout.*` (geometry), `src/ui/ViewPanel.*` (frames).
   next to it the black borders appear 1 px wide.
 - At 1736 × 858: Top content x 3–865, area rows 4–426.
 
+## Viewport labels and axis tripods (measured, step 2.3)
+Code: `src/view/Tripod.*`, `src/ui/LabelText.*`, `Viewport::DrawLabelAndTripod`.
+
+- Label: `#E5E5E5`, drawn over the grid without background; text starts at x = 4, the top
+  of its ink at y = 4. Capitals 10 px with 2-px strokes: most likely MS Sans Serif Bold
+  10 pt (unverified).
+- Tripod: origin 25 px from the left and bottom; each axis ends at origin +
+  round(24.5 × its on-screen direction) (rounded in a y-up frame); a line from origin to
+  end, inclusive; the letter's top-left 9 px above the end. Letters: x 8×7, y 8×10 (with
+  descender), z 7×7 (first column empty). Drawn X, Y, Z (later covers earlier).
+  Colours `#FF0000`, `#00FF00`, `#0000FF`. All four reference tripods reproduced exactly.
+
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |
 |---|---|---|---|

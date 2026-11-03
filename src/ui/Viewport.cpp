@@ -4,6 +4,7 @@
 #include "gl/LineRenderer.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
+#include "view/Tripod.h"
 
 namespace ui {
 
@@ -36,7 +37,7 @@ void Viewport::Render(HDC dc) {
         DrawPerspectiveGrid(rc.right, rc.bottom);
     else
         DrawOrthoGrid(rc.right, rc.bottom);
-    // Step 2.3: label and axis tripod.
+    DrawLabelAndTripod(rc.right, rc.bottom);
 
     SwapBuffers(dc); // show the finished back buffer
 }
@@ -71,6 +72,68 @@ void Viewport::DrawPerspectiveGrid(int w, int h) {
     const math::Mat4 viewProj = perspective_.ProjectionMatrix(w, h) * perspective_.ViewMatrix();
     for (int k = 0; k < 3; ++k)
         lines_->Draw(batch[k], viewProj, kGridColours[k].R(), kGridColours[k].G(), kGridColours[k].B());
+}
+
+const wchar_t* Viewport::Name() const {
+    switch (type_) {
+    case ViewType::Top:         return L"Top";
+    case ViewType::Front:       return L"Front";
+    case ViewType::Left:        return L"Left";
+    case ViewType::Perspective: return L"Perspective";
+    }
+    return L"";
+}
+
+// How world X, Y, Z appear on screen: components along screen-right and screen-up.
+void Viewport::ScreenAxes(double out[3][2]) const {
+    auto set = [&](double xr, double xu, double yr, double yu, double zr, double zu) {
+        out[0][0] = xr; out[0][1] = xu; out[1][0] = yr; out[1][1] = yu; out[2][0] = zr; out[2][1] = zu;
+    };
+    switch (type_) {
+    case ViewType::Top:   set(1, 0, 0, 1, 0, 0);  break; // looking down -Z
+    case ViewType::Front: set(1, 0, 0, 0, 0, 1);  break; // looking along +Y
+    case ViewType::Left:  set(0, 0, -1, 0, 0, 1); break; // looking along +X: +Y points left
+    case ViewType::Perspective: {
+        // The camera's right and up directions, from its view matrix rows.
+        const math::Mat4 v = perspective_.ViewMatrix();
+        for (int a = 0; a < 3; ++a) {
+            out[a][0] = v.m[a][0];   // world axis a . camera right
+            out[a][1] = v.m[a][1];   // world axis a . camera up
+        }
+        break;
+    }
+    }
+}
+
+// The label (top-left) and the axis tripod (bottom-left), as single pixels drawn
+// over the grid, in viewport pixel coordinates.
+void Viewport::DrawLabelAndTripod(int w, int h) {
+    const math::Mat4 toClip = math::PixelToClip(w, h);
+    auto centre = [](int x, int y, std::vector<float>& v) {
+        v.push_back(static_cast<float>(x) + 0.5f);
+        v.push_back(static_cast<float>(y) + 0.5f);
+        v.push_back(0.0f);
+    };
+
+    // Label: rendered once per DPI (measured: text starts at x 4, ink top at y 4).
+    if (labelDpi_ != Dpi()) {
+        HFONT font = CreateViewportLabelFont(Dpi());
+        label_ = RenderText(Name(), font, Scale(4), Scale(4));
+        DeleteObject(font);
+        labelDpi_ = Dpi();
+    }
+    std::vector<float> text;
+    for (const POINT& p : label_.pixels) centre(p.x, p.y, text);
+    lines_->DrawPoints(text, toClip, theme::kViewportLabel.R(), theme::kViewportLabel.G(), theme::kViewportLabel.B());
+
+    // Tripod: in axis order, so later axes cover earlier ones as in R3.
+    double axes[3][2];
+    ScreenAxes(axes);
+    std::vector<float> pts[3];
+    for (const view::TripodPixel& p : view::TripodPixels(axes, h)) centre(p.x, p.y, pts[p.axis]);
+    const theme::Rgb colours[3] = {theme::kTripodX, theme::kTripodY, theme::kTripodZ};
+    for (int a = 0; a < 3; ++a)
+        lines_->DrawPoints(pts[a], toClip, colours[a].R(), colours[a].G(), colours[a].B());
 }
 
 void Viewport::PaintFallback(HDC dc) {
