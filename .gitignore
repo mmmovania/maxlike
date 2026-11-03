@@ -30,3 +30,4 @@ CMakeFiles/
 Thumbs.db
 .DS_Store
 *.aps
+*.patch 
