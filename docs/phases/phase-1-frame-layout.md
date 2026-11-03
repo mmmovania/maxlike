@@ -95,7 +95,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       listener font
 
 ## Step 1.5c verification
-- [x] Builds warning-free; seven test programs pass (MinGW + Wine)
+- [x] Builds warning-free; six test programs pass (MinGW + Wine)
 - [x] Pixel comparison of the right side under Wine (icon cells, label and field text
       masked): 7 differing pixels, all icon art inside the Zoom Extents button
 - [x] Under Wine: Animate toggles red; Go to End gives 100 in slider and field; typing 42

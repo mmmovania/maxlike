@@ -1,6 +1,8 @@
 # Plan and acceptance criteria
 
 Each phase lives on `phase/<n>-<name>` and merges into `main` when every criterion passes.
+Every phase ends with a technical document, `docs/tech/phase<n>-tech-docs.md`, collecting
+the explanations, design reasons and lessons of that phase (index: `docs/tech/README.md`).
 
 ## Phase 0 — Skeleton (`phase/0-skeleton`)
 - [ ] CMake project builds with MSVC (Debug/Release, Unicode, C++17).

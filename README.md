@@ -48,3 +48,12 @@ git switch main && git merge spec
 ```
 
 Each phase branch has a checklist in `docs/phases/`; tick items off as you go.
+
+## Documentation
+
+| Where | What |
+|---|---|
+| `docs/spec/` | Specification: decisions, measured UI look, plan, menus |
+| `docs/phases/` | Per-phase checklists and verification results |
+| `docs/tech/` | Technical documentation, one per finished phase |
+| `docs/reference/` | Reference screenshot and earlier `.max` reader notes |
