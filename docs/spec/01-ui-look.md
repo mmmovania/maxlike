@@ -70,6 +70,19 @@ Code: `src/ui/TimeSliderGeometry.*`, `src/ui/TimeSlider.*`, `src/ui/TrackBar.*`.
   15 `#A0A0A0`; the last column stays `#E1E1E1`. A "[" marker in `#1E1E1E` at x = 0
   at frame 0 (meaning unverified; drawn at the current frame).
 
+## Status area, left part (measured, step 1.5b)
+Code: `src/ui/StatusLayout.*`, `src/ui/StatusBar.*`. Rows are relative to the status-area top.
+
+- Mini-listener: two `EDIT` controls with `WS_EX_CLIENTEDGE`, x = 1, 148 wide, y 2–24
+  (pink `#DBC3C3`, read-only output) and y 25–47 (white, input).
+- Splitter: 2 px after the listener, 4 columns (white, face, `#A0A0A0`, black), full
+  height; its top row is white across the first three columns. Draggable.
+- Prompt lines: thin sunken fields (`#A0A0A0` / white, R3 corner convention), 21 high at
+  y = 4 and y = 29, starting 2 px after the splitter; text 7 px from the left.
+- Right-anchored (offsets from the right edge, left..right): lock 620..591, X 591..521,
+  Y 519..449, Z 447..377, grid 375..275 (top row); top prompt ends at 620, bottom
+  prompt at 566, empty field 564..464 (bottom row, purpose unverified).
+
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |
 |---|---|---|---|
@@ -136,6 +149,19 @@ Code: `src/ui/TimeSliderGeometry.*`, `src/ui/TimeSlider.*`, `src/ui/TrackBar.*`.
 - Track bar (16 px): rows 0–1 white, 2 `#A0A0A0`, 3–13 `#E1E1E1`, 14 white,
   15 `#A0A0A0`; the last column stays `#E1E1E1`. A "[" marker in `#1E1E1E` at x = 0
   at frame 0 (meaning unverified; drawn at the current frame).
+
+## Status area, left part (measured, step 1.5b)
+Code: `src/ui/StatusLayout.*`, `src/ui/StatusBar.*`. Rows are relative to the status-area top.
+
+- Mini-listener: two `EDIT` controls with `WS_EX_CLIENTEDGE`, x = 1, 148 wide, y 2–24
+  (pink `#DBC3C3`, read-only output) and y 25–47 (white, input).
+- Splitter: 2 px after the listener, 4 columns (white, face, `#A0A0A0`, black), full
+  height; its top row is white across the first three columns. Draggable.
+- Prompt lines: thin sunken fields (`#A0A0A0` / white, R3 corner convention), 21 high at
+  y = 4 and y = 29, starting 2 px after the splitter; text 7 px from the left.
+- Right-anchored (offsets from the right edge, left..right): lock 620..591, X 591..521,
+  Y 519..449, Z 447..377, grid 375..275 (top row); top prompt ends at 620, bottom
+  prompt at 566, empty field 564..464 (bottom row, purpose unverified).
 
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |

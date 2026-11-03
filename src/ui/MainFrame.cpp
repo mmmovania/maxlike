@@ -44,9 +44,9 @@ std::array<win::Window*, 7> MainFrame::Regions() {
 
 bool MainFrame::CreateRegions() {
     if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd()) ||
-        !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()))
+        !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()) || !statusArea_.Create(Hwnd()))
         return false;
-    for (Placeholder* r : {&viewports_, &commandPanel_, &statusArea_})
+    for (Placeholder* r : {&viewports_, &commandPanel_})
         if (!r->Create(Hwnd()))
             return false;
 
@@ -56,16 +56,20 @@ bool MainFrame::CreateRegions() {
     };
     // The track bar follows the time slider. Later the current frame will live in
     // the scene's animation state, and both will just display it.
-    timeSlider_.onFrameChanged = [this](int frame) {
-        trackBar_.SetFrame(frame);
-        statusArea_.SetLabel(L"Status area   (frame " + std::to_wstring(frame) + L")");
+    timeSlider_.onFrameChanged = [this](int frame) { trackBar_.SetFrame(frame); };
+
+    statusArea_.onListenerInput = [this](const std::wstring& text) {
+        statusArea_.SetListenerOutput(text + L"  -- MAXScript is not implemented yet");
+    };
+    statusArea_.onLockChanged = [this](bool locked) {
+        statusArea_.SetPrompt(1, locked ? L"Selection locked" : L"Selection unlocked");
     };
 
     // Toolbar buttons and menu items share one command handler.
     mainToolbar_.onCommand = [this](const std::string& command) { OnCommand(command); };
     mainToolbar_.onComboChanged = [this](const std::string& command, const std::wstring& text) {
         const std::wstring name(command.begin(), command.end()); // command names are ASCII
-        statusArea_.SetLabel(L"Status area   (" + name + L" = " + text + L", not implemented)");
+        statusArea_.SetPrompt(1, name + L" = " + text + L"  (not implemented yet)");
     };
     return true;
 }
@@ -114,9 +118,9 @@ void MainFrame::OnCommand(const std::string& command) {
                             L"\n\nA 3D Studio MAX R3.1 look-alike for Windows.";
         MessageBoxW(Hwnd(), text.c_str(), L"About maxlike", MB_OK | MB_ICONINFORMATION);
     } else {
-        // Not implemented yet: show which command fired in the status area.
+        // Not implemented yet: show which command fired on the prompt line.
         std::wstring name(command.begin(), command.end()); // command names are ASCII
-        statusArea_.SetLabel(L"Status area   (last command: " + name + L", not implemented)");
+        statusArea_.SetPrompt(1, name + L"  (not implemented yet)");
     }
 }
 

@@ -2,6 +2,7 @@
 #include "win/Window.h"
 #include "ui/CommandTable.h"
 #include "ui/Placeholder.h"
+#include "ui/StatusBar.h"
 #include "ui/TabPanel.h"
 #include "ui/TimeSlider.h"
 #include "ui/TrackBar.h"
@@ -45,7 +46,7 @@ private:
     TimeSlider  timeSlider_;
     TrackBar    trackBar_;
     Placeholder commandPanel_{L"Command panel", Edge::Raised};
-    Placeholder statusArea_  {L"Status area",   Edge::Outline};
+    StatusBar   statusArea_;
 };
 
 } // namespace ui

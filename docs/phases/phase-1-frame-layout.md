@@ -20,7 +20,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       release picks an alternative, which becomes the button's face and runs its command
 - [x] **1.5a Time slider and track bar**: custom-drawn `TimeSlider` (drag, arrows with
       auto-repeat, click-to-jump) and `TrackBar`; geometry in `TimeSliderGeometry` (unit-tested)
-- [ ] 1.5b Status area, left: MAXScript mini-listener, prompt lines, lock, X/Y/Z, grid
+- [x] **1.5b Status area, left**: `StatusBar` with the MAXScript mini-listener (two real
+      EDIT controls), draggable splitter, prompt lines, selection lock, X/Y/Z and grid
+      fields; layout in `StatusLayout` (unit-tested)
 - [ ] 1.5c Status area, right: snap toggles, Animate, playback, frame field, navigation
 - [ ] 1.6 Overlay check against the reference screenshot
 
@@ -78,6 +80,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [ ] On Windows: drag, arrows (hold to repeat), and clicking the trough all work
 - [ ] Unverified against R3.1: pressed arrow look, repeat timing, trough click behaviour,
       meaning of the track-bar "[" marker
+
+## Step 1.5b verification
+- [x] Builds warning-free; six test programs pass (MinGW + Wine)
+- [x] Pixel comparison under Wine (text and padlock masked, Wine's system palette
+      normalised): 0 differing pixels in the step 1.5b area
+- [x] Under Wine: Enter in the listener echoes to the pink line; lock toggles; splitter drags
+- [ ] On Windows: the same three behaviours; prompt line 2 shows toolbar/menu commands
+- [ ] Unverified against R3.1: purpose of the empty bottom-row field, lock icon art,
+      listener font
 
 ## Notes
 - Measurements are client-relative at 100%: client top = bottom of the menu bar
