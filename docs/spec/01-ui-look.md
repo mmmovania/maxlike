@@ -12,15 +12,15 @@ Measured from `docs/reference/screenshots/max-r3.1-default-1920x1040.png`
 | Home-grid axes through origin | `#000000` |
 | Viewport label text | `#E5E5E5` |
 | Tripod X / Y / Z | `#FF0000` / `#00FF00` / `#0000FF` |
-| Viewport frame, outer | `#A0A0A0` top-left, `#FFFFFF` bottom-right |
-| Viewport frame, inner | `#000000` top-left, `#C0C0C0` bottom-right |
+| Viewport border (2 px) | `#FFFFFF` around the active viewport, `#000000` around the others |
+| Viewport ring (1 px, inside the border) | `#C0C0C0` |
 | UI face | `GetSysColor(COLOR_BTNFACE)` (`#F0F0F0` on Win10, `#D4D0C8` on Win2000) |
 | Menu bar | `#FFFFFF` (system menu) |
 | MAXScript mini-listener | `#DBC3C3` |
 | Name and Color default swatch (sample) | random per object, e.g. `#8D073A` |
 
-Unverified: active viewport highlight colour. Take a screenshot in Max after clicking a
-viewport and fill this in.
+Active viewport (measured in Phase 2): the reference shows Top active, with a white
+2-px border; see "Viewport frames" below.
 
 ## Grid
 - Spacing 10 units; major line every 10 minor lines; status bar shows `Grid = 10.0`.
@@ -98,6 +98,17 @@ drawn by the same `Toolbar` control as the main toolbar.
   EDIT inside. It selects its text on focus; Enter sets the frame.
 - Item names, tooltips and flyout alternatives: from memory, unverified.
 
+## Viewport frames (measured, step 2.1)
+Code: `src/ui/ViewportLayout.*` (geometry), `src/ui/ViewPanel.*` (frames).
+
+- The area's first row is a 1-px line: white at x = 0, `#A0A0A0` elsewhere.
+- Each viewport: 2-px border (white if active, black otherwise), a 1-px `#C0C0C0` ring,
+  then the content (inset 3 px).
+- Split lines at x = width / 2 and y = 1 + (height − 1) / 2 (column 868 and area row 429
+  at 1736 × 858); neighbours share that line. The active viewport is drawn last, so
+  next to it the black borders appear 1 px wide.
+- At 1736 × 858: Top content x 3–865, area rows 4–426.
+
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |
 |---|---|---|---|
@@ -137,71 +148,6 @@ Code: `src/ui/ToolbarSpec.*` (items + layout), `src/ui/Toolbar.*` (drawing, inpu
   Holding 300 ms opens a vertical strip whose first cell lies over the button.
 - Unverified: hover look (a thin raised ring for now), pressed look, tooltip texts,
   combo entries, flyout alternatives, flyout strip look and delay.
-
-## Tab panel (measured, step 1.3)
-Code: `src/ui/TabStrip.*` (geometry), `src/ui/TabPanel.*` (drawing).
-
-- 11 tabs, fixed width 89 px, first tab at x = 4, no gaps, 15 px high; labels centred.
-- Each tab, columns/rows relative to its top-left (w = 89, h = 15):
-  row 0 highlight cols 2..w-4 and dark col w-3; row 1 highlight col 1, dark col w-2;
-  rows 2..h-2 highlight col 0, dark col w-1; bottom row highlight across inactive tabs,
-  only col 0 for the active tab (open towards the toolbar).
-- Inactive: fill `#A0A0B3`, dark edge `#A0A0A0`. Active: face fill, dark edge `#000000`.
-- The bottom highlight continues from the last tab to 4 px from the right edge.
-- Frame around tab panel + toolbar: highlight column at x = 0, `#A0A0A0` column at
-  x = width − 2 (continues into the toolbar area; finish in step 1.4).
-
-## Time slider and track bar (measured, step 1.5a)
-Code: `src/ui/TimeSliderGeometry.*`, `src/ui/TimeSlider.*`, `src/ui/TrackBar.*`.
-
-- Time slider (17 px): trough `#E1E1E1`. A 157-px block slides along it: "<" (16 px),
-  thumb (125 px), ">" (16 px); at frame 0 it starts at x = 0, at the last frame it ends
-  at the right edge.
-- Arrow buttons: rings white / `#696969` and `#E3E3E3` / `#A0A0A0` (Windows corner
-  convention); 1-px chevron 7 rows tall from row 5, spanning columns 6–9.
-- Thumb: ring white / black (R3 corner convention), inner `#A0A0A0` at the right and
-  bottom, one white pixel at the inner bottom-left; label "frame / end", centred.
-- Track bar (16 px): rows 0–1 white, 2 `#A0A0A0`, 3–13 `#E1E1E1`, 14 white,
-  15 `#A0A0A0`; the last column stays `#E1E1E1`. A "[" marker in `#1E1E1E` at x = 0
-  at frame 0 (meaning unverified; drawn at the current frame).
-
-## Status area, left part (measured, step 1.5b)
-Code: `src/ui/StatusLayout.*`, `src/ui/StatusBar.*`. Rows are relative to the status-area top.
-
-- Mini-listener: two `EDIT` controls with `WS_EX_CLIENTEDGE`, x = 1, 148 wide, y 2–24
-  (pink `#DBC3C3`, read-only output) and y 25–47 (white, input).
-- Splitter: 2 px after the listener, 4 columns (white, face, `#A0A0A0`, black), full
-  height; its top row is white across the first three columns. Draggable.
-- Prompt lines: thin sunken fields (`#A0A0A0` / white, R3 corner convention), 21 high at
-  y = 4 and y = 29, starting 2 px after the splitter; text 7 px from the left.
-- Right-anchored (offsets from the right edge, left..right): lock 620..591, X 591..521,
-  Y 519..449, Z 447..377, grid 375..275 (top row); top prompt ends at 620, bottom
-  prompt at 566, Time Tag field 564..464 (bottom row; tooltip "Time Tag"; in R3 a
-  click opens a menu to add/edit tags, not implemented yet).
-
-## Status area, right part (measured, step 1.5c)
-Code: `toolbar::StatusSnapConfig` / `StatusAnimConfig` in `src/ui/ToolbarSpec.cpp`,
-drawn by the same `Toolbar` control as the main toolbar.
-
-- Two fixed-size groups anchored to the right edge: toggles/snaps 464..275 from the right,
-  rows 26–49; Animate/playback/navigation 275..0 from the right, full height.
-- Buttons 23 × 22 with 16 × 16 icons at (4, 3); separators as on the main toolbar;
-  the flyout notch sits 1 px further right than on the main toolbar.
-- Animate: 48 × 44, raised with two rings white / `#A0A0A0` (R3 corners); red when on
-  (colour unverified).
-- Frame field: drawn frame, outer `#A0A0A0` / white, inner black / face; a borderless
-  EDIT inside. It selects its text on focus; Enter sets the frame.
-- Item names, tooltips and flyout alternatives: from memory, unverified.
-
-## Viewports (default)
-| Pos | View | Construction plane | Tripod labels |
-|---|---|---|---|
-| Top-left | Top | XY | x right, y up |
-| Top-right | Front | XZ | x right, z up |
-| Bottom-left | Left | YZ | y left, z up (check screenshot) |
-| Bottom-right | Perspective | XY | x, y, z |
-
-Label: top-left, ~6 px inset. Tripod: bottom-left, ~40×40 px.
 
 ## Main toolbar (left to right)
 Help, Undo, Redo, Select and Link, Unlink, Bind to Space Warp, Select Object,

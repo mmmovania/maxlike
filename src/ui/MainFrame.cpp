@@ -45,11 +45,9 @@ std::array<win::Window*, 7> MainFrame::Regions() {
 
 bool MainFrame::CreateRegions() {
     if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd(), toolbar::MainToolbarConfig()) ||
-        !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()) || !statusArea_.Create(Hwnd()))
+        !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()) || !statusArea_.Create(Hwnd()) ||
+        !viewports_.Create(Hwnd()) || !commandPanel_.Create(Hwnd()))
         return false;
-    for (Placeholder* r : {&viewports_, &commandPanel_})
-        if (!r->Create(Hwnd()))
-            return false;
 
     tabPanel_.onTabChanged = [this](int index) {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];

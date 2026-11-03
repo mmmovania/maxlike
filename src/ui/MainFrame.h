@@ -6,6 +6,7 @@
 #include "ui/TabPanel.h"
 #include "ui/TimeSlider.h"
 #include "ui/TrackBar.h"
+#include "ui/ViewPanel.h"
 #include "ui/Toolbar.h"
 #include <array>
 #include <string>
@@ -42,8 +43,7 @@ private:
     // their real controls step by step.
     TabPanel    tabPanel_;
     Toolbar     mainToolbar_;
-    Placeholder viewports_   {L"Viewports",     Edge::ViewportFrame,
-                              RGB(0xB0, 0xB0, 0xB0), RGB(0xE5, 0xE5, 0xE5)};
+    ViewPanel   viewports_;
     TimeSlider  timeSlider_;
     TrackBar    trackBar_;
     Placeholder commandPanel_{L"Command panel", Edge::CommandPanel};
