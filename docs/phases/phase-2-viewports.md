@@ -38,7 +38,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
       all of them axis-tripod letters (step 2.3)
 - [x] Found and fixed before it shipped: GPU-object cleanup (now `LineRenderer::Release`
       on the panel's `WM_DESTROY`, while the viewport windows still exist)
-- [ ] On Windows: the grids in Top, Front and Left look like R3's; Perspective is still
+- [x] On Windows: the grids in Top, Front and Left look like R3's; Perspective is still
       plain grey
 
 ## Step 2.2b verification
@@ -48,7 +48,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
       within 1 px and vice versa (34,093 vs 34,097 line pixels); 88.6 % identical pixels,
       the rest are 1-px rasterisation differences on diagonal lines
 - [x] Ortho views unchanged: 0 differing pixels (tripods masked)
-- [ ] On Windows: the perspective grid looks like R3's
+- [x] On Windows: the perspective grid looks like R3's
 
 ## Notes
 - `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact
