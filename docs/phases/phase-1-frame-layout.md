@@ -27,7 +27,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       reused for two status groups: toggles/snaps, and Animate/playback/key mode/frame
       field/navigation; 29 original 16-px icons; Time Tag tooltip; playback buttons and the
       frame field drive the time slider
-- [ ] 1.6 Overlay check against the reference screenshot
+- [x] **1.6 Overlay check**: whole window at 1920 × 1040 compared with the reference;
+      command-panel outer frame and the frame pixels above the tab panel fixed
 
 ## Step 1.1 verification
 - [x] Builds warning-free; `ctest` passes (checked with MinGW + Wine)
@@ -102,6 +103,23 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [ ] On Windows: the same; toggles, flyouts and tooltips in both groups
 - [ ] Unverified against R3.1: names/tooltips of all status buttons, flyout alternatives,
       Animate's "on" colour, the Time Tag click menu (not implemented)
+
+## Step 1.6 verification (whole window, Wine, 1920 × 1040 virtual desktop)
+Compared with the reference, aligned at the tab panel (top) and the track bar (bottom);
+masked: label text, icon art, Wine-drawn combo/edit interiors; Wine's system greys
+normalised.
+
+| Region | Compared | Differing |
+|---|---|---|
+| Tab panel + main toolbar (full width) | 75,602 | 0 |
+| Command panel outer frame | 5,045 | 0 |
+| Time slider + track bar + status area (full width) | 91,282 | 236 |
+
+The 236: 229 are the command panel's inner rollout area (Phase 4), 7 are icon art in the
+Zoom Extents button. Not compared yet: viewport frames and contents (Phase 2), command
+panel tabs and rollouts (Phase 4), title bar and menu bar (drawn by Windows).
+
+- [ ] On Windows: a final look at 1920 × 1080, maximised
 
 ## Notes
 - Measurements are client-relative at 100%: client top = bottom of the menu bar

@@ -1,5 +1,6 @@
 #include "ui/MainFrame.h"
 #include "ui/FrameLayout.h"
+#include "ui/Bevel.h"
 #include "ui/MenuBuilder.h"
 #include "ui/MenuSpec.h"
 #include "ui/TabStrip.h"
@@ -156,6 +157,18 @@ void MainFrame::OnPaint() {
     PAINTSTRUCT ps;
     HDC dc = BeginPaint(Hwnd(), &ps);
     FillRect(dc, &ps.rcPaint, theme::FaceBrush());
+
+    // The frame around the tab panel and toolbar starts in the gap above the tab
+    // panel (measured, rows 1..3): a white top-left corner and the two edge columns.
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    const int gap = Scale(metrics::TopGap);
+    if (rc.right > 4 && gap > 1) {
+        const COLORREF hi = theme::kButtonHighlight.Ref();
+        FillSolid(dc, {0, 1, 4, 2}, hi);
+        FillSolid(dc, {0, 1, 1, gap}, hi);
+        FillSolid(dc, {rc.right - 2, 1, rc.right - 1, gap}, theme::kButtonShadow.Ref());
+    }
     EndPaint(Hwnd(), &ps);
 }
 

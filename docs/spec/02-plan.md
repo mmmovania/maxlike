@@ -9,12 +9,26 @@ Each phase lives on `phase/<n>-<name>` and merges into `main` when every criteri
 - [ ] Per-monitor DPI awareness; metric scaling helper.
 - [ ] Empty main window titled `Untitled - <app name>`.
 
-## Phase 1 — Frame layout (`phase/1-frame-layout`)
-- [ ] Menu bar with all R3 top-level menus.
-- [ ] Tab panel switching button strips.
-- [ ] Custom-drawn main toolbar with flyouts, check states and combos.
-- [ ] Placeholders for viewport area, command panel, time slider, status area.
-- [ ] Overlay test: matches the reference screenshot at 1920×1040.
+## Phase 1 — Frame layout (`phase/1-frame-layout`) ✔ v0.1.0
+- [x] Menu bar with all R3 top-level menus.
+- [x] Tab panel switching button strips (only the Main Toolbar strip has buttons; see
+      "Tab panel strips" below).
+- [x] Custom-drawn main toolbar with flyouts, check states and combos.
+- [x] Time slider, track bar and the full status area (beyond the planned placeholders);
+      placeholders for the viewport area and command panel.
+- [x] Overlay test at 1920×1040: 0.137% of 171,929 compared pixels differ, all in parts
+      that later phases replace (command panel rollouts) or in icon art.
+
+## Tab panel strips (decision, Phase 1)
+The other tab-panel strips are built together with the features they belong to, so each
+arrives working rather than as empty buttons. Each needs a screenshot of that tab in R3.1.
+| Tab | Built with |
+|---|---|
+| Objects | Phase 5 (creating primitives) |
+| Shapes, Compounds, Particles | when splines / compounds / particles exist (after Phase 8) |
+| Lights & Cameras, Helpers, SpaceWarps | when those object types exist (after Phase 8) |
+| Modifiers, Modeling | Phase 7 (modify panel) |
+| Rendering | when rendering exists (after Phase 8) |
 
 ## Phase 2 — Viewports (`phase/2-viewports`)
 - [ ] Four GL child windows sharing one context; sunken frames and gaps.

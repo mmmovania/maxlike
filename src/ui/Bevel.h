@@ -9,6 +9,7 @@ enum class Edge {
     Raised,        // classic raised 3D edge (DrawEdge EDGE_RAISED), e.g. command panel
     Sunken,        // classic sunken 3D edge (DrawEdge EDGE_SUNKEN)
     ViewportFrame, // the two-ring frame around viewports (refined in Phase 2)
+    CommandPanel,  // the command panel's outer frame (measured; tabs and rollouts: Phase 4)
 };
 
 // Fill a rectangle with a colour, without creating a brush.

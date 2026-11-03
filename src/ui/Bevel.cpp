@@ -45,6 +45,33 @@ RECT DrawFrameEdge(HDC dc, RECT r, Edge edge) {
     case Edge::Sunken:
         DrawEdge(dc, &r, EDGE_SUNKEN, BF_RECT | BF_ADJUST);
         return r;
+    case Edge::CommandPanel: {
+        // Measured at 100% (x, y relative to the panel; w, h its size):
+        //   row 0          : shadow across x 0..w-2 (the last column stays face)
+        //   x 0, y 3..h-4  : highlight;  x 1, y 3..h-4 : light
+        //   x w-3, y 28    : highlight;  x w-3, y 29..h-4 : shadow
+        //   x w-2, y 28..h-2 : dark shadow
+        //   bottom rows h-3 / h-2 / h-1 : (highlight, shadow..., dark) /
+        //                                 dark... / (highlight, shadow...)
+        // Rows 1..27 at the top hold the panel's own tabs (Phase 4).
+        const int x = r.left, y = r.top, w = r.right - r.left, h = r.bottom - r.top;
+        if (w < 8 || h < 40) return r;
+        const COLORREF hi = theme::kButtonHighlight.Ref(), lt = theme::kLight.Ref();
+        const COLORREF sh = theme::kButtonShadow.Ref(), dk = theme::kDarkShadow.Ref();
+        auto fill = [&](int l, int t, int rr, int b, COLORREF c) { FillSolid(dc, {x + l, y + t, x + rr, y + b}, c); };
+        fill(0, 0, w - 1, 1, sh);                    // top row
+        fill(0, 3, 1, h - 3, hi);                    // left highlight
+        fill(1, 3, 2, h - 3, lt);                    // left light
+        fill(w - 3, 28, w - 2, 29, hi);              // right: top pixel
+        fill(w - 3, 29, w - 2, h - 3, sh);           // right shadow
+        fill(w - 2, 28, w - 1, h - 1, dk);           // right dark shadow
+        fill(0, h - 3, 1, h - 2, hi);                // bottom row h-3
+        fill(1, h - 3, w - 2, h - 2, sh);
+        fill(0, h - 2, w - 1, h - 1, dk);            // bottom row h-2
+        fill(0, h - 1, 1, h, hi);                    // bottom row h-1
+        fill(1, h - 1, w - 1, h, sh);
+        return {x + 2, y + 1, x + w - 3, y + h - 3};
+    }
     case Edge::ViewportFrame:
         DrawRing(dc, r, theme::kFrameOuterTL.Ref(), theme::kFrameOuterBR.Ref());
         r = Shrink(r, 1);

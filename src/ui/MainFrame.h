@@ -46,7 +46,7 @@ private:
                               RGB(0xB0, 0xB0, 0xB0), RGB(0xE5, 0xE5, 0xE5)};
     TimeSlider  timeSlider_;
     TrackBar    trackBar_;
-    Placeholder commandPanel_{L"Command panel", Edge::Raised};
+    Placeholder commandPanel_{L"Command panel", Edge::CommandPanel};
     StatusBar   statusArea_;
 };
 
