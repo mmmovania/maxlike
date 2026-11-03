@@ -21,16 +21,17 @@ Toolbar::~Toolbar() {
     if (icons_) DeleteObject(icons_);
 }
 
-bool Toolbar::Create(HWND parent) {
-    items_ = toolbar::MainToolbarSpec();
+bool Toolbar::Create(HWND parent, toolbar::Config config) {
+    config_ = std::move(config);
+    items_ = config_.items;
     checked_.resize(items_.size());
     for (size_t i = 0; i < items_.size(); ++i)
         checked_[i] = items_[i].checked;
 
     // LR_CREATEDIBSECTION keeps the exact colours (no conversion to the display format).
-    icons_ = static_cast<HBITMAP>(LoadImageW(win::App::Instance(),
-                                             MAKEINTRESOURCEW(IDB_TOOLBAR_ICONS), IMAGE_BITMAP,
-                                             0, 0, LR_CREATEDIBSECTION));
+    const int bitmapId = config_.icons == toolbar::IconStrip::Main ? IDB_TOOLBAR_ICONS : IDB_STATUS_ICONS;
+    icons_ = static_cast<HBITMAP>(LoadImageW(win::App::Instance(), MAKEINTRESOURCEW(bitmapId),
+                                             IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
     CreateParams p;
     p.title  = L"Main toolbar";
     // WS_CLIPCHILDREN: our painting must not draw over the combo boxes.
@@ -40,15 +41,30 @@ bool Toolbar::Create(HWND parent) {
     p.parent = parent;
     if (!win::Window::Create(p))
         return false;
-    CreateCombos();
+    CreateControls();
     CreateTooltips();
     return true;
 }
 
-void Toolbar::CreateCombos() {
+void Toolbar::CreateControls() {
     combos_.assign(items_.size(), nullptr);
+    editOldProcs_.assign(items_.size(), nullptr);
     for (size_t i = 0; i < items_.size(); ++i) {
         const toolbar::Item& it = items_[i];
+        if (it.kind == Kind::Edit) {
+            // A borderless EDIT; the toolbar draws R3's frame around it.
+            HWND edit = CreateWindowExW(0, L"EDIT", it.text.c_str(),
+                                        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+                                        0, 0, 0, 0, Hwnd(),
+                                        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kComboIdBase + i)),
+                                        win::App::Instance(), nullptr);
+            // Subclass it to catch Enter (see StatusBar for the same technique).
+            SetWindowLongPtrW(edit, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+            editOldProcs_[i] = reinterpret_cast<WNDPROC>(
+                SetWindowLongPtrW(edit, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&Toolbar::EditProc)));
+            combos_[i] = edit;
+            continue;
+        }
         if (it.kind != Kind::Combo) continue;
         // DROPDOWNLIST: pick from a list only. DROPDOWN: a list plus an edit box.
         const DWORD kindStyle = it.editable ? (CBS_DROPDOWN | CBS_AUTOHSCROLL) : CBS_DROPDOWNLIST;
@@ -90,7 +106,7 @@ void Toolbar::CreateTooltips() {
             // watch our mouse messages itself.
             ti.uFlags = TTF_SUBCLASS;
             ti.uId = i;
-        } else if (it.kind == Kind::Combo && combos_[i]) {
+        } else if ((it.kind == Kind::Combo || it.kind == Kind::Edit) && combos_[i]) {
             // A whole child window is the "tool".
             ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
             ti.uId = reinterpret_cast<UINT_PTR>(combos_[i]);
@@ -99,6 +115,35 @@ void Toolbar::CreateTooltips() {
         }
         SendMessageW(tooltip_, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&ti));
     }
+}
+
+LRESULT CALLBACK Toolbar::EditProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* self = reinterpret_cast<Toolbar*>(GetWindowLongPtrW(h, GWLP_USERDATA));
+    const size_t index = static_cast<size_t>(GetDlgCtrlID(h) - kComboIdBase);
+    if (!self || index >= self->editOldProcs_.size())
+        return DefWindowProcW(h, msg, wp, lp);
+    if (msg == WM_SETFOCUS) {
+        // Select everything on entry so typing replaces the number. (Classic EDIT
+        // controls have no Ctrl+A.)
+        const LRESULT r = CallWindowProcW(self->editOldProcs_[index], h, msg, wp, lp);
+        PostMessageW(h, EM_SETSEL, 0, -1); // posted: the click that focused us comes first
+        return r;
+    }
+    if (msg == WM_CHAR && wp == VK_RETURN) {
+        const int len = GetWindowTextLengthW(h);
+        std::wstring text(static_cast<size_t>(len), L'\0');
+        if (len > 0) GetWindowTextW(h, text.data(), len + 1);
+        if (self->onEditCommitted) self->onEditCommitted(self->items_[index].command, text);
+        SetFocus(GetAncestor(h, GA_ROOT)); // done typing: keyboard back to the app
+        return 0;
+    }
+    return CallWindowProcW(self->editOldProcs_[index], h, msg, wp, lp);
+}
+
+void Toolbar::SetEditText(const std::string& command, const std::wstring& text) {
+    for (size_t i = 0; i < items_.size(); ++i)
+        if (items_[i].kind == Kind::Edit && items_[i].command == command && combos_[i])
+            SetWindowTextW(combos_[i], text.c_str());
 }
 
 void Toolbar::ShowStrip(int index, const std::wstring& label) {
@@ -115,11 +160,15 @@ void Toolbar::ShowStrip(int index, const std::wstring& label) {
 void Toolbar::Relayout() {
     RECT rc;
     GetClientRect(Hwnd(), &rc);
-    rects_ = toolbar::LayoutToolbar(items_, rc.bottom, Dpi());
+    rects_ = toolbar::LayoutItems(config_, rc.right, rc.bottom, Dpi());
 
     for (size_t i = 0; i < items_.size(); ++i) {
         const Rect& r = rects_[i];
-        if (combos_.size() > i && combos_[i]) {
+        if (combos_.size() > i && combos_[i] && items_[i].kind == Kind::Edit) {
+            // Inside the 2-px frame the toolbar draws.
+            SetWindowPos(combos_[i], nullptr, r.left + 2, r.top + 2, r.Width() - 4, r.Height() - 4,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        } else if (combos_.size() > i && combos_[i]) {
             // For a combo box the height passed here is the *dropped-down* height;
             // the closed height follows from the font (21 px with our 8 pt font).
             SetWindowPos(combos_[i], nullptr, r.left, r.top, r.Width(), Scale(200),
@@ -182,7 +231,8 @@ void Toolbar::OpenFlyout() {
     int current = 0;
     for (size_t a = 0; a < items_[i].flyout.size(); ++a)
         if (items_[i].flyout[a].command == items_[i].command) current = static_cast<int>(a);
-    if (flyout_.Open(Hwnd(), items_[i].flyout, current, icons_, RECT{tl.x, tl.y, br.x, br.y})) {
+    if (flyout_.Open(Hwnd(), items_[i].flyout, current, icons_, RECT{tl.x, tl.y, br.x, br.y},
+                     config_.iconSize, config_.iconOffsetX, config_.iconOffsetY)) {
         flyoutItem_ = pressed_;
         POINT pt;
         GetCursorPos(&pt);
@@ -216,6 +266,10 @@ void Toolbar::ChooseAlternative(size_t index, int alternative) {
 
 void Toolbar::Activate(size_t index) {
     const toolbar::Item& it = items_[index];
+    if (it.toggle) {
+        checked_[index] = !checked_[index];
+        InvalidateItem(static_cast<int>(index));
+    }
     if (!it.group.empty()) {
         // Radio group: exactly one button of the group is checked.
         for (size_t j = 0; j < items_.size(); ++j) {
@@ -243,26 +297,39 @@ void Toolbar::PaintButton(HDC dc, HDC iconDc, size_t i) {
     const bool checked = checked_[i];
     const COLORREF face = theme::Face();
 
+    const bool labelled = it.icon < 0 && !it.text.empty(); // e.g. "Animate"
     if (checked || down) {
         // Sunken: outer ring shadow/highlight, inner ring face/highlight.
         ButtonRing(dc, r, theme::kButtonShadow.Ref(), theme::kButtonHighlight.Ref());
         ButtonRing(dc, Inset(r, 1), face, theme::kButtonHighlight.Ref());
         COLORREF fill = face;
-        if (checked) fill = (it.group == "mode") ? theme::kButtonModeActive.Ref()
+        if (checked) fill = it.alarm            ? theme::kButtonAlarm.Ref()
+                          : (it.group == "mode") ? theme::kButtonModeActive.Ref()
                                                  : theme::kButtonChecked.Ref();
         const Rect in = Inset(r, 2);
         FillSolid(dc, {in.left, in.top, in.right, in.bottom}, fill);
+    } else if (labelled) {
+        // Labelled buttons are always raised (measured on Animate): two rings
+        // highlight / shadow, R3 corner convention.
+        ButtonRing(dc, r, theme::kButtonHighlight.Ref(), theme::kButtonShadow.Ref());
+        ButtonRing(dc, Inset(r, 1), theme::kButtonHighlight.Ref(), theme::kButtonShadow.Ref());
     } else if (static_cast<int>(i) == hot_) {
         // Hover: thin raised ring. NOTE: R3's hover look is not yet verified.
         ButtonRing(dc, r, theme::kButtonHighlight.Ref(), theme::kButtonShadow.Ref());
     }
 
-    // Icon, 24x24 at (4,3), scaled with the DPI. Magenta pixels are transparent.
+    // Icon at the config's offset, scaled with the DPI. Magenta pixels are transparent.
     if (icons_ && it.icon >= 0) {
-        const int size = Scale(toolbar::kIconSize);
-        TransparentBlt(dc, r.left + Scale(toolbar::kIconOffsetX), r.top + Scale(toolbar::kIconOffsetY),
-                       size, size, iconDc, it.icon * toolbar::kIconSize, 0,
-                       toolbar::kIconSize, toolbar::kIconSize, RGB(255, 0, 255));
+        const int cell = config_.iconSize;
+        const int size = Scale(cell);
+        TransparentBlt(dc, r.left + Scale(config_.iconOffsetX), r.top + Scale(config_.iconOffsetY),
+                       size, size, iconDc, it.icon * cell, 0, cell, cell, RGB(255, 0, 255));
+    }
+    if (labelled) {
+        RECT t{r.left, r.top, r.right, r.bottom};
+        if (checked || down) OffsetRect(&t, 1, 1);
+        SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
+        DrawTextW(dc, it.text.c_str(), -1, &t, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
 
     // Flyout marker (measured): a small embossed notch in the bottom-right corner.
@@ -276,19 +343,25 @@ void Toolbar::PaintButton(HDC dc, HDC iconDc, size_t i) {
         const COLORREF bandColour = sunken ? RGB(0, 0, 0) : theme::kButtonHighlight.Ref();
         const COLORREF triColour  = sunken ? theme::kButtonShadow.Ref() : RGB(0, 0, 0);
         // Anchored to the bottom-right corner so it stays in the corner at any DPI.
-        const int ox = r.right - toolbar::kButtonWidth, oy = r.bottom - toolbar::kButtonHeight;
+        const int ox = r.right - toolbar::kButtonWidth + config_.flyoutMarkerDx;
+        const int oy = r.bottom - toolbar::kButtonHeight;
         for (const auto& c : band) FillSolid(dc, {ox + c[1], oy + c[0], ox + c[1] + 1, oy + c[0] + 1}, bandColour);
         for (const auto& c : tri)  FillSolid(dc, {ox + c[1], oy + c[0], ox + c[1] + 1, oy + c[0] + 1}, triColour);
     }
 }
 
 void Toolbar::PaintSeparator(HDC dc, const Rect& r) {
-    // Etched line (measured): shadow at +3, highlight at +4, rows 12..27.
+    // Etched line (measured): shadow at +3, highlight at +4, over the item's height.
     const int x = r.left + Scale(3);
-    const int top = Scale(toolbar::kSeparatorTop);
-    const int bottom = top + Scale(toolbar::kSeparatorHeight);
-    FillSolid(dc, {x, top, x + 1, bottom}, theme::kButtonShadow.Ref());
-    FillSolid(dc, {x + 1, top, x + 2, bottom}, theme::kButtonHighlight.Ref());
+    FillSolid(dc, {x, r.top, x + 1, r.bottom}, theme::kButtonShadow.Ref());
+    FillSolid(dc, {x + 1, r.top, x + 2, r.bottom}, theme::kButtonHighlight.Ref());
+}
+
+// R3's own edit frame (measured on the frame field): outer ring shadow / highlight,
+// inner ring black / face, both with the R3 corner convention.
+void Toolbar::PaintEditFrame(HDC dc, const Rect& r) {
+    ButtonRing(dc, r, theme::kButtonShadow.Ref(), theme::kButtonHighlight.Ref());
+    ButtonRing(dc, Inset(r, 1), RGB(0, 0, 0), theme::Face());
 }
 
 void Toolbar::OnPaint() {
@@ -297,10 +370,12 @@ void Toolbar::OnPaint() {
     RECT rc;
     GetClientRect(Hwnd(), &rc);
     FillSolid(dc, rc, theme::Face());
-    // Frame shared with the tab panel above (measured): highlight column at x=0,
-    // shadow column 2 px from the right.
-    FillSolid(dc, {0, 0, 1, rc.bottom}, theme::kButtonHighlight.Ref());
-    FillSolid(dc, {rc.right - 2, 0, rc.right - 1, rc.bottom}, theme::kButtonShadow.Ref());
+    if (config_.frameEdges) {
+        // Frame shared with the tab panel above (measured): highlight column at x=0,
+        // shadow column 2 px from the right.
+        FillSolid(dc, {0, 0, 1, rc.bottom}, theme::kButtonHighlight.Ref());
+        FillSolid(dc, {rc.right - 2, 0, rc.right - 1, rc.bottom}, theme::kButtonShadow.Ref());
+    }
 
     HGDIOBJ oldFont = SelectObject(dc, font_ ? font_ : GetStockObject(DEFAULT_GUI_FONT));
     SetBkMode(dc, TRANSPARENT);
@@ -313,6 +388,7 @@ void Toolbar::OnPaint() {
             case Kind::Button:    PaintButton(dc, iconDc, i); break;
             case Kind::Separator: PaintSeparator(dc, rects_[i]); break;
             case Kind::Combo:     break; // real child windows draw themselves
+            case Kind::Edit:      PaintEditFrame(dc, rects_[i]); break;
             case Kind::Gap:       break;
             }
         }
@@ -357,7 +433,8 @@ LRESULT Toolbar::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
     case WM_COMMAND: {
         // Notifications from our combo boxes: control ID in LOWORD, code in HIWORD.
         const int id = LOWORD(wp) - kComboIdBase;
-        if (id >= 0 && static_cast<size_t>(id) < combos_.size() && combos_[static_cast<size_t>(id)]) {
+        if (id >= 0 && static_cast<size_t>(id) < combos_.size() && combos_[static_cast<size_t>(id)] &&
+            items_[static_cast<size_t>(id)].kind == Kind::Combo) {
             OnComboCommand(static_cast<size_t>(id), HIWORD(wp));
             return 0;
         }

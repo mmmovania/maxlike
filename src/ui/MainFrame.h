@@ -30,6 +30,7 @@ private:
     void RecreateFonts();
     void OnPaint();
     void OnCommand(const std::string& command);
+    void ShowFrame(int frame);
 
     std::array<win::Window*, 7> Regions();
 

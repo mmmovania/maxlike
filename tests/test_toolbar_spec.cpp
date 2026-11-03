@@ -32,7 +32,8 @@ static void PositionsMatchReference() {
         case Kind::Separator:
             CHECK(sp < std::size(sepLines) && rects[i].left + 3 == sepLines[sp]);
             ++sp; break;
-        case Kind::Gap: break;
+        case Kind::Gap:
+        case Kind::Edit: break;
         }
     }
     CHECK(b == std::size(buttons));
@@ -101,8 +102,66 @@ static void FlyoutsMatchReference() {
     CHECK(flyouts == 7);
 }
 
+// Status-area groups: every item inside its group, buttons never overlap, the
+// status icons are each used exactly once, commands unique across all toolbars.
+static void StatusGroupsAreWellFormed() {
+    const Config groups[] = {StatusSnapConfig(), StatusAnimConfig()};
+    const int widths[]  = {kStatusSnapWidth, kStatusAnimWidth};
+    const int heights[] = {kStatusSnapHeight, 50};
+    std::set<int> icons;
+    std::set<std::string> commands;
+    for (const Item& it : MainToolbarSpec()) {           // main toolbar commands
+        if (it.flyout.empty()) commands.insert(it.command);
+        for (const Alternative& a : it.flyout) commands.insert(a.command);
+    }
+    for (int g = 0; g < 2; ++g) {
+        const Config& c = groups[g];
+        CHECK(c.explicitLayout && c.icons == IconStrip::Status && !c.frameEdges && !c.hasStrips);
+        const auto rects = LayoutItems(c, widths[g], heights[g], 96);
+        for (size_t i = 0; i < c.items.size(); ++i) {
+            const Item& it = c.items[i];
+            const ui::Rect& r = rects[i];
+            CHECK(r.left >= 0 && r.top >= 0 && r.right <= widths[g] && r.bottom <= heights[g]);
+            if (it.kind == Kind::Button) {
+                auto add = [&](const std::string& cmd, int icon) {
+                    CHECK(commands.insert(cmd).second);
+                    if (icon >= 0) { CHECK(icon < kStatusIconCount); CHECK(icons.insert(icon).second); }
+                };
+                if (it.flyout.empty()) add(it.command, it.icon);
+                for (const Alternative& a : it.flyout) add(a.command, a.icon);
+                CHECK(it.icon >= 0 || !it.text.empty());   // icon or a text label
+                for (size_t j = 0; j < i; ++j) {            // no overlapping buttons
+                    if (c.items[j].kind != Kind::Button) continue;
+                    const ui::Rect& o = rects[j];
+                    CHECK(r.right <= o.left || o.right <= r.left || r.bottom <= o.top || o.bottom <= r.top);
+                }
+            }
+            if (it.kind == Kind::Edit) CHECK(commands.insert(it.command).second);
+        }
+    }
+    CHECK(static_cast<int>(icons.size()) == kStatusIconCount);
+}
+
+static void StatusMatchesReference() {
+    // Measured (status-area coordinates in the 1920-wide reference): the pressed
+    // degradation toggle at 1518..1540 x 28..49 lies in the snap group placed at
+    // (1456, 26); the Animate button at 1649..1696 x 3..46 in the anim group at (1645, 0).
+    const Config snap = StatusSnapConfig();
+    const auto sr = LayoutItems(snap, kStatusSnapWidth, kStatusSnapHeight, 96);
+    CHECK(sr[2].left + 1456 == 1518 && sr[2].right + 1456 == 1541);
+    CHECK(sr[2].top + 26 == 28 && sr[2].bottom + 26 == 50);
+    CHECK(snap.items[2].checked);
+    const Config anim = StatusAnimConfig();
+    const auto ar = LayoutItems(anim, kStatusAnimWidth, 50, 96);
+    CHECK(ar[0].left + 1645 == 1649 && ar[0].right + 1645 == 1697);
+    CHECK(ar[0].top == 3 && ar[0].bottom == 47);
+    CHECK(anim.items[0].text == L"Animate" && anim.items[0].alarm && anim.items[0].toggle);
+}
+
 int main() {
     FlyoutsMatchReference();
+    StatusGroupsAreWellFormed();
+    StatusMatchesReference();
     PositionsMatchReference();
     ItemsAreWellFormed();
     ScalesWithoutGaps();

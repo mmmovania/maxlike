@@ -43,7 +43,7 @@ std::array<win::Window*, 7> MainFrame::Regions() {
 }
 
 bool MainFrame::CreateRegions() {
-    if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd()) ||
+    if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd(), toolbar::MainToolbarConfig()) ||
         !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()) || !statusArea_.Create(Hwnd()))
         return false;
     for (Placeholder* r : {&viewports_, &commandPanel_})
@@ -56,7 +56,12 @@ bool MainFrame::CreateRegions() {
     };
     // The track bar follows the time slider. Later the current frame will live in
     // the scene's animation state, and both will just display it.
-    timeSlider_.onFrameChanged = [this](int frame) { trackBar_.SetFrame(frame); };
+    timeSlider_.onFrameChanged = [this](int frame) { ShowFrame(frame); };
+    statusArea_.onFrameEntered = [this](int frame) {
+        timeSlider_.SetFrame(frame);
+        ShowFrame(timeSlider_.Frame()); // clamped to the range
+    };
+    statusArea_.onCommand = [this](const std::string& command) { OnCommand(command); };
 
     statusArea_.onListenerInput = [this](const std::wstring& text) {
         statusArea_.SetListenerOutput(text + L"  -- MAXScript is not implemented yet");
@@ -107,7 +112,28 @@ void MainFrame::RecreateFonts() {
     if (old) DeleteObject(old);
 }
 
+// Until animation exists, the time slider holds the current frame; the other
+// controls only display it.
+void MainFrame::ShowFrame(int frame) {
+    trackBar_.SetFrame(frame);
+    statusArea_.SetFrame(frame);
+}
+
 void MainFrame::OnCommand(const std::string& command) {
+    // Playback buttons that already make sense without animation: move the frame.
+    const int frame = timeSlider_.Frame();
+    int target = frame;
+    if (command == "anim.go_start")   target = 0;
+    if (command == "anim.go_end")     target = 100;
+    if (command == "anim.prev_frame") target = frame - 1;
+    if (command == "anim.next_frame") target = frame + 1;
+    if (command == "anim.go_start" || command == "anim.go_end" ||
+        command == "anim.prev_frame" || command == "anim.next_frame") {
+        timeSlider_.SetFrame(target);
+        ShowFrame(timeSlider_.Frame());
+        return;
+    }
+
     if (command == "file.exit") {
         // Same path as the close button, so a future "save changes?" prompt
         // in WM_CLOSE covers both.

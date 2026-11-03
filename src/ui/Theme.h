@@ -45,6 +45,8 @@ inline constexpr Rgb kButtonHighlight  {0xFF, 0xFF, 0xFF};
 inline constexpr Rgb kButtonShadow     {0xA0, 0xA0, 0xA0};
 inline constexpr Rgb kButtonModeActive {0xC0, 0xFF, 0xC0}; // active mode, e.g. Select Object
 inline constexpr Rgb kButtonChecked    {0xE1, 0xE1, 0xE1}; // other checked buttons, e.g. XY
+// NOTE: R3's exact colour for Animate when on is not verified.
+inline constexpr Rgb kButtonAlarm      {0xD0, 0x30, 0x30}; // Animate on
 
 // ---- Time slider and track bar (measured) ----
 inline constexpr Rgb kSliderTrough {0xE1, 0xE1, 0xE1};

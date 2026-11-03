@@ -27,7 +27,9 @@ static void ReferenceLayout() {
     Check("y",              L.y,              {1401, 4, 1471, 25});
     Check("z",              L.z,              {1473, 4, 1543, 25});
     Check("grid",           L.grid,           {1545, 4, 1645, 25});
-    Check("spare",          L.spare,          {1356, 29, 1456, 50});
+    Check("timeTag",        L.timeTag,        {1356, 29, 1456, 50});
+    Check("snapTools",      L.snapTools,      {1456, 26, 1645, 50});
+    Check("animTools",      L.animTools,      {1645, 0, 1920, 50});
 }
 
 static void ListenerResizes() {
@@ -43,7 +45,7 @@ static void NarrowWindowNeverNegative() {
     for (int w : {0, 50, 300, 700}) {
         const Layout L = ComputeStatusLayout(w, 50, kDefaultListenerWidth, 96);
         for (const ui::Rect* r : {&L.listenerTop, &L.listenerBottom, &L.splitter, &L.promptTop,
-                                  &L.promptBottom, &L.lock, &L.x, &L.y, &L.z, &L.grid, &L.spare})
+                                  &L.promptBottom, &L.lock, &L.x, &L.y, &L.z, &L.grid, &L.timeTag, &L.snapTools, &L.animTools})
             if (r->Width() < 0 || r->Height() < 0) { ++failures; std::printf("FAIL negative at w=%d\n", w); }
     }
 }

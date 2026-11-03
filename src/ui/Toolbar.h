@@ -8,17 +8,23 @@
 
 namespace ui {
 
-// The R3 main toolbar: one custom-drawn window for the buttons and separators,
-// with real combo-box child windows and a tooltip control.
+// A custom-drawn R3-style toolbar: buttons and separators drawn here, combo boxes and
+// edit fields as real child windows, plus tooltips and flyouts. A toolbar::Config
+// decides its items, layout and icons, so the same control serves as the main
+// toolbar and as the button groups in the status area.
 class Toolbar : public win::Window {
 public:
     // Called with the command name when a button is clicked.
     std::function<void(const std::string&)> onCommand;
     // Called when the user picks an entry in a combo box (command name, entry text).
     std::function<void(const std::string&, const std::wstring&)> onComboChanged;
+    // Called when the user presses Enter in an edit field (command name, text).
+    std::function<void(const std::string&, const std::wstring&)> onEditCommitted;
 
     ~Toolbar() override;
-    bool Create(HWND parent);
+    bool Create(HWND parent, toolbar::Config config);
+
+    void SetEditText(const std::string& command, const std::wstring& text);
 
     // Which tab panel strip to show. 0 = Main Toolbar; the others are not built yet.
     void ShowStrip(int index, const std::wstring& label);
@@ -28,7 +34,7 @@ protected:
     LRESULT HandleMessage(UINT msg, WPARAM wp, LPARAM lp) override;
 
 private:
-    void CreateCombos();
+    void CreateControls();
     void CreateTooltips();
     void Relayout();
     int  HitTest(int x, int y) const;        // index of a button, or -1
@@ -41,8 +47,11 @@ private:
     void OnPaint();
     void PaintButton(HDC dc, HDC iconDc, size_t index);
     void PaintSeparator(HDC dc, const Rect& r);
+    void PaintEditFrame(HDC dc, const Rect& r);
     void OnComboCommand(size_t index, int code);
+    static LRESULT CALLBACK EditProc(HWND, UINT, WPARAM, LPARAM);
 
+    toolbar::Config config_;
     std::vector<toolbar::Item> items_;
     std::vector<Rect> rects_;
     std::vector<bool> checked_;
@@ -53,7 +62,8 @@ private:
     bool trackingLeave_ = false;
     int  strip_ = 0;
     std::wstring stripLabel_;
-    std::vector<HWND> combos_;  // parallel to items_; nullptr for non-combo items
+    std::vector<HWND> combos_;  // parallel to items_: the combo or edit child, else nullptr
+    std::vector<WNDPROC> editOldProcs_; // parallel to items_: original EDIT procedures
     HWND tooltip_ = nullptr;    // owned popup; destroyed with this window
     HBITMAP icons_ = nullptr;
     HFONT font_ = nullptr;   // from the parent via WM_SETFONT; not owned

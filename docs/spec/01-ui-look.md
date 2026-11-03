@@ -81,7 +81,22 @@ Code: `src/ui/StatusLayout.*`, `src/ui/StatusBar.*`. Rows are relative to the st
   y = 4 and y = 29, starting 2 px after the splitter; text 7 px from the left.
 - Right-anchored (offsets from the right edge, left..right): lock 620..591, X 591..521,
   Y 519..449, Z 447..377, grid 375..275 (top row); top prompt ends at 620, bottom
-  prompt at 566, empty field 564..464 (bottom row, purpose unverified).
+  prompt at 566, Time Tag field 564..464 (bottom row; tooltip "Time Tag"; in R3 a
+  click opens a menu to add/edit tags, not implemented yet).
+
+## Status area, right part (measured, step 1.5c)
+Code: `toolbar::StatusSnapConfig` / `StatusAnimConfig` in `src/ui/ToolbarSpec.cpp`,
+drawn by the same `Toolbar` control as the main toolbar.
+
+- Two fixed-size groups anchored to the right edge: toggles/snaps 464..275 from the right,
+  rows 26–49; Animate/playback/navigation 275..0 from the right, full height.
+- Buttons 23 × 22 with 16 × 16 icons at (4, 3); separators as on the main toolbar;
+  the flyout notch sits 1 px further right than on the main toolbar.
+- Animate: 48 × 44, raised with two rings white / `#A0A0A0` (R3 corners); red when on
+  (colour unverified).
+- Frame field: drawn frame, outer `#A0A0A0` / white, inner black / face; a borderless
+  EDIT inside. It selects its text on focus; Enter sets the frame.
+- Item names, tooltips and flyout alternatives: from memory, unverified.
 
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |
@@ -161,7 +176,22 @@ Code: `src/ui/StatusLayout.*`, `src/ui/StatusBar.*`. Rows are relative to the st
   y = 4 and y = 29, starting 2 px after the splitter; text 7 px from the left.
 - Right-anchored (offsets from the right edge, left..right): lock 620..591, X 591..521,
   Y 519..449, Z 447..377, grid 375..275 (top row); top prompt ends at 620, bottom
-  prompt at 566, empty field 564..464 (bottom row, purpose unverified).
+  prompt at 566, Time Tag field 564..464 (bottom row; tooltip "Time Tag"; in R3 a
+  click opens a menu to add/edit tags, not implemented yet).
+
+## Status area, right part (measured, step 1.5c)
+Code: `toolbar::StatusSnapConfig` / `StatusAnimConfig` in `src/ui/ToolbarSpec.cpp`,
+drawn by the same `Toolbar` control as the main toolbar.
+
+- Two fixed-size groups anchored to the right edge: toggles/snaps 464..275 from the right,
+  rows 26–49; Animate/playback/navigation 275..0 from the right, full height.
+- Buttons 23 × 22 with 16 × 16 icons at (4, 3); separators as on the main toolbar;
+  the flyout notch sits 1 px further right than on the main toolbar.
+- Animate: 48 × 44, raised with two rings white / `#A0A0A0` (R3 corners); red when on
+  (colour unverified).
+- Frame field: drawn frame, outer `#A0A0A0` / white, inner black / face; a borderless
+  EDIT inside. It selects its text on focus; Enter sets the frame.
+- Item names, tooltips and flyout alternatives: from memory, unverified.
 
 ## Viewports (default)
 | Pos | View | Construction plane | Tripod labels |

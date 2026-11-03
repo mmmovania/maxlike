@@ -23,7 +23,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] **1.5b Status area, left**: `StatusBar` with the MAXScript mini-listener (two real
       EDIT controls), draggable splitter, prompt lines, selection lock, X/Y/Z and grid
       fields; layout in `StatusLayout` (unit-tested)
-- [ ] 1.5c Status area, right: snap toggles, Animate, playback, frame field, navigation
+- [x] **1.5c Status area, right**: `Toolbar` made config-driven (`toolbar::Config`) and
+      reused for two status groups: toggles/snaps, and Animate/playback/key mode/frame
+      field/navigation; 29 original 16-px icons; Time Tag tooltip; playback buttons and the
+      frame field drive the time slider
 - [ ] 1.6 Overlay check against the reference screenshot
 
 ## Step 1.1 verification
@@ -89,6 +92,16 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [ ] On Windows: the same three behaviours; prompt line 2 shows toolbar/menu commands
 - [ ] Unverified against R3.1: purpose of the empty bottom-row field, lock icon art,
       listener font
+
+## Step 1.5c verification
+- [x] Builds warning-free; seven test programs pass (MinGW + Wine)
+- [x] Pixel comparison of the right side under Wine (icon cells, label and field text
+      masked): 7 differing pixels, all icon art inside the Zoom Extents button
+- [x] Under Wine: Animate toggles red; Go to End gives 100 in slider and field; typing 42
+      in the frame field moves the slider to 42
+- [ ] On Windows: the same; toggles, flyouts and tooltips in both groups
+- [ ] Unverified against R3.1: names/tooltips of all status buttons, flyout alternatives,
+      Animate's "on" colour, the Time Tag click menu (not implemented)
 
 ## Notes
 - Measurements are client-relative at 100%: client top = bottom of the menu bar

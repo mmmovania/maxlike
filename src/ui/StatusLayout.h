@@ -1,8 +1,8 @@
 #pragma once
 #include "ui/FrameLayout.h" // ui::Rect
 
-// Layout of the left part of the R3 status area (step 1.5b), with no Windows
-// dependency (unit-tested in tests/test_status_layout.cpp).
+// Layout of the R3 status area, with no Windows dependency (unit-tested in
+// tests/test_status_layout.cpp).
 //
 // Measured at 100% in a 1920-wide window. Left part: listener, splitter, prompt
 // lines (they stretch). Right part: fields anchored to the right edge.
@@ -19,7 +19,9 @@ struct Layout {
     Rect lock;            // selection lock toggle
     Rect x, y, z;         // coordinate display / type-in
     Rect grid;            // "Grid = 10.0"
-    Rect spare;           // empty field on the bottom row (purpose unverified)
+    Rect timeTag;         // "Time Tag" field on the bottom row
+    Rect snapTools;       // toggles and snaps, bottom row (step 1.5c)
+    Rect animTools;       // Animate, playback, frame field, navigation (step 1.5c)
 };
 
 // `listenerWidth` is at 100% (default 148); it is clamped so the prompts keep room.

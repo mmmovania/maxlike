@@ -1,7 +1,9 @@
-"""Generates res/toolbar_icons.bmp: original placeholder icons for the main toolbar.
+"""Generates the toolbar icon strips (original placeholder art):
 
-One 24x24 cell per icon, left to right in the order of ui::toolbar::Icon
-(src/ui/ToolbarSpec.h). Magenta (#FF00FF) is the transparent colour.
+  res/toolbar_icons.bmp  24x24 cells, main toolbar, order of ui::toolbar::Icon
+  res/status_icons.bmp   16x16 cells, status-area buttons, order of ui::toolbar::StatusIcon
+
+Both in src/ui/ToolbarSpec.h. Magenta (#FF00FF) is the transparent colour.
 Drawn pixel-exact with no anti-aliasing, in the spirit of 1999 toolbar art.
 
     python tools/make_icons.py          (needs Pillow: pip install pillow)
@@ -240,6 +242,115 @@ def icon(d, n):
         d.polygon([(17, 2), (21, 2), (18, 7), (21, 7), (14, 14), (16, 8), (14, 8)], fill=YELLOW, outline=INK)
 
 
+
+# ---------------------------------------------------------------- 16x16 status icons
+def tri(d, pts, c=DARK):
+    d.polygon(pts, fill=c)
+
+
+def magnet(d, x, y):
+    # A small horseshoe magnet (snap toggles).
+    d.arc([x, y, x + 8, y + 8], 90, 360, fill=RED, width=3)
+    d.rectangle([x + 6, y + 4, x + 8, y + 8], fill=RED)
+    d.rectangle([x + 6, y + 7, x + 8, y + 8], fill=GREY)
+    d.rectangle([x, y + 4, x + 2, y + 5], fill=GREY)
+
+
+def status_icon(d, n):
+    if n == 0:    # degradation override: a plain rounded box
+        d.rounded_rectangle([1, 4, 14, 12], radius=3, fill=WHITE, outline=GREY)
+    elif n == 1:  # window/crossing: dotted box with a sphere crossing it
+        for x in range(1, 14, 2):
+            d.point([(x, 2), (x, 12)], fill=INK)
+        for y in range(2, 13, 2):
+            d.point([(1, y), (12, y)], fill=INK)
+        d.ellipse([8, 6, 14, 12], fill=GREY, outline=INK)
+    elif n == 2:  # adaptive degradation: shaded cube
+        d.polygon([(2, 5), (8, 2), (14, 5), (8, 8)], fill=WHITE, outline=INK)
+        d.polygon([(2, 5), (8, 8), (8, 14), (2, 11)], fill=GREY, outline=INK)
+        d.polygon([(8, 8), (14, 5), (14, 11), (8, 14)], fill=DARK, outline=INK)
+    elif n in (3, 4, 5):  # 3D / 2.5D / 2D snap
+        magnet(d, 1, 5)
+        label = {3: "3", 4: "2.5", 5: "2"}[n]
+        if label == "3":
+            d.line([(11, 1), (14, 1), (12, 3), (14, 4), (11, 6)], fill=INK)
+        elif label == "2":
+            d.line([(11, 1), (14, 1), (14, 3), (11, 5), (14, 5)], fill=INK)
+        else:
+            d.line([(10, 1), (12, 1), (12, 2), (10, 4), (12, 4)], fill=INK)
+            d.point([(13, 4)], fill=INK); d.line([(14, 1), (15, 1), (14, 2), (15, 3), (14, 4)], fill=INK)
+    elif n == 6:  # angle snap
+        magnet(d, 1, 6)
+        d.line([(9, 13), (15, 13)], fill=INK); d.line([(9, 13), (14, 4)], fill=INK)
+    elif n == 7:  # percent snap
+        magnet(d, 1, 6)
+        d.point([(10, 1), (14, 5)], fill=INK); d.line([(14, 1), (10, 5)], fill=INK)
+    elif n == 8:  # spinner snap
+        magnet(d, 1, 6)
+        d.rectangle([11, 2, 15, 12], outline=GREY)
+        tri(d, [(13, 3), (12, 6), (14, 6)]); tri(d, [(13, 11), (12, 8), (14, 8)])
+    elif n == 9:   # go to start
+        d.rectangle([2, 4, 3, 11], fill=BLUE); tri(d, [(4, 8), (9, 4), (9, 12)], BLUE); tri(d, [(9, 8), (14, 4), (14, 12)], BLUE)
+    elif n == 10:  # previous frame
+        d.rectangle([3, 4, 5, 11], fill=BLUE); tri(d, [(7, 8), (12, 3), (12, 13)], BLUE)
+    elif n == 11:  # play
+        tri(d, [(4, 3), (13, 8), (4, 13)], BLUE)
+    elif n == 12:  # play selected
+        tri(d, [(4, 3), (13, 8), (4, 13)], LBLUE)
+        d.rectangle([1, 1, 14, 14], outline=GREY)
+    elif n == 13:  # next frame
+        tri(d, [(4, 3), (9, 8), (4, 13)], BLUE); d.rectangle([11, 4, 13, 11], fill=BLUE)
+    elif n == 14:  # go to end
+        tri(d, [(2, 4), (7, 8), (2, 12)], BLUE); tri(d, [(7, 4), (12, 8), (7, 12)], BLUE); d.rectangle([12, 4, 13, 11], fill=BLUE)
+    elif n == 15:  # key mode
+        d.ellipse([1, 5, 6, 10], outline=BLUE, width=2)
+        d.rectangle([6, 7, 14, 8], fill=BLUE); d.rectangle([11, 9, 12, 10], fill=BLUE); d.rectangle([14, 9, 14, 10], fill=BLUE)
+    elif n == 16:  # time configuration: page with a clock
+        d.rectangle([1, 1, 11, 12], fill=WHITE, outline=BLUE); d.rectangle([1, 1, 11, 3], fill=BLUE)
+        d.ellipse([7, 7, 15, 15], fill=WHITE, outline=RED); d.line([(11, 9), (11, 11), (13, 11)], fill=RED)
+    elif n in (17, 18):  # zoom / zoom all
+        if n == 18:
+            d.rectangle([5, 1, 15, 11], outline=RED); d.line([(10, 1), (10, 11)], fill=RED); d.line([(5, 6), (15, 6)], fill=RED)
+        d.ellipse([1, 4, 9, 12] if n == 18 else [2, 1, 11, 10], fill=WHITE, outline=INK)
+        if n == 17:
+            d.line([(10, 9), (14, 13)], fill=INK, width=2)
+        else:
+            d.line([(8, 11), (11, 14)], fill=INK, width=2)
+    elif n in (19, 20):  # zoom extents / zoom extents selected: box in corner brackets
+        c = INK if n == 19 else RED
+        d.polygon([(4, 6), (8, 4), (12, 6), (8, 8)], fill=WHITE, outline=INK)
+        d.polygon([(4, 6), (8, 8), (8, 12), (4, 10)], fill=LBLUE, outline=INK)
+        d.polygon([(8, 8), (12, 6), (12, 10), (8, 12)], fill=GREY, outline=INK)
+        for (x, y, dx, dy) in ((1, 1, 1, 1), (14, 1, -1, 1), (1, 14, 1, -1), (14, 14, -1, -1)):
+            d.line([(x, y), (x + 3 * dx, y)], fill=c); d.line([(x, y), (x, y + 3 * dy)], fill=c)
+    elif n in (21, 22):  # zoom extents all / all selected: two boxes, grid behind
+        c = RED if n == 21 else GREY
+        d.rectangle([6, 1, 15, 10], outline=c); d.line([(10, 1), (10, 10)], fill=c); d.line([(6, 5), (15, 5)], fill=c)
+        d.polygon([(1, 8), (5, 6), (9, 8), (5, 10)], fill=WHITE, outline=INK)
+        d.polygon([(1, 8), (5, 10), (5, 14), (1, 12)], fill=LBLUE, outline=INK)
+        d.polygon([(5, 10), (9, 8), (9, 12), (5, 14)], fill=GREY, outline=INK)
+    elif n == 23:  # region zoom: dashed box with a magnifier
+        for x in range(1, 15, 2):
+            d.point([(x, 1), (x, 14)], fill=INK)
+        for y in range(1, 15, 2):
+            d.point([(1, y), (14, y)], fill=INK)
+        d.ellipse([4, 3, 10, 9], fill=WHITE, outline=INK); d.line([(9, 9), (12, 12)], fill=INK, width=2)
+    elif n == 24:  # pan: an open hand
+        for x in (3, 6, 9, 12):
+            d.rectangle([x, 2 if x in (6, 9) else 4, x + 1, 9], fill=WHITE, outline=INK)
+        d.rounded_rectangle([3, 8, 13, 14], radius=2, fill=WHITE, outline=INK)
+    elif n in (25, 26, 27):  # arc rotate / selected / sub-object
+        c = {25: GREY, 26: YELLOW, 27: RED}[n]
+        d.ellipse([3, 3, 12, 12], outline=BLUE)
+        d.ellipse([6, 6, 9, 9], fill=c, outline=INK)
+        tri(d, [(12, 5), (15, 8), (12, 8)], BLUE); tri(d, [(3, 10), (0, 7), (3, 7)], BLUE)
+    elif n == 28:  # min/max toggle: a small window inside a larger one
+        d.rectangle([1, 1, 14, 14], outline=BLUE); d.rectangle([1, 1, 8, 8], fill=WHITE, outline=BLUE)
+        d.line([(9, 9), (13, 13)], fill=INK); tri(d, [(13, 13), (10, 13), (13, 10)], INK)
+
+
+STATUS_COUNT = 29  # must equal ui::toolbar::kStatusIconCount
+
 COUNT = 42  # must equal ui::toolbar::kIconCount
 
 img = Image.new("RGB", (S * COUNT, S), KEY)
@@ -251,3 +362,13 @@ for n in range(COUNT):
 out = os.path.join(os.path.dirname(__file__), "..", "res", "toolbar_icons.bmp")
 img.save(out)
 print("wrote", os.path.normpath(out), img.size)
+
+T = 16
+simg = Image.new("RGB", (T * STATUS_COUNT, T), KEY)
+for n in range(STATUS_COUNT):
+    cell = Image.new("RGB", (T, T), KEY)
+    status_icon(ImageDraw.Draw(cell), n)
+    simg.paste(cell, (n * T, 0))
+sout = os.path.join(os.path.dirname(__file__), "..", "res", "status_icons.bmp")
+simg.save(sout)
+print("wrote", os.path.normpath(sout), simg.size)

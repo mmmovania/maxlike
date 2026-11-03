@@ -2,6 +2,7 @@
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
 #include "win/App.h"
+#include <commctrl.h>
 #include <windowsx.h>
 #include <algorithm>
 #include <cstdio>
@@ -39,7 +40,42 @@ bool StatusBar::Create(HWND parent) {
     SetWindowLongPtrW(input_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
     inputOldProc_ = reinterpret_cast<WNDPROC>(
         SetWindowLongPtrW(input_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&StatusBar::InputProc)));
+
+    // The button groups are the same Toolbar control as the main toolbar, with
+    // different configs (16-px icons, explicit positions, no frame edges).
+    if (!snapTools_.Create(Hwnd(), toolbar::StatusSnapConfig()) ||
+        !animTools_.Create(Hwnd(), toolbar::StatusAnimConfig()))
+        return false;
+    auto forward = [this](const std::string& command) { if (onCommand) onCommand(command); };
+    snapTools_.onCommand = forward;
+    animTools_.onCommand = forward;
+    animTools_.onEditCommitted = [this](const std::string&, const std::wstring& text) {
+        // Accept a whole number; anything else just restores nothing (the caller
+        // writes the current frame back via SetFrame).
+        wchar_t* end = nullptr;
+        const long value = wcstol(text.c_str(), &end, 10);
+        if (end != text.c_str() && onFrameEntered) onFrameEntered(static_cast<int>(value));
+    };
+
+    // Tooltip for the time-tag field (a drawn field, so a rectangle "tool").
+    tooltip_ = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+                               WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
+                               CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                               Hwnd(), nullptr, win::App::Instance(), nullptr);
+    if (tooltip_) {
+        TTTOOLINFOW ti{};
+        ti.cbSize = TTTOOLINFOW_V2_SIZE;
+        ti.uFlags = TTF_SUBCLASS;
+        ti.hwnd = Hwnd();
+        ti.uId = 1;
+        ti.lpszText = const_cast<wchar_t*>(L"Time Tag");
+        SendMessageW(tooltip_, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&ti));
+    }
     return true;
+}
+
+void StatusBar::SetFrame(int frame) {
+    animTools_.SetEditText("anim.frame", std::to_wstring(frame));
 }
 
 LRESULT CALLBACK StatusBar::InputProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
@@ -90,6 +126,17 @@ void StatusBar::Relayout() {
     };
     place(output_, layout_.listenerTop);
     place(input_, layout_.listenerBottom);
+    place(snapTools_.Hwnd(), layout_.snapTools);
+    place(animTools_.Hwnd(), layout_.animTools);
+    if (tooltip_) {
+        TTTOOLINFOW ti{};
+        ti.cbSize = TTTOOLINFOW_V2_SIZE;
+        ti.hwnd = Hwnd();
+        ti.uId = 1;
+        const Rect& t = layout_.timeTag;
+        ti.rect = {t.left, t.top, t.right, t.bottom};
+        SendMessageW(tooltip_, TTM_NEWTOOLRECTW, 0, reinterpret_cast<LPARAM>(&ti));
+    }
     InvalidateRect(Hwnd(), nullptr, FALSE);
 }
 
@@ -153,7 +200,7 @@ void StatusBar::OnPaint() {
     PaintField(dc, layout_.y, y_);
     PaintField(dc, layout_.z, z_);
     PaintField(dc, layout_.grid, grid_);
-    PaintField(dc, layout_.spare, L"");
+    PaintField(dc, layout_.timeTag, L"");   // Time Tag (empty until tags exist)
     PaintLock(dc, layout_.lock);
     SelectObject(dc, oldFont);
     EndPaint(Hwnd(), &ps);
@@ -179,6 +226,9 @@ LRESULT StatusBar::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         font_ = reinterpret_cast<HFONT>(wp);
         SendMessageW(output_, WM_SETFONT, wp, lp);
         SendMessageW(input_, WM_SETFONT, wp, lp);
+        SendMessageW(snapTools_.Hwnd(), WM_SETFONT, wp, lp);
+        SendMessageW(animTools_.Hwnd(), WM_SETFONT, wp, lp);
+        if (tooltip_) SendMessageW(tooltip_, WM_SETFONT, wp, FALSE);
         if (LOWORD(lp)) InvalidateRect(Hwnd(), nullptr, FALSE);
         return 0;
     case WM_GETFONT:

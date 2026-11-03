@@ -11,8 +11,10 @@ namespace ui {
 class FlyoutStrip : public win::Window {
 public:
     // Opens the strip with its first cell exactly over `buttonScreen`.
+    // `iconSize` and the offsets are at 100% (as in the toolbar's Config).
     bool Open(HWND owner, const std::vector<toolbar::Alternative>& alternatives,
-              int current, HBITMAP icons, const RECT& buttonScreen);
+              int current, HBITMAP icons, const RECT& buttonScreen,
+              int iconSize, int iconOffsetX, int iconOffsetY);
     void Close();
     bool IsOpen() const { return Hwnd() != nullptr; }
 
@@ -33,6 +35,7 @@ private:
     int hot_ = -1;
     int cellW_ = 0, cellH_ = 0, border_ = 0;
     HBITMAP icons_ = nullptr; // owned by the toolbar
+    int iconSize_ = toolbar::kIconSize, iconOffsetX_ = toolbar::kIconOffsetX, iconOffsetY_ = toolbar::kIconOffsetY;
 };
 
 } // namespace ui

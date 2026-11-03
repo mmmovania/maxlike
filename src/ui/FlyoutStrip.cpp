@@ -5,8 +5,10 @@
 namespace ui {
 
 bool FlyoutStrip::Open(HWND owner, const std::vector<toolbar::Alternative>& alternatives,
-                       int current, HBITMAP icons, const RECT& b) {
+                       int current, HBITMAP icons, const RECT& b,
+                       int iconSize, int iconOffsetX, int iconOffsetY) {
     if (IsOpen()) Close();
+    iconSize_ = iconSize; iconOffsetX_ = iconOffsetX; iconOffsetY_ = iconOffsetY;
     alternatives_ = alternatives;
     current_ = current;
     hot_ = -1;
@@ -70,7 +72,7 @@ void FlyoutStrip::OnPaint() {
 
     HDC iconDc = CreateCompatibleDC(dc);
     HGDIOBJ oldBmp = SelectObject(iconDc, icons_);
-    const int size = Scale(toolbar::kIconSize);
+    const int size = Scale(iconSize_);
     for (int i = 0; i < static_cast<int>(alternatives_.size()); ++i) {
         const RECT r = CellRect(i);
         if (i == hot_) {
@@ -78,9 +80,9 @@ void FlyoutStrip::OnPaint() {
             DrawButtonRing(dc, {r.left + 1, r.top + 1, r.right - 1, r.bottom - 1},
                            theme::Face(), theme::kButtonHighlight.Ref());
         }
-        TransparentBlt(dc, r.left + Scale(toolbar::kIconOffsetX), r.top + Scale(toolbar::kIconOffsetY),
-                       size, size, iconDc, alternatives_[static_cast<size_t>(i)].icon * toolbar::kIconSize, 0,
-                       toolbar::kIconSize, toolbar::kIconSize, RGB(255, 0, 255));
+        TransparentBlt(dc, r.left + Scale(iconOffsetX_), r.top + Scale(iconOffsetY_),
+                       size, size, iconDc, alternatives_[static_cast<size_t>(i)].icon * iconSize_, 0,
+                       iconSize_, iconSize_, RGB(255, 0, 255));
     }
     SelectObject(iconDc, oldBmp);
     DeleteDC(iconDc);

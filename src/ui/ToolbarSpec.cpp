@@ -25,6 +25,17 @@ Item Combo(const char* cmd, const wchar_t* tip, int w, const wchar_t* text,
     return i;
 }
 Item Editable(Item i) { i.editable = true; return i; }
+
+// Explicitly placed items (status area). Rectangles are at 100%, relative to the
+// group's top-left, measured from the reference screenshot.
+Item At(Item i, int l, int t, int r, int b) { i.place = {l, t, r, b}; return i; }
+Item Toggle(Item i, bool checked = false) { i.toggle = true; i.checked = checked; return i; }
+Item Label(const char* cmd, const wchar_t* tip, const wchar_t* text) {
+    Item i; i.kind = Kind::Button; i.command = cmd; i.tooltip = tip; i.text = text; return i;
+}
+Item Field(const char* cmd, const wchar_t* tip, const wchar_t* text) {
+    Item i; i.kind = Kind::Edit; i.command = cmd; i.tooltip = tip; i.text = text; return i;
+}
 } // namespace
 
 // Order and geometry measured from the reference screenshot. Tooltip names, combo
@@ -98,6 +109,93 @@ const std::vector<Item>& MainToolbarSpec() {
     return items;
 }
 
+Config MainToolbarConfig() {
+    Config c;
+    c.items = MainToolbarSpec();
+    c.hasStrips = true;
+    return c;
+}
+
+// Names and tooltips of the status-area buttons are from memory of R3.1 and still
+// to be verified; positions are measured.
+Config StatusSnapConfig() {
+    Config c;
+    c.explicitLayout = true;
+    c.icons = IconStrip::Status;
+    c.iconSize = 16; c.iconOffsetX = 4; c.iconOffsetY = 3;
+    c.frameEdges = false;
+    c.flyoutMarkerDx = 1;
+    c.items = {
+        At(Toggle(Btn("view.degradation_override", L"Degradation Override", kSIconDegradeOverride)), 3, 2, 26, 24),
+        At(Toggle(Btn("select.window_crossing", L"Window/Crossing Selection", kSIconWindowCrossing)), 32, 2, 55, 24),
+        At(Toggle(Btn("view.adaptive_degradation", L"Adaptive Degradation Toggle", kSIconAdaptiveDegrade), true), 62, 2, 85, 24),
+        At(Sep(), 85, 5, 91, 21),
+        At(Toggle(Fly({{"snap.3d",  L"3D Snap Toggle",   kSIconSnap3D},
+                       {"snap.25d", L"2.5D Snap Toggle", kSIconSnap25D},
+                       {"snap.2d",  L"2D Snap Toggle",   kSIconSnap2D}})), 90, 2, 113, 24),
+        At(Toggle(Btn("snap.angle",   L"Angle Snap Toggle",   kSIconAngleSnap)), 113, 2, 136, 24),
+        At(Toggle(Btn("snap.percent", L"Percent Snap",        kSIconPercentSnap)), 136, 2, 159, 24),
+        At(Sep(), 160, 5, 166, 21),
+        At(Toggle(Btn("snap.spinner", L"Spinner Snap Toggle", kSIconSpinnerSnap)), 165, 2, 188, 24),
+    };
+    return c;
+}
+
+Config StatusAnimConfig() {
+    Config c;
+    c.explicitLayout = true;
+    c.icons = IconStrip::Status;
+    c.iconSize = 16; c.iconOffsetX = 4; c.iconOffsetY = 3;
+    c.frameEdges = false;
+    c.flyoutMarkerDx = 1;
+    Item animate = Toggle(Label("anim.toggle", L"Animate Mode Toggle", L"Animate"));
+    animate.alarm = true;
+    c.items = {
+        At(animate, 4, 3, 52, 47),
+        // top row: playback
+        At(Btn("anim.go_start",   L"Go to Start",    kSIconGoStart), 54, 3, 77, 25),
+        At(Sep(), 76, 6, 82, 22),
+        At(Btn("anim.prev_frame", L"Previous Frame", kSIconPrevFrame), 80, 3, 103, 25),
+        At(Fly({{"anim.play",          L"Play Animation", kSIconPlay},
+                {"anim.play_selected", L"Play Selected",  kSIconPlaySelected}}), 103, 3, 126, 25),
+        At(Btn("anim.next_frame", L"Next Frame",     kSIconNextFrame), 126, 3, 149, 25),
+        At(Sep(), 148, 6, 154, 22),
+        At(Btn("anim.go_end",     L"Go to End",      kSIconGoEnd), 152, 3, 175, 25),
+        // top row: navigation
+        At(Btn("nav.zoom",        L"Zoom",           kSIconZoom), 175, 3, 198, 25),
+        At(Btn("nav.zoom_all",    L"Zoom All",       kSIconZoomAll), 198, 3, 221, 25),
+        At(Fly({{"nav.zoom_extents",     L"Zoom Extents",          kSIconZoomExtents},
+                {"nav.zoom_extents_sel", L"Zoom Extents Selected", kSIconZoomExtentsSel}}), 221, 3, 244, 25),
+        At(Fly({{"nav.zoom_extents_all",     L"Zoom Extents All",          kSIconZoomExtentsAll},
+                {"nav.zoom_extents_all_sel", L"Zoom Extents All Selected", kSIconZoomExtentsAllSel}}), 244, 3, 267, 25),
+        // bottom row
+        At(Toggle(Btn("anim.key_mode", L"Key Mode Toggle", kSIconKeyMode)), 54, 25, 77, 47),
+        At(Sep(), 76, 28, 82, 44),
+        At(Field("anim.frame", L"Current Frame", L"0"), 81, 26, 150, 47),
+        At(Sep(), 149, 28, 155, 44),
+        At(Btn("anim.time_config", L"Time Configuration", kSIconTimeConfig), 152, 25, 175, 47),
+        At(Btn("nav.region_zoom", L"Region Zoom",     kSIconRegionZoom), 175, 25, 198, 47),
+        At(Btn("nav.pan",         L"Pan",             kSIconPan), 198, 25, 221, 47),
+        At(Fly({{"nav.arc_rotate",     L"Arc Rotate",           kSIconArcRotate},
+                {"nav.arc_rotate_sel", L"Arc Rotate Selected",  kSIconArcRotateSel},
+                {"nav.arc_rotate_sub", L"Arc Rotate SubObject", kSIconArcRotateSub}}), 221, 25, 244, 47),
+        At(Btn("nav.min_max",     L"Min/Max Toggle",  kSIconMinMax), 244, 25, 267, 47),
+    };
+    return c;
+}
+
+std::vector<Rect> LayoutItems(const Config& config, int w, int h, unsigned dpi) {
+    if (!config.explicitLayout)
+        return LayoutToolbar(config.items, h, dpi);
+    (void)w;
+    auto s = [dpi](int v) { return metrics::Scale(v, dpi); };
+    std::vector<Rect> rects;
+    rects.reserve(config.items.size());
+    for (const Item& it : config.items)
+        rects.push_back({s(it.place.left), s(it.place.top), s(it.place.right), s(it.place.bottom)});
+    return rects;
+}
+
 std::vector<Rect> LayoutToolbar(const std::vector<Item>& items, int h, unsigned dpi) {
     auto s = [dpi](int v) { return metrics::Scale(v, dpi); };
     std::vector<Rect> rects;
@@ -110,10 +208,12 @@ std::vector<Rect> LayoutToolbar(const std::vector<Item>& items, int h, unsigned 
         case Kind::Separator: w = kSeparatorWidth; break;
         case Kind::Gap:       w = it.width; break;
         case Kind::Combo:     w = it.width; break;
+        case Kind::Edit:      w = it.width; break;
         }
         Rect r{s(x), 0, s(x + w), h};
         if (it.kind == Kind::Button) { r.top = s(kTop); r.bottom = s(kTop + kButtonHeight); }
         if (it.kind == Kind::Combo)  { r.top = s(kTop); r.bottom = s(kTop + kComboHeight); }
+        if (it.kind == Kind::Separator) { r.top = s(kSeparatorTop); r.bottom = s(kSeparatorTop + kSeparatorHeight); }
         rects.push_back(r);
         x += w;
     }

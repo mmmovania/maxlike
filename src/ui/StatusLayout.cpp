@@ -23,7 +23,10 @@ Layout ComputeStatusLayout(int w, int /*h*/, int listenerWidth, unsigned dpi) {
     L.y     = field(topY, 519, 449);
     L.z     = field(topY, 447, 377);
     L.grid  = field(topY, 375, 275);
-    L.spare = field(botY, 564, 464);
+    L.timeTag = field(botY, 564, 464);
+    // The two button groups (step 1.5c): fixed size, anchored to the right edge.
+    L.snapTools = {std::max(0, w - s(464)), s(26), std::max(0, w - s(275)), s(50)};
+    L.animTools = {std::max(0, w - s(275)), 0, w, s(50)};
 
     // Listener: x = 1, width clamped so the top prompt keeps at least 40 px.
     const int maxListener = std::max(0, (L.lock.left - s(1 + 2 + 4 + 2 + 40)) * 96 / static_cast<int>(dpi));
