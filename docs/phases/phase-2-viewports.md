@@ -22,7 +22,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
       separately): 0 differing pixels out of 24,330
 - [x] Found and fixed: creating the context on the first viewport (then 1 × 1 px) left
       that viewport black under Wine; the context is now created on a hidden helper window
-- [ ] On Windows: four grey viewports with frames; clicking moves the white border;
+- [x] On Windows: four grey viewports with frames; clicking moves the white border;
       no "OpenGL 3.3 is not available" message
 
 ## Notes
