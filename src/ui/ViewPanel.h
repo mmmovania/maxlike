@@ -5,6 +5,7 @@
 #include "ui/Viewport.h"
 #include "ui/ViewportLayout.h"
 #include <array>
+#include <functional>
 
 namespace ui {
 
@@ -12,7 +13,12 @@ namespace ui {
 // OpenGL context they share.
 class ViewPanel : public win::Window {
 public:
+    std::function<void(NavMode)> onNavModeChanged;
+
     bool Create(HWND parent);
+    NavMode Mode() const { return mode_; }
+    void SetNavMode(NavMode mode);          // None leaves the current mode
+    void ZoomExtents(bool allViews);        // empty scene: back to the default framing
     int  Active() const { return active_; }
     void SetActive(int index);
     void ToggleMaximized();                 // Min/Max: the active viewport fills the area
@@ -38,6 +44,7 @@ private:
     int active_ = viewports::kTopLeft; // the reference screenshot shows Top active
     viewports::Arrangement arrangement_;
     int drag_ = kNone;
+    NavMode mode_ = NavMode::None;
 };
 
 } // namespace ui

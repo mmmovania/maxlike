@@ -62,6 +62,25 @@ bool MainFrame::CreateRegions() {
     };
     statusArea_.onCommand = [this](const std::string& command) { OnCommand(command); };
 
+    // The active navigation mode: its button stays pressed and the prompt explains it.
+    // NOTE: R3's prompt texts for these modes are not verified.
+    viewports_.onNavModeChanged = [this](NavMode mode) {
+        struct ModeInfo { NavMode mode; const char* command; const wchar_t* prompt; };
+        static const ModeInfo kModes[] = {
+            {NavMode::Zoom,       "nav.zoom",        L"Click and drag to zoom in or out"},
+            {NavMode::ZoomAll,    "nav.zoom_all",    L"Click and drag to zoom all viewports"},
+            {NavMode::RegionZoom, "nav.region_zoom", L"Drag a rectangle to zoom into"},
+            {NavMode::Pan,        "nav.pan",         L"Click and drag to pan"},
+            {NavMode::ArcRotate,  "nav.arc_rotate",  L"Click and drag to rotate the view"},
+        };
+        std::wstring prompt = L"Click or click-and-drag to select objects";
+        for (const ModeInfo& m : kModes) {
+            statusArea_.SetCommandChecked(m.command, m.mode == mode);
+            if (m.mode == mode) prompt = std::wstring(m.prompt) + L"  (right-click to finish)";
+        }
+        statusArea_.SetPrompt(1, prompt);
+    };
+
     statusArea_.onListenerInput = [this](const std::wstring& text) {
         statusArea_.SetListenerOutput(text + L"  -- MAXScript is not implemented yet");
     };
@@ -137,6 +156,15 @@ void MainFrame::OnCommand(const std::string& command) {
         viewports_.ToggleMaximized();
         return;
     }
+    // Navigation modes: clicking the active mode's button again leaves it.
+    auto toggleMode = [this](NavMode m) { viewports_.SetNavMode(viewports_.Mode() == m ? NavMode::None : m); };
+    if (command == "nav.zoom")        { toggleMode(NavMode::Zoom); return; }
+    if (command == "nav.zoom_all")    { toggleMode(NavMode::ZoomAll); return; }
+    if (command == "nav.region_zoom") { toggleMode(NavMode::RegionZoom); return; }
+    if (command == "nav.pan")         { toggleMode(NavMode::Pan); return; }
+    if (command.rfind("nav.arc_rotate", 0) == 0) { toggleMode(NavMode::ArcRotate); return; } // all three variants
+    if (command == "nav.zoom_extents" || command == "nav.zoom_extents_sel") { viewports_.ZoomExtents(false); return; }
+    if (command == "nav.zoom_extents_all" || command == "nav.zoom_extents_all_sel") { viewports_.ZoomExtents(true); return; }
 
     if (command == "file.exit") {
         // Same path as the close button, so a future "save changes?" prompt

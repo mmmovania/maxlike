@@ -38,6 +38,14 @@ static void PanAndZoom() {
     v.centerU = 10;
     const int moved = view::ColumnOf(0, 863, 423, v);
     if (!(axis - moved >= 21 && axis - moved <= 22)) { ++failures; std::printf("FAIL pan: %d -> %d\n", axis, moved); }
+    // Zooming far out thins the grid: never more lines than pixels, axes still there.
+    v = {}; v.width = 1e7;
+    {
+        const auto far = view::OrthoGridLines(863, 423, v);
+        int axes = 0;
+        for (const view::GridLine& l : far) axes += l.kind == view::LineKind::Axis;
+        if (axes != 2 || far.size() > 863 + 423) { ++failures; std::printf("FAIL thinning: %zu lines, %d axes\n", far.size(), axes); }
+    }
     // Zooming out (wider view) never produces lines outside the viewport.
     v = {}; v.width = 100000;
     for (const view::GridLine& l : view::OrthoGridLines(500, 300, v))

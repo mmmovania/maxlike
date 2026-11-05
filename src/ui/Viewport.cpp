@@ -42,6 +42,7 @@ void Viewport::Render(HDC dc) {
             DrawOrthoGrid(rc.right, rc.bottom);
     }
     DrawLabelAndTripod(rc.right, rc.bottom);
+    if (regionVisible_) DrawRegionRectangle(rc.right, rc.bottom);
 
     SwapBuffers(dc); // show the finished back buffer
 }
@@ -96,6 +97,86 @@ void Viewport::SetType(ViewType type) {
     type_ = type;
     labelDpi_ = 0;                 // the label text changed: render it again
     InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+// ---- navigation --------------------------------------------------------------
+
+void Viewport::Pan(int dx, int dy) {
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    if (type_ == ViewType::Perspective) perspective_ = view::PanPerspective(perspective_, dx, dy, rc.right);
+    else ortho_ = view::PanOrtho(ortho_, dx, dy, rc.right, rc.bottom);
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+void Viewport::Zoom(double factor) {
+    if (type_ == ViewType::Perspective) perspective_ = view::ZoomPerspective(perspective_, factor);
+    else ortho_ = view::ZoomOrtho(ortho_, factor);
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+// Arc Rotate turns the perspective camera. In R3 it also turns an ortho view into a
+// rotated "User" view; User views are not implemented yet, so ortho views ignore it.
+void Viewport::Orbit(int dx, int dy) {
+    if (type_ != ViewType::Perspective) return;
+    perspective_ = view::OrbitPerspective(perspective_, dx, dy);
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+// Region Zoom for ortho views. (In R3 the perspective view offers Field-of-View
+// instead; not implemented yet.)
+void Viewport::ZoomRegion(int x0, int y0, int x1, int y1) {
+    if (type_ == ViewType::Perspective) return;
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    ortho_ = view::ZoomOrthoRegion(ortho_, x0, y0, x1, y1, rc.right, rc.bottom);
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+void Viewport::ResetView() {
+    ortho_ = view::OrthoView{};
+    perspective_ = view::PerspectiveView{};
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+// NOTE: R3 has its own navigation cursors (magnifier, hand, ...); these are the
+// closest standard ones until the real ones are drawn.
+HCURSOR Viewport::CursorFor(NavMode mode) const {
+    switch (mode) {
+    case NavMode::Pan:        return LoadCursorW(nullptr, IDC_HAND);
+    case NavMode::Zoom:
+    case NavMode::ZoomAll:    return LoadCursorW(nullptr, IDC_SIZENS);
+    case NavMode::RegionZoom: return LoadCursorW(nullptr, IDC_CROSS);
+    case NavMode::ArcRotate:  return LoadCursorW(nullptr, IDC_SIZEALL);
+    case NavMode::None:       break;
+    }
+    return LoadCursorW(nullptr, IDC_ARROW);
+}
+
+void Viewport::BeginDrag(NavMode op, int x, int y) {
+    drag_ = op;
+    dragLast_ = dragStart_ = {x, y};
+    regionVisible_ = false;
+    SetCapture(Hwnd());
+}
+
+void Viewport::EndDrag(bool apply) {
+    if (apply && drag_ == NavMode::RegionZoom && regionVisible_)
+        ZoomRegion(dragStart_.x, dragStart_.y, dragLast_.x, dragLast_.y);
+    drag_ = NavMode::None;
+    if (regionVisible_) { regionVisible_ = false; InvalidateRect(Hwnd(), nullptr, FALSE); }
+}
+
+// The region being dragged, as a 1-px white rectangle. NOTE: R3 draws a dashed
+// rectangle; its exact look is not measured yet.
+void Viewport::DrawRegionRectangle(int w, int h) {
+    const float x0 = static_cast<float>(std::min(dragStart_.x, dragLast_.x)) + 0.5f;
+    const float x1 = static_cast<float>(std::max(dragStart_.x, dragLast_.x)) + 0.5f;
+    const float y0 = static_cast<float>(std::min(dragStart_.y, dragLast_.y)) + 0.5f;
+    const float y1 = static_cast<float>(std::max(dragStart_.y, dragLast_.y)) + 0.5f;
+    const std::vector<gl::LineRenderer::Line> box = {
+        {x0, y0, 0, x1, y0, 0}, {x1, y0, 0, x1, y1, 0}, {x1, y1, 0, x0, y1, 0}, {x0, y1, 0, x0, y0, 0}};
+    lines_->Draw(box, math::PixelToClip(w, h), 1.0f, 1.0f, 1.0f);
 }
 
 void Viewport::SetShowGrid(bool show) {
@@ -275,14 +356,73 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         EndPaint(Hwnd(), &ps);
         return 0;
     }
-    case WM_LBUTTONDOWN:
-    case WM_MBUTTONDOWN:
+    case WM_LBUTTONDOWN: {
         if (onActivate) onActivate();
+        SetFocus(Hwnd()); // so the mouse wheel comes here
+        const NavMode mode = navMode ? navMode() : NavMode::None;
+        if (mode != NavMode::None) BeginDrag(mode, GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
         return 0;
+    }
+    case WM_MBUTTONDOWN: {
+        if (onActivate) onActivate();
+        SetFocus(Hwnd());
+        // Middle drag pans; with Alt it orbits, with Ctrl+Alt it zooms.
+        // NOTE: R3.1's exact middle-button combinations are not verified.
+        const bool alt = GetKeyState(VK_MENU) < 0, ctrl = (wp & MK_CONTROL) != 0;
+        BeginDrag(alt ? (ctrl ? NavMode::Zoom : NavMode::ArcRotate) : NavMode::Pan,
+                  GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+        return 0;
+    }
+    case WM_MOUSEMOVE:
+        if (drag_ != NavMode::None) {
+            const int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp);
+            const int dx = x - dragLast_.x, dy = y - dragLast_.y;
+            dragLast_ = {x, y};
+            switch (drag_) {
+            case NavMode::Pan:        Pan(dx, dy); break;
+            case NavMode::Zoom:       Zoom(view::ZoomFactorForDrag(dy)); break;
+            case NavMode::ZoomAll: {
+                const double f = view::ZoomFactorForDrag(dy);
+                Zoom(f);
+                if (onZoomAll) onZoomAll(f);
+                break;
+            }
+            case NavMode::ArcRotate:  Orbit(dx, dy); break;
+            case NavMode::RegionZoom: regionVisible_ = true; InvalidateRect(Hwnd(), nullptr, FALSE); break;
+            case NavMode::None:       break;
+            }
+            UpdateWindow(Hwnd()); // redraw now, so the view follows the mouse
+        }
+        return 0;
+    case WM_LBUTTONUP:
+    case WM_MBUTTONUP:
+        if (drag_ != NavMode::None) {
+            EndDrag(true);
+            ReleaseCapture();
+        }
+        return 0;
+    case WM_CAPTURECHANGED:
+        if (drag_ != NavMode::None) EndDrag(false);
+        return 0;
+    case WM_MOUSEWHEEL:
+        // One notch = 120 units of wheel delta.
+        Zoom(view::ZoomFactorForWheel(GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA));
+        return 0;
+    case WM_SETCURSOR:
+        if (LOWORD(lp) == HTCLIENT) {
+            const NavMode mode = drag_ != NavMode::None ? drag_ : (navMode ? navMode() : NavMode::None);
+            if (mode != NavMode::None) { SetCursor(CursorFor(mode)); return TRUE; }
+        }
+        break;
     case WM_RBUTTONDOWN:
         if (onActivate) onActivate();
         return 0;
     case WM_RBUTTONUP:
+        // In a navigation mode, right-click leaves the mode (as in R3).
+        if (navMode && navMode() != NavMode::None) {
+            if (onExitMode) onExitMode();
+            return 0;
+        }
         // The label menu opens on release, as context menus do on Windows.
         if (InLabel(GET_X_LPARAM(lp), GET_Y_LPARAM(lp))) {
             POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};

@@ -30,6 +30,7 @@ public:
     void SetCoordinates(const std::wstring& x, const std::wstring& y, const std::wstring& z);
     void SetGridSpacing(double spacing);
     void SetFrame(int frame); // shown in the frame field
+    void SetCommandChecked(const std::string& command, bool checked); // e.g. navigation modes
 
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.StatusBar"; }

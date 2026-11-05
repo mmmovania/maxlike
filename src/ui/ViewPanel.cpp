@@ -37,8 +37,16 @@ bool ViewPanel::Create(HWND parent) {
     for (int i = 0; i < viewports::kCount; ++i)
         if (!views_[static_cast<size_t>(i)].Create(Hwnd(), context_, lines_, types[i]))
             return false;
-    for (int i = 0; i < viewports::kCount; ++i)
-        views_[static_cast<size_t>(i)].onActivate = [this, i] { SetActive(i); };
+    for (int i = 0; i < viewports::kCount; ++i) {
+        Viewport& v = views_[static_cast<size_t>(i)];
+        v.onActivate = [this, i] { SetActive(i); };
+        v.navMode = [this] { return mode_; };
+        v.onExitMode = [this] { SetNavMode(NavMode::None); };
+        v.onZoomAll = [this, i](double factor) {
+            for (int j = 0; j < viewports::kCount; ++j)
+                if (j != i) views_[static_cast<size_t>(j)].Zoom(factor);
+        };
+    }
     return true;
 }
 
@@ -46,6 +54,17 @@ void ViewPanel::SetActive(int index) {
     if (index == active_ || index < 0 || index >= viewports::kCount) return;
     active_ = index;
     InvalidateRect(Hwnd(), nullptr, FALSE); // only the frames change
+}
+
+void ViewPanel::SetNavMode(NavMode mode) {
+    if (mode == mode_) return;
+    mode_ = mode;
+    if (onNavModeChanged) onNavModeChanged(mode_);
+}
+
+void ViewPanel::ZoomExtents(bool allViews) {
+    for (int i = 0; i < viewports::kCount; ++i)
+        if (allViews || i == active_) views_[static_cast<size_t>(i)].ResetView();
 }
 
 void ViewPanel::ToggleMaximized() {

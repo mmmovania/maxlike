@@ -75,6 +75,8 @@ add_executable(maxlike WIN32
     src/view/PerspectiveView.h
     src/view/Tripod.cpp
     src/view/Tripod.h
+    src/view/Navigation.cpp
+    src/view/Navigation.h
     src/ui/LabelText.cpp
     src/ui/LabelText.h
     src/math/Mat4.cpp
@@ -134,3 +136,4 @@ maxlike_add_test(test_viewport_layout tests/test_viewport_layout.cpp src/ui/View
 maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp)
 maxlike_add_test(test_perspective tests/test_perspective.cpp src/math/Mat4.cpp src/view/PerspectiveView.cpp src/view/OrthoGrid.cpp)
 maxlike_add_test(test_tripod tests/test_tripod.cpp src/view/Tripod.cpp)
+maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.cpp src/view/OrthoGrid.cpp src/view/PerspectiveView.cpp src/math/Mat4.cpp)

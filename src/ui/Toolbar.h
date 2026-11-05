@@ -25,6 +25,9 @@ public:
     bool Create(HWND parent, toolbar::Config config);
 
     void SetEditText(const std::string& command, const std::wstring& text);
+    // Show a button as pressed or not (e.g. the active navigation mode). Matches the
+    // button's current command or any of its flyout alternatives.
+    void SetChecked(const std::string& command, bool checked);
 
     // Which tab panel strip to show. 0 = Main Toolbar; the others are not built yet.
     void ShowStrip(int index, const std::wstring& label);

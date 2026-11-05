@@ -20,7 +20,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] **2.4 Viewport interaction**: right-click label menu (shading, Show Grid, Views:
       Top/Bottom/Front/Back/Left/Right/Perspective); Min/Max toggle; dragging the dividers
       (`viewports::Arrangement`, unit-tested)
-- [ ] 2.5 Navigation: pan, zoom, orbit; the status-area navigation buttons
+- [x] **2.5 Navigation**: modes from the status-area buttons (Zoom, Zoom All, Region Zoom,
+      Pan, Arc Rotate; right-click leaves a mode), Zoom Extents (All), middle-drag pan,
+      wheel zoom; pure maths in `view/Navigation.*` (unit-tested); the ortho grid thins out
+      when zoomed far out
 - [ ] 2.6 Pixel check and `docs/tech/phase2-tech-docs.md`
 
 ## Step 2.1 verification
@@ -71,6 +74,18 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] On Windows: the same; cursors over the dividers (↔, ↕, ✥ at the crossing)
 - [x] Unverified against R3.1: the label menu's items and order; whether R3.1 lets you
       drag the dividers; whether enlarging a view keeps the zoom or the visible width
+
+## Step 2.5 verification
+- [x] Builds warning-free; eleven test programs pass (MinGW + Wine)
+- [x] Under Wine: middle-drag (+50, +30) in Top moves the axes by exactly (+50, +30); two
+      wheel notches zoom x1.5625; Arc Rotate turns the perspective camera and its tripod;
+      Zoom Extents All returns every view to the default (0 differing pixels again)
+- [ ] On Windows: each navigation button; the pressed button follows the mode; right-click
+      leaves the mode; the prompt line explains the mode
+- [ ] Unverified against R3.1: cursors (R3 has its own), prompt texts, middle-button
+      combinations (Alt = orbit, Ctrl+Alt = zoom), wheel step, drag directions, grid
+      thinning rule, Arc Rotate in ortho views (R3 turns them into User views; not yet),
+      Region Zoom in Perspective (R3: Field-of-View; not yet), the region rectangle's look
 
 ## Notes
 - `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact
