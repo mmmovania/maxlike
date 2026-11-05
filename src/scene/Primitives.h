@@ -76,4 +76,25 @@ public:
     Mesh Evaluate() const override;
 };
 
+// Sphere (class 0x11). 0 radius, 1 segments, 2 smooth, 3 hemisphere, 4 chop/squash,
+// 5 base to pivot (6-9 mapping, slice: not yet). Centred on the pivot unless
+// base to pivot. Hemisphere is not implemented yet (the full sphere is built).
+class SphereObject : public Object {
+public:
+    enum { kRadius = 0, kSegments, kSmooth, kHemisphere, kChop, kBaseToPivot };
+    explicit SphereObject(double radius = 25);
+    std::string ClassName() const override { return "Sphere"; }
+    Mesh Evaluate() const override;
+};
+
+// GeoSphere (PB2). 0 radius, 1 segments (geodesic frequency), 2 base type (0 tetra,
+// 1 octa, 2 icosa), 3 hemisphere (not yet), 4 smooth, 5 base to pivot.
+class GeoSphereObject : public Object {
+public:
+    enum { kRadius = 0, kSegments, kBaseType, kHemisphere, kSmooth, kBaseToPivot };
+    explicit GeoSphereObject(double radius = 25);
+    std::string ClassName() const override { return "GeoSphere"; }
+    Mesh Evaluate() const override;
+};
+
 } // namespace scene

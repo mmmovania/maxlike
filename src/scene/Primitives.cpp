@@ -1,5 +1,6 @@
 #include "scene/Primitives.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <map>
 #include <tuple>
@@ -187,10 +188,13 @@ Mesh PyramidObject::Evaluate() const {
 // ---------------------------------------------------------------- rings
 //
 // Cylinder, Cone and Tube are built from rings of vertices around the Z axis.
-// NOTE: Max's exact vertex and face order for these is not verified. This follows the
-// usual layout of Max's ring primitives: rings start at +X and run counter-clockwise
-// seen from above; side cells are split like the Box's (diagonal hidden); a cap of
-// one segment is a fan of triangles around a centre vertex.
+// Verified against R3.1 (File > Summary Info and wireframe screenshots):
+//   - counts: Cylinder 18 sides x 5 height segs = 110 vertices / 216 faces; a Cone with
+//     radius 2 = 0 keeps a full ring of vertices at the tip and its (zero-size) top cap:
+//     24 x 5 -> 146 / 288; Tube 18 x 5 -> 216 / 432;
+//   - a cap of one segment is a fan whose spokes are hidden (only the rim shows);
+//   - rings start at +X (fitted to the cylinder's outline in the Top view).
+// NOTE: the order of vertices and faces within the mesh is not verified.
 
 namespace {
 
@@ -198,15 +202,10 @@ constexpr double kPi = 3.14159265358979323846;
 
 int Sides(const ParamBlock& p, size_t i, int fallback) { return std::clamp(p.Int(i, fallback), 3, 200); }
 
-// One ring of `sides` vertices at height z (a single vertex if the radius is 0).
+// One ring of `sides` vertices at height z, starting at +X, counter-clockwise seen from
+// above. A ring of radius 0 still has `sides` vertices (all at the centre), as in Max.
 std::vector<uint32_t> Ring(Mesh& m, double radius, double z, int sides) {
     std::vector<uint32_t> ring;
-    if (radius <= 0) {
-        const auto id = static_cast<uint32_t>(m.verts.size());
-        m.verts.push_back({0, 0, z});
-        ring.assign(static_cast<size_t>(sides), id);   // every "corner" is the same point
-        return ring;
-    }
     for (int i = 0; i < sides; ++i) {
         const double a = 2.0 * kPi * i / sides;
         ring.push_back(static_cast<uint32_t>(m.verts.size()));
@@ -216,45 +215,44 @@ std::vector<uint32_t> Ring(Mesh& m, double radius, double z, int sides) {
 }
 
 // The band of faces between two rings (lower -> upper), facing away from the axis
-// (or towards it when `inward`). A collapsed ring turns its cells into triangles.
+// (or towards it when `inward`); cells split like the Box's, diagonal hidden.
 void Band(Mesh& m, const std::vector<uint32_t>& lo, const std::vector<uint32_t>& hi, bool inward, uint32_t group) {
     const size_t n = lo.size();
     for (size_t i = 0; i < n; ++i) {
         const size_t j = (i + 1) % n;
         uint32_t c00 = lo[i], c10 = lo[j], c11 = hi[j], c01 = hi[i];
         if (inward) { std::swap(c00, c10); std::swap(c01, c11); }
-        if (c11 == c01) {          // upper ring is a point
-            Face f; f.v[0] = c00; f.v[1] = c10; f.v[2] = c11; f.edgeVisible = 0x7; f.smoothing = group;
-            m.faces.push_back(f);
-        } else if (c00 == c10) {   // lower ring is a point
-            Face f; f.v[0] = c11; f.v[1] = c01; f.v[2] = c00; f.edgeVisible = 0x7; f.smoothing = group;
-            m.faces.push_back(f);
-        } else {
-            AddCell(m, c00, c10, c11, c01, group);
-        }
+        AddCell(m, c00, c10, c11, c01, group);
     }
 }
 
-// A flat cap from an outer ring inwards: (capSegs - 1) more rings, then a fan to a
-// centre vertex (or, for an annulus, down to an inner ring). Faces up or down.
+// A flat cap from an outer ring inwards: (capSegs - 1) more rings of quads, then either
+// a fan to one centre vertex (spokes hidden) or, for an annulus, quads to `inner`.
 void Cap(Mesh& m, std::vector<uint32_t> outer, double rOuter, double rInner, double z, int capSegs,
-         bool up, uint32_t group, std::vector<uint32_t>* inner) {
+         bool up, uint32_t group, const std::vector<uint32_t>* inner) {
     const int sides = static_cast<int>(outer.size());
     for (int k = 1; k <= capSegs; ++k) {
+        const bool last = k == capSegs;
+        if (last && !inner) {
+            const auto centre = static_cast<uint32_t>(m.verts.size());
+            m.verts.push_back({0, 0, z});
+            for (int i = 0; i < sides; ++i) {
+                uint32_t a = outer[static_cast<size_t>(i)], b = outer[static_cast<size_t>((i + 1) % sides)];
+                if (!up) std::swap(a, b);
+                Face f; f.v[0] = a; f.v[1] = b; f.v[2] = centre; f.smoothing = group;
+                f.edgeVisible = 0x1;   // only the rim edge (a -> b) shows
+                m.faces.push_back(f);
+            }
+            return;
+        }
         const double r = rOuter + (rInner - rOuter) * k / capSegs;
-        std::vector<uint32_t> next = (k == capSegs && inner) ? *inner : Ring(m, r, z, sides);
-        // Going inwards on a cap: "lower" ring is the outer one; flip for the bottom.
+        std::vector<uint32_t> next = (last && inner) ? *inner : Ring(m, r, z, sides);
         for (int i = 0; i < sides; ++i) {
             const int j = (i + 1) % sides;
             uint32_t a = outer[static_cast<size_t>(i)], b = outer[static_cast<size_t>(j)];
             uint32_t c = next[static_cast<size_t>(j)], d = next[static_cast<size_t>(i)];
             if (!up) { std::swap(a, b); std::swap(c, d); }
-            if (c == d) {
-                Face f; f.v[0] = a; f.v[1] = b; f.v[2] = c; f.edgeVisible = 0x7; f.smoothing = group;
-                m.faces.push_back(f);
-            } else {
-                AddCell(m, a, b, c, d, group);
-            }
+            AddCell(m, a, b, c, d, group);
         }
         outer = next;
     }
@@ -273,8 +271,9 @@ Mesh RingSolid(double r1, double r2, double h, int hsegs, int capSegs, int sides
         rings.push_back(Ring(m, rb + (rt - rb) * t, z0 + (z1 - z0) * t, sides));
     }
     for (int k = 0; k < hsegs; ++k) Band(m, rings[static_cast<size_t>(k)], rings[static_cast<size_t>(k + 1)], false, SmoothSide(smooth));
-    if (rb > 0) Cap(m, rings.front(), rb, 0, z0, capSegs, false, 1u << 1, nullptr);   // bottom
-    if (rt > 0) Cap(m, rings.back(), rt, 0, z1, capSegs, true, 1u << 2, nullptr);     // top
+    // Both caps always exist, even with radius 0 (Max's cone keeps its zero-size top cap).
+    Cap(m, rings.front(), rb, 0, z0, capSegs, false, 1u << 1, nullptr);   // bottom
+    Cap(m, rings.back(), rt, 0, z1, capSegs, true, 1u << 2, nullptr);     // top
     return m;
 }
 
@@ -370,6 +369,134 @@ Mesh TorusObject::Evaluate() const {
     for (int i = 0; i < segs; ++i)
         for (int j = 0; j < sides; ++j)
             AddCell(m, V(i, j), V(i + 1, j), V(i + 1, j + 1), V(i, j + 1), 1);
+    return m;
+}
+
+// ---------------------------------------------------------------- Sphere
+//
+// Verified against R3.1 (Summary Info of sphere.max, 32 segments): 482 vertices, 960
+// faces = two poles plus (segments/2 - 1) latitude rings of `segments` vertices; a fan
+// at each pole and quads between the rings. NOTE: the vertex order (here: top pole,
+// rings from the top down starting at +X, bottom pole) is not verified.
+
+SphereObject::SphereObject(double radius) {
+    params_.Define(kRadius, ParamType::Float, radius);
+    params_.Define(kSegments, ParamType::Int, 32);
+    params_.Define(kSmooth, ParamType::Bool, 1);
+    params_.Define(kHemisphere, ParamType::Float, 0);
+    params_.Define(kChop, ParamType::Int, 0);
+    params_.Define(kBaseToPivot, ParamType::Bool, 0);
+}
+
+Mesh SphereObject::Evaluate() const {
+    const double r = std::fabs(params_.Float(kRadius));
+    const int segs = std::clamp(params_.Int(kSegments, 32), 4, 200);
+    const int rows = std::max(2, segs / 2);            // latitude bands, pole to pole
+    const uint32_t group = params_.Bool(kSmooth) ? 1u : 0u;
+    const double lift = params_.Bool(kBaseToPivot) ? r : 0.0;
+    Mesh m;
+    m.verts.push_back({0, 0, r + lift});                                   // top pole
+    std::vector<std::vector<uint32_t>> rings;
+    for (int k = 1; k < rows; ++k) {
+        const double phi = kPi * k / rows;                                 // from the top
+        std::vector<uint32_t> ring = Ring(m, r * std::sin(phi), r * std::cos(phi) + lift, segs);
+        rings.push_back(std::move(ring));
+    }
+    const auto bottom = static_cast<uint32_t>(m.verts.size());
+    m.verts.push_back({0, 0, -r + lift});                                  // bottom pole
+
+    // Fans at the poles: meridians and the first ring are visible (no hidden edges).
+    for (int i = 0; i < segs; ++i) {
+        const uint32_t a = rings.front()[static_cast<size_t>(i)], b = rings.front()[static_cast<size_t>((i + 1) % segs)];
+        Face f; f.v[0] = 0; f.v[1] = a; f.v[2] = b; f.edgeVisible = 0x7; f.smoothing = group;
+        m.faces.push_back(f);
+    }
+    for (size_t k = 0; k + 1 < rings.size(); ++k)        // rings run downwards: band from lower to upper
+        Band(m, rings[k + 1], rings[k], false, group);
+    for (int i = 0; i < segs; ++i) {
+        const uint32_t a = rings.back()[static_cast<size_t>(i)], b = rings.back()[static_cast<size_t>((i + 1) % segs)];
+        Face f; f.v[0] = bottom; f.v[1] = b; f.v[2] = a; f.edgeVisible = 0x7; f.smoothing = group;
+        m.faces.push_back(f);
+    }
+    return m;
+}
+
+// ---------------------------------------------------------------- GeoSphere
+//
+// Verified against R3.1 (Summary Info of geosphere.max, icosahedron, 4 segments):
+// 162 vertices, 320 faces: each base triangle split into segments^2 triangles, points
+// pushed onto the sphere, shared along base edges; a vertex on the +Z pole (JS reader).
+// NOTE: the rotation about Z and the vertex order are not verified.
+
+GeoSphereObject::GeoSphereObject(double radius) {
+    params_.Define(kRadius, ParamType::Float, radius);
+    params_.Define(kSegments, ParamType::Int, 4);
+    params_.Define(kBaseType, ParamType::Int, 2);
+    params_.Define(kHemisphere, ParamType::Bool, 0);
+    params_.Define(kSmooth, ParamType::Bool, 1);
+    params_.Define(kBaseToPivot, ParamType::Bool, 0);
+}
+
+Mesh GeoSphereObject::Evaluate() const {
+    const double r = std::fabs(params_.Float(kRadius));
+    const int n = std::clamp(params_.Int(kSegments, 4), 1, 100);
+    const int type = std::clamp(params_.Int(kBaseType, 2), 0, 2);
+    const uint32_t group = params_.Bool(kSmooth) ? 1u : 0u;
+    const double lift = params_.Bool(kBaseToPivot) ? r : 0.0;
+
+    // Base solids, each with a vertex at +Z, faces counter-clockwise from outside.
+    std::vector<math::Vec3> bv;
+    std::vector<std::array<int, 3>> bf;
+    if (type == 1) {             // octahedron
+        bv = {{0, 0, 1}, {1, 0, 0}, {0, 1, 0}, {-1, 0, 0}, {0, -1, 0}, {0, 0, -1}};
+        bf = {{0, 1, 2}, {0, 2, 3}, {0, 3, 4}, {0, 4, 1}, {5, 2, 1}, {5, 3, 2}, {5, 4, 3}, {5, 1, 4}};
+    } else if (type == 0) {      // tetrahedron
+        const double t = std::sqrt(8.0) / 3, u = std::sqrt(2.0 / 3);
+        bv = {{0, 0, 1}, {t, 0, -1.0 / 3}, {-t / 2, u, -1.0 / 3}, {-t / 2, -u, -1.0 / 3}};
+        bf = {{0, 1, 2}, {0, 2, 3}, {0, 3, 1}, {1, 3, 2}};
+    } else {                     // icosahedron: pole, two rings of five, pole
+        const double z = 1 / std::sqrt(5.0), q = 2 / std::sqrt(5.0);
+        bv.push_back({0, 0, 1});
+        for (int i = 0; i < 5; ++i) bv.push_back({q * std::cos(2 * kPi * i / 5), q * std::sin(2 * kPi * i / 5), z});
+        for (int i = 0; i < 5; ++i) bv.push_back({q * std::cos(2 * kPi * (i + 0.5) / 5), q * std::sin(2 * kPi * (i + 0.5) / 5), -z});
+        bv.push_back({0, 0, -1});
+        for (int i = 0; i < 5; ++i) {
+            const int a = 1 + i, b = 1 + (i + 1) % 5, c = 6 + i, d = 6 + (i + 1) % 5;
+            bf.push_back({0, a, b});
+            bf.push_back({a, c, b});
+            bf.push_back({b, c, d});
+            bf.push_back({11, d, c});
+        }
+    }
+
+    Mesh m;
+    std::map<std::tuple<long long, long long, long long>, uint32_t> index;   // share points on base edges
+    auto vert = [&](const math::Vec3& p) {
+        const math::Vec3 s = math::Normalize(p);
+        const auto key = std::make_tuple(std::llround(s.x * 1e9), std::llround(s.y * 1e9), std::llround(s.z * 1e9));
+        auto it = index.find(key);
+        if (it != index.end()) return it->second;
+        const auto id = static_cast<uint32_t>(m.verts.size());
+        m.verts.push_back({s.x * r, s.y * r, s.z * r + lift});
+        index.emplace(key, id);
+        return id;
+    };
+    for (const auto& f : bf) {
+        const math::Vec3 A = bv[static_cast<size_t>(f[0])], B = bv[static_cast<size_t>(f[1])], C = bv[static_cast<size_t>(f[2])];
+        // Barycentric grid: point (i, j) = A + (B - A) i/n + (C - A) j/n, i + j <= n.
+        auto P = [&](int i, int j) { return vert(A + (B - A) * (static_cast<double>(i) / n) + (C - A) * (static_cast<double>(j) / n)); };
+        for (int j = 0; j < n; ++j)
+            for (int i = 0; i + j < n; ++i) {
+                Face up; up.v[0] = P(i, j); up.v[1] = P(i + 1, j); up.v[2] = P(i, j + 1);
+                up.edgeVisible = 0x7; up.smoothing = group;
+                m.faces.push_back(up);
+                if (i + j + 1 < n) {
+                    Face dn; dn.v[0] = P(i + 1, j); dn.v[1] = P(i + 1, j + 1); dn.v[2] = P(i, j + 1);
+                    dn.edgeVisible = 0x7; dn.smoothing = group;
+                    m.faces.push_back(dn);
+                }
+            }
+    }
     return m;
 }
 

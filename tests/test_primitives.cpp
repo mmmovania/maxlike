@@ -4,6 +4,7 @@
 #include "scene/Primitives.h"
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
 #include <map>
 #include <utility>
 
@@ -125,6 +126,8 @@ static bool RevolvedFacesOutward(const Mesh& m, double innerRadius = -1) {
         const Face& f = m.faces[i];
         const math::Vec3 c = (m.verts[f.v[0]] + m.verts[f.v[1]] + m.verts[f.v[2]]) * (1.0 / 3);
         const math::Vec3 n = m.FaceNormal(i);
+        if (math::Length(math::Cross(m.verts[f.v[1]] - m.verts[f.v[0]], m.verts[f.v[2]] - m.verts[f.v[0]])) < 1e-12)
+            continue;                                          // zero-area (a cone's tip): no direction
         if (std::fabs(n.z) > 0.99) continue;                   // caps: checked by watertightness
         const double radial = n.x * c.x + n.y * c.y;
         const bool inner = innerRadius > 0 && std::hypot(c.x, c.y) < innerRadius + 1e-6;
@@ -146,19 +149,21 @@ static void Cylinder() {
     const Mesh m2 = c.Evaluate();
     CHECK(m2.faces.size() == static_cast<size_t>(2 * S * H + 2 * (S + 2 * S)));
     CHECK(Watertight(m2));
-    // Visible edges: rings and vertical lines of the side, plus the cap spokes.
-    CHECK(m.VisibleEdges().size() == static_cast<size_t>(S * (H + 1) + S * H + 2 * S));
+    // R3.1: 110 vertices, 216 faces (File > Summary Info of cylinder.max: 18 sides, 5 height segs).
+    CHECK(m.verts.size() == 110 && m.faces.size() == 216);
+    // Visible edges: the rings and the vertical lines; no cap spokes (R3.1 wireframe).
+    CHECK(m.VisibleEdges().size() == static_cast<size_t>(S * (H + 1) + S * H));
 }
 
 static void Cone() {
-    // cone.max: radius 1 = 10, radius 2 stored -20 (clamped to 0), height 20; the JS reader's
-    // 264 triangles is three.js's count for 24 sides x 5 height segments.
+    // cone.max: radius 1 = 10, radius 2 stored -20 (clamped to 0), height 20, 24 sides,
+    // 5 height segs. R3.1 Summary Info: 146 vertices, 288 faces: the tip keeps a full ring
+    // of 24 vertices and a zero-size top cap (the cylinder's formulas).
     ConeObject c(10, -20, 20);
     const Mesh m = c.Evaluate();
     const int S = 24, H = 5;
-    // Max-style: the top ring collapses to the apex (one row of triangles, no top cap).
-    CHECK(m.faces.size() == static_cast<size_t>(2 * S * (H - 1) + S + S));
-    CHECK(m.verts.size() == static_cast<size_t>(S * H + 1 + 1));
+    CHECK(m.verts.size() == 146 && m.faces.size() == 288);
+    CHECK(m.verts.size() == static_cast<size_t>(S * (H + 1) + 2) && m.faces.size() == static_cast<size_t>(2 * S * H + 2 * S));
     CHECK(Watertight(m) && RevolvedFacesOutward(m));
     CHECK(std::fabs(m.GetBounds().max.z - 20) < 1e-9 && std::fabs(m.GetBounds().max.x - 10) < 1e-9);
     // A frustum (both radii > 0) has both caps.
@@ -172,10 +177,11 @@ static void Cone() {
 }
 
 static void Tube() {
-    // tube.max: outer 10, inner 6.185, height 10, 18 sides, 5 height segs, 1 cap seg, 432 triangles.
+    // tube.max: outer 10, inner 6.185, height 10, 18 sides, 5 height segs, 1 cap seg.
+    // R3.1 Summary Info: 216 vertices, 432 faces.
     TubeObject t(10, 6.185, 10);
     const Mesh m = t.Evaluate();
-    CHECK(m.faces.size() == 432);
+    CHECK(m.faces.size() == 432 && m.verts.size() == 216);
     CHECK(m.verts.size() == static_cast<size_t>(2 * 18 * 6));
     CHECK(Watertight(m) && RevolvedFacesOutward(m, 6.185));
     // Swapped radii give the same tube.
@@ -185,7 +191,8 @@ static void Tube() {
 static void Torus() {
     TorusObject t(25, 5);                                      // 24 segments x 12 sides
     const Mesh m = t.Evaluate();
-    CHECK(m.faces.size() == 2u * 24 * 12 && m.verts.size() == 24u * 12);
+    // R3.1 Summary Info of torus.max: 288 vertices, 576 faces.
+    CHECK(m.faces.size() == 576 && m.verts.size() == 288);
     CHECK(Watertight(m));
     // Every face points away from the ring's centre circle.
     bool outward = true;
@@ -212,7 +219,52 @@ static void ClosedBoxAndPyramid() {
     CHECK(Watertight(PyramidObject(20, 20, 10).Evaluate()) && Watertight(p.Evaluate()));
 }
 
+static bool OnSphere(const Mesh& m, double r, double lift = 0) {
+    for (const math::Vec3& v : m.verts)
+        if (std::fabs(math::Length(v - math::Vec3{0, 0, lift}) - r) > 1e-9) return false;
+    return true;
+}
+
+static void Sphere() {
+    // sphere.max: radius 10, 32 segments. R3.1 Summary Info: 482 vertices, 960 faces.
+    const Mesh m = SphereObject(10).Evaluate();
+    CHECK(m.verts.size() == 482 && m.faces.size() == 960);
+    CHECK(Watertight(m) && FacesOutward(m) && OnSphere(m, 10));
+    CHECK(std::fabs(m.verts.front().z - 10) < 1e-12);        // a vertex on each pole
+    // Visible edges: 32 meridians of 16 segments and 15 rings of 32 (no hidden diagonals).
+    CHECK(m.VisibleEdges().size() == 32u * 16 + 15u * 32);
+    SphereObject b(10);
+    b.Params().Set(SphereObject::kBaseToPivot, 1);
+    const Bounds bb = b.Evaluate().GetBounds();
+    CHECK(std::fabs(bb.min.z) < 1e-12 && std::fabs(bb.max.z - 20) < 1e-12);
+}
+
+static void GeoSphere() {
+    // geosphere.max: radius 10, icosahedron, 4 segments. R3.1: 162 vertices, 320 faces.
+    const Mesh m = GeoSphereObject(10).Evaluate();
+    CHECK(m.verts.size() == 162 && m.faces.size() == 320);
+    CHECK(Watertight(m) && FacesOutward(m) && OnSphere(m, 10));
+    bool pole = false;
+    for (const math::Vec3& v : m.verts) pole = pole || (std::fabs(v.x) < 1e-9 && std::fabs(v.y) < 1e-9 && v.z > 9.999);
+    CHECK(pole);                                              // a vertex on the +Z pole
+    // Other base solids and frequencies: 4 n^2 / 8 n^2 / 20 n^2 faces, 2 n^2 + 2 / 4 n^2 + 2 /
+    // 10 n^2 + 2 vertices.
+    for (int type = 0; type < 3; ++type)
+        for (int n : {1, 2, 3, 5}) {
+            GeoSphereObject g(5);
+            g.Params().Set(GeoSphereObject::kBaseType, type);
+            g.Params().Set(GeoSphereObject::kSegments, n);
+            const Mesh gm = g.Evaluate();
+            const size_t base = type == 0 ? 4 : type == 1 ? 8 : 20;
+            CHECK(gm.faces.size() == base * static_cast<size_t>(n * n));
+            CHECK(gm.verts.size() == base / 2 * static_cast<size_t>(n * n) + 2);
+            CHECK(Watertight(gm) && FacesOutward(gm));
+        }
+}
+
 int main() {
+    Sphere();
+    GeoSphere();
     ClosedBoxAndPyramid();
     Cylinder();
     Cone();

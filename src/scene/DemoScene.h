@@ -11,6 +11,8 @@ namespace scene {
 //   "pyramid" Pyramid 20 x 20 x 10, wire #390888
 //   "cone"    Cone r1 10, r2 -20 (shown as 0), h 20, 24 sides, 5 height segs, #57E0C6
 //   "tube"    Tube 10 / 6.185, h 10, 18 sides, 1 cap seg, 5 height segs, #1AB158
+//   "sphere"  Sphere r 10, 32 segments, #860606
+//   "geosphere" GeoSphere r 10, icosahedron, 4 segments, #99E4B8
 //   "cylinder", "torus"  Max's defaults (their samples were only checked visually)
 //   "all"     all of them in a row along X
 // Each single sample sits at the origin (where the sample files put them is still to

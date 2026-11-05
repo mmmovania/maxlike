@@ -14,7 +14,7 @@ static Node* Add(Scene& s, const std::string& base, std::shared_ptr<Object> obje
 
 bool BuildDemoScene(Scene& s, const std::string& which) {
     struct Sample { const char* name; const char* base; uint32_t colour; double allX;
-                    std::shared_ptr<Object> (*make)(); };
+                    std::shared_ptr<Object> (*make)(); double allY = 0; };
     static const Sample kSamples[] = {
         {"box", "Box", 0x1AB194, -160, [] { return std::shared_ptr<Object>(std::make_shared<BoxObject>(60, 60, 60)); }},
         {"pyramid", "Pyramid", 0x390888, -110, [] { return std::shared_ptr<Object>(std::make_shared<PyramidObject>(20, 20, 10)); }},
@@ -32,12 +32,14 @@ bool BuildDemoScene(Scene& s, const std::string& which) {
              t->Params().Set(TubeObject::kHeightSegs, 5);
              return std::shared_ptr<Object>(t); }},
         {"torus", "Torus", 0xE0C657, 140, [] { return std::shared_ptr<Object>(std::make_shared<TorusObject>(25, 5)); }},
+        {"sphere", "Sphere", 0x860606, -110, [] { return std::shared_ptr<Object>(std::make_shared<SphereObject>(10)); }, 70},
+        {"geosphere", "GeoSphere", 0x99E4B8, -110, [] { return std::shared_ptr<Object>(std::make_shared<GeoSphereObject>(10)); }, -70},
     };
     const bool all = which == "all";
     bool found = all;
     for (const Sample& sm : kSamples) {
         if (!all && which != sm.name) continue;
-        Add(s, sm.base, sm.make(), sm.colour, {all ? sm.allX : 0.0, 0, 0});
+        Add(s, sm.base, sm.make(), sm.colour, {all ? sm.allX : 0.0, all ? sm.allY : 0.0, 0});
         found = true;
     }
     return found;

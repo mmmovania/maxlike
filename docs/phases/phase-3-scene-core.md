@@ -15,7 +15,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       in node colour, ortho vertices through the grid's pixel formula; `--demo-scene`
 - [x] **3.3 Cylinder, Cone, Tube, Torus**: built from rings (`Ring`, `Band`, `Cap`);
       collapsed rings become triangles; Max's parameter orders (Tube differs from Cone)
-- [ ] 3.4 Sphere, GeoSphere, Teapot
+- [x] **3.4a Sphere, GeoSphere; ring primitives corrected to R3.1**: counts now exactly
+      Max's (Summary Info); the cone keeps its tip ring and top cap; cap spokes hidden; rings
+      start at +X (fitted to the cylinder outline)
+- [ ] 3.4b Teapot
 - [ ] 3.5 Modifier stack: Derived Object, Edit Mesh vertex moves, smoothing groups
 - [ ] 3.6 Shaded display (Smooth + Highlights)
 - [ ] 3.7 Undo/redo
@@ -53,9 +56,17 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       h 10, 18 sides, 5 height segs, 1 cap seg) gives 432 triangles; the cone's tip and a
       negative height are handled
 - [ ] On Windows: `--demo-scene cylinder|cone|tube|torus|all` look right
-- [ ] Max's true counts (R3.1 File > Summary Info) for cone, cylinder, tube, torus
-- [ ] R3.1 wireframe screenshots: vertex order, cap spokes (visible or hidden), where the
-      ring starts (+X assumed), torus rotation/twist units
+- [x] Max's true counts (R3.1 File > Summary Info): the cone differed (now fixed, step 3.4a)
+- [x] Cap spokes hidden and rings starting at +X (R3.1 screenshots, step 3.4a)
+- [ ] Vertex order within the meshes; torus rotation/twist units
+
+## Step 3.4a verification
+- [x] Builds warning-free; thirteen test programs pass (MinGW + Wine)
+- [x] `test_primitives` holds R3.1's Summary Info counts (vertices / faces): Cylinder
+      110 / 216, Cone 146 / 288, Tube 216 / 432, Torus 288 / 576, Sphere 482 / 960,
+      GeoSphere 162 / 320; all watertight and outward-facing; the cylinder shows no cap spokes
+- [ ] On Windows: `--demo-scene sphere|geosphere|all`
+- [ ] R3.1 Summary Info still wanted for: Box, Plane, Pyramid, Teapot
 
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the

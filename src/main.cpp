@@ -37,7 +37,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR cmdLine, int /*cmdShow*
     }
     const std::string demo = DemoSceneArg(cmdLine);
     if (!demo.empty() && !frame.LoadDemoScene(demo))
-        MessageBoxW(frame.Hwnd(), L"Unknown demo scene. Use box, plane, pyramid, cylinder, cone, tube, torus or all.", L"maxlike", MB_ICONWARNING);
+        MessageBoxW(frame.Hwnd(), L"Unknown demo scene. Use box, plane, pyramid, cylinder, cone, tube, torus, sphere, geosphere or all.", L"maxlike", MB_ICONWARNING);
 
     int clientW = 0, clientH = 0;
     if (ParseClientSize(cmdLine, clientW, clientH)) {
