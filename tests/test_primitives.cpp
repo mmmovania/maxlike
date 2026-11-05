@@ -4,6 +4,8 @@
 #include "scene/Primitives.h"
 #include <cmath>
 #include <cstdio>
+#include <map>
+#include <utility>
 
 static int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { ++failures; std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); } } while (0)
@@ -102,7 +104,120 @@ static void Pyramid() {
     CHECK(n.Valid() && FacesOutward(n));
 }
 
+// Closed, consistently oriented surface: every directed edge appears exactly once and
+// its reverse exactly once (so each edge joins exactly two faces, wound oppositely).
+static bool Watertight(const Mesh& m) {
+    std::map<std::pair<uint32_t, uint32_t>, int> directed;
+    for (const Face& f : m.faces)
+        for (int k = 0; k < 3; ++k) directed[{f.v[k], f.v[(k + 1) % 3]}]++;
+    for (const auto& [e, n] : directed) {
+        if (n != 1) return false;
+        auto rev = directed.find({e.second, e.first});
+        if (rev == directed.end() || rev->second != 1) return false;
+    }
+    return true;
+}
+
+// Faces point away from the Z axis on the sides (towards it on a tube's inner wall)
+// and up/down on the caps.
+static bool RevolvedFacesOutward(const Mesh& m, double innerRadius = -1) {
+    for (size_t i = 0; i < m.faces.size(); ++i) {
+        const Face& f = m.faces[i];
+        const math::Vec3 c = (m.verts[f.v[0]] + m.verts[f.v[1]] + m.verts[f.v[2]]) * (1.0 / 3);
+        const math::Vec3 n = m.FaceNormal(i);
+        if (std::fabs(n.z) > 0.99) continue;                   // caps: checked by watertightness
+        const double radial = n.x * c.x + n.y * c.y;
+        const bool inner = innerRadius > 0 && std::hypot(c.x, c.y) < innerRadius + 1e-6;
+        if (inner ? radial >= 0 : radial <= 0) return false;
+    }
+    return true;
+}
+
+static void Cylinder() {
+    CylinderObject c(15, 25);                                  // defaults: 5 height segs, 1 cap seg, 18 sides
+    const Mesh m = c.Evaluate();
+    const int S = 18, H = 5;
+    CHECK(m.faces.size() == static_cast<size_t>(2 * S * H + 2 * S));
+    CHECK(m.verts.size() == static_cast<size_t>(S * (H + 1) + 2));
+    CHECK(Watertight(m) && RevolvedFacesOutward(m));
+    CHECK(std::fabs(m.GetBounds().max.z - 25) < 1e-9 && std::fabs(m.GetBounds().max.x - 15) < 1e-9);
+    // Cap segments add rings: 2 cap segs -> each cap gains S quads (2S triangles).
+    c.Params().Set(CylinderObject::kCapSegs, 2);
+    const Mesh m2 = c.Evaluate();
+    CHECK(m2.faces.size() == static_cast<size_t>(2 * S * H + 2 * (S + 2 * S)));
+    CHECK(Watertight(m2));
+    // Visible edges: rings and vertical lines of the side, plus the cap spokes.
+    CHECK(m.VisibleEdges().size() == static_cast<size_t>(S * (H + 1) + S * H + 2 * S));
+}
+
+static void Cone() {
+    // cone.max: radius 1 = 10, radius 2 stored -20 (clamped to 0), height 20; the JS reader's
+    // 264 triangles is three.js's count for 24 sides x 5 height segments.
+    ConeObject c(10, -20, 20);
+    const Mesh m = c.Evaluate();
+    const int S = 24, H = 5;
+    // Max-style: the top ring collapses to the apex (one row of triangles, no top cap).
+    CHECK(m.faces.size() == static_cast<size_t>(2 * S * (H - 1) + S + S));
+    CHECK(m.verts.size() == static_cast<size_t>(S * H + 1 + 1));
+    CHECK(Watertight(m) && RevolvedFacesOutward(m));
+    CHECK(std::fabs(m.GetBounds().max.z - 20) < 1e-9 && std::fabs(m.GetBounds().max.x - 10) < 1e-9);
+    // A frustum (both radii > 0) has both caps.
+    ConeObject f(10, 5, 20);
+    CHECK(f.Evaluate().faces.size() == static_cast<size_t>(2 * S * H + 2 * S) && Watertight(f.Evaluate()));
+    // Negative height builds downwards, still closed and outward.
+    ConeObject d(10, 4, -20);
+    const Mesh md = d.Evaluate();
+    CHECK(std::fabs(md.GetBounds().min.z + 20) < 1e-9 && std::fabs(md.GetBounds().max.z) < 1e-9);
+    CHECK(Watertight(md) && RevolvedFacesOutward(md));
+}
+
+static void Tube() {
+    // tube.max: outer 10, inner 6.185, height 10, 18 sides, 5 height segs, 1 cap seg, 432 triangles.
+    TubeObject t(10, 6.185, 10);
+    const Mesh m = t.Evaluate();
+    CHECK(m.faces.size() == 432);
+    CHECK(m.verts.size() == static_cast<size_t>(2 * 18 * 6));
+    CHECK(Watertight(m) && RevolvedFacesOutward(m, 6.185));
+    // Swapped radii give the same tube.
+    CHECK(TubeObject(6.185, 10, 10).Evaluate().faces.size() == 432);
+}
+
+static void Torus() {
+    TorusObject t(25, 5);                                      // 24 segments x 12 sides
+    const Mesh m = t.Evaluate();
+    CHECK(m.faces.size() == 2u * 24 * 12 && m.verts.size() == 24u * 12);
+    CHECK(Watertight(m));
+    // Every face points away from the ring's centre circle.
+    bool outward = true;
+    for (size_t i = 0; i < m.faces.size(); ++i) {
+        const Face& f = m.faces[i];
+        const math::Vec3 c = (m.verts[f.v[0]] + m.verts[f.v[1]] + m.verts[f.v[2]]) * (1.0 / 3);
+        const double d = std::hypot(c.x, c.y);
+        const math::Vec3 onCircle{c.x / d * 25, c.y / d * 25, 0};
+        if (math::Dot(m.FaceNormal(i), c - onCircle) <= 0) outward = false;
+    }
+    CHECK(outward);
+    CHECK(std::fabs(m.GetBounds().max.x - 30) < 1e-9 && std::fabs(m.GetBounds().max.z - 5) < 0.2);
+}
+
+static void ClosedBoxAndPyramid() {
+    BoxObject b(30, 20, 10);
+    b.Params().Set(BoxObject::kWidthSegs, 3);
+    b.Params().Set(BoxObject::kHeightSegs, 4);
+    CHECK(Watertight(BoxObject(60, 60, 60).Evaluate()) && Watertight(b.Evaluate()));
+    CHECK(Watertight(BoxObject(10, 10, -20).Evaluate()));
+    PyramidObject p(20, 30, 15);
+    p.Params().Set(PyramidObject::kWidthSegs, 2);
+    p.Params().Set(PyramidObject::kHeightSegs, 3);
+    CHECK(Watertight(PyramidObject(20, 20, 10).Evaluate()) && Watertight(p.Evaluate()));
+}
+
 int main() {
+    ClosedBoxAndPyramid();
+    Cylinder();
+    Cone();
+    Tube();
+    Torus();
     BoxMatchesMaxOrder();
     SegmentedBox();
     GridEdgeCount();

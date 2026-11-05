@@ -36,4 +36,44 @@ public:
     Mesh Evaluate() const override;
 };
 
+// Cylinder (class 0x12). 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides,
+// 5 smooth. Pivot at the centre of the base.
+class CylinderObject : public Object {
+public:
+    enum { kRadius = 0, kHeight, kHeightSegs, kCapSegs, kSides, kSmooth };
+    CylinderObject(double radius = 15, double height = 25);
+    std::string ClassName() const override { return "Cylinder"; }
+    Mesh Evaluate() const override;
+};
+
+// Cone. 0 radius 1 (base), 1 radius 2 (top), 2 height, 3 height segs, 4 cap segs,
+// 5 sides, 6 smooth (7-9 slice: not yet). Negative radii count as 0 (Max clamps them).
+class ConeObject : public Object {
+public:
+    enum { kRadius1 = 0, kRadius2, kHeight, kHeightSegs, kCapSegs, kSides, kSmooth };
+    ConeObject(double radius1 = 15, double radius2 = 0, double height = 25);
+    std::string ClassName() const override { return "Cone"; }
+    Mesh Evaluate() const override;
+};
+
+// Tube. 0 radius 1, 1 radius 2, 2 height, 3 sides, 4 cap segs, 5 height segs, 6 smooth
+// (note: a different order from Cone, verified). The larger radius is the outside.
+class TubeObject : public Object {
+public:
+    enum { kRadius1 = 0, kRadius2, kHeight, kSides, kCapSegs, kHeightSegs, kSmooth };
+    TubeObject(double radius1 = 15, double radius2 = 10, double height = 25);
+    std::string ClassName() const override { return "Tube"; }
+    Mesh Evaluate() const override;
+};
+
+// Torus. 0 radius 1 (ring), 1 radius 2 (tube), 2 rotation, 3 twist (degrees,
+// unverified), 4 segments (around the ring), 5 sides (around the tube).
+class TorusObject : public Object {
+public:
+    enum { kRadius1 = 0, kRadius2, kRotation, kTwist, kSegments, kSides };
+    TorusObject(double radius1 = 25, double radius2 = 5);
+    std::string ClassName() const override { return "Torus"; }
+    Mesh Evaluate() const override;
+};
+
 } // namespace scene

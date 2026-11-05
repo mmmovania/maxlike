@@ -9,7 +9,10 @@ namespace scene {
 //   "box"     Box 60 x 60 x 60, wire #1AB194
 //   "plane"   Plane 40 (X) x 42 (Y), 4 x 4 segments, wire #B1581A
 //   "pyramid" Pyramid 20 x 20 x 10, wire #390888
-//   "all"     the three side by side
+//   "cone"    Cone r1 10, r2 -20 (shown as 0), h 20, 24 sides, 5 height segs, #57E0C6
+//   "tube"    Tube 10 / 6.185, h 10, 18 sides, 1 cap seg, 5 height segs, #1AB158
+//   "cylinder", "torus"  Max's defaults (their samples were only checked visually)
+//   "all"     all of them in a row along X
 // Each single sample sits at the origin (where the sample files put them is still to
 // be confirmed). Returns false for an unknown name.
 bool BuildDemoScene(Scene& scene, const std::string& which);

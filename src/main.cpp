@@ -12,7 +12,7 @@ static bool ParseClientSize(const wchar_t* cmdLine, int& w, int& h) {
     return p && std::swscanf(p + 14, L"%dx%d", &w, &h) == 2 && w > 0 && h > 0;
 }
 
-// Development option: `--demo-scene box|plane|pyramid|all` opens with objects from the
+// Development option: `--demo-scene <name>|all` opens with objects from the
 // verified sample files, to compare with R3.1.
 static std::string DemoSceneArg(const wchar_t* cmdLine) {
     const wchar_t* p = cmdLine ? std::wcsstr(cmdLine, L"--demo-scene ") : nullptr;
@@ -37,7 +37,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR cmdLine, int /*cmdShow*
     }
     const std::string demo = DemoSceneArg(cmdLine);
     if (!demo.empty() && !frame.LoadDemoScene(demo))
-        MessageBoxW(frame.Hwnd(), L"Unknown demo scene. Use box, plane, pyramid or all.", L"maxlike", MB_ICONWARNING);
+        MessageBoxW(frame.Hwnd(), L"Unknown demo scene. Use box, plane, pyramid, cylinder, cone, tube, torus or all.", L"maxlike", MB_ICONWARNING);
 
     int clientW = 0, clientH = 0;
     if (ParseClientSize(cmdLine, clientW, clientH)) {

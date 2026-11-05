@@ -19,7 +19,8 @@ build\Debug\maxlike.exe
 
 `maxlike.exe --client-size 1920x998` opens the window un-maximised with exactly the
 client size of the R3.1 reference screenshot (useful for pixel comparisons).
-`--demo-scene box|plane|pyramid|all` opens with objects from the verified `.max` samples.
+`--demo-scene <name>|all` opens with objects from the verified `.max` samples (box, plane,
+pyramid, cylinder, cone, tube, torus).
 
 ## Branches
 

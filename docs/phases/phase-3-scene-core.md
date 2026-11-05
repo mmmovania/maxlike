@@ -13,7 +13,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] **3.2 Box, Plane, Pyramid; scene in the viewports**: `BoxObject` (Max's verified
       order for 1 x 1 x 1, one rule for all sides), `PlaneObject`, `PyramidObject`; wireframes
       in node colour, ortho vertices through the grid's pixel formula; `--demo-scene`
-- [ ] 3.3 Cylinder, Cone, Tube, Torus
+- [x] **3.3 Cylinder, Cone, Tube, Torus**: built from rings (`Ring`, `Band`, `Cap`);
+      collapsed rings become triangles; Max's parameter orders (Tube differs from Cone)
 - [ ] 3.4 Sphere, GeoSphere, Teapot
 - [ ] 3.5 Modifier stack: Derived Object, Edit Mesh vertex moves, smoothing groups
 - [ ] 3.6 Shaded display (Smooth + Highlights)
@@ -45,6 +46,17 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [ ] Unverified: Max's vertex order for segmented boxes, Plane and Pyramid; smoothing-group
       bits per side; material IDs (all 0 for now)
 
+## Step 3.3 verification
+- [x] Builds warning-free; thirteen test programs pass (MinGW + Wine)
+- [x] `test_primitives`: every primitive is watertight (each edge shared by exactly two
+      faces, wound oppositely) and faces outwards; counts by formula; tube.max (10 / 6.185,
+      h 10, 18 sides, 5 height segs, 1 cap seg) gives 432 triangles; the cone's tip and a
+      negative height are handled
+- [ ] On Windows: `--demo-scene cylinder|cone|tube|torus|all` look right
+- [ ] Max's true counts (R3.1 File > Summary Info) for cone, cylinder, tube, torus
+- [ ] R3.1 wireframe screenshots: vertex order, cap spokes (visible or hidden), where the
+      ring starts (+X assumed), torus rotation/twist units
+
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the
   conjugate, so the importer (Phase 8) uses `Quat::FromMaxFile`.
@@ -54,4 +66,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
   diagonal last; the same cell rule (c00, c10, c11) / (c11, c01, c00) builds every side.
 - OpenGL leaves out a line's last pixel; ortho edges are snapped to pixel centres and
   only their end is extended by half a pixel.
-- `maxlike.exe --demo-scene box|plane|pyramid|all` opens with the sample objects.
+- `maxlike.exe --demo-scene <name>|all` opens with the sample objects (box, plane,
+  pyramid, cylinder, cone, tube, torus).
+- The JS reader's triangle counts for primitives other than Box and Pyramid are
+  three.js's, not Max's (e.g. cone 264 = 24 x (2 x 5 + 1) with degenerate tip triangles);
+  maxlike builds the cone's tip as one row of triangles: 240.
