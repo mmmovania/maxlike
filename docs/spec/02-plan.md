@@ -4,12 +4,13 @@ Each phase lives on `phase/<n>-<name>` and merges into `main` when every criteri
 Every phase ends with a technical document, `docs/tech/phase<n>-tech-docs.md`, collecting
 the explanations, design reasons and lessons of that phase (index: `docs/tech/README.md`).
 
-## Phase 0 — Skeleton (`phase/0-skeleton`)
-- [ ] CMake project builds with MSVC (Debug/Release, Unicode, C++17).
-- [ ] Thin wrapper: `Window` base class, message routing, `App` message loop.
-- [ ] `Theme` struct with every colour and metric from `01-ui-look.md`.
-- [ ] Per-monitor DPI awareness; metric scaling helper.
-- [ ] Empty main window titled `Untitled - <app name>`.
+## Phase 0 — Skeleton (`phase/0-skeleton`) ✔
+- [x] CMake project builds with MSVC (Debug/Release, Unicode, C++17).
+- [x] Thin wrapper: `Window` base class, message routing, `App` message loop.
+- [x] `Theme` struct with the colours and metrics known at the time (later phases moved
+      measured metrics into `Metrics.h` and per-control code).
+- [x] Per-monitor DPI awareness; metric scaling helper.
+- [x] Empty main window titled `Untitled - <app name>`.
 
 ## Phase 1 — Frame layout (`phase/1-frame-layout`) ✔ v0.1.0
 - [x] Menu bar with all R3 top-level menus.
@@ -45,23 +46,32 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       Perspective lines all within 1 px; remaining differences only in icon art and
       the command panel's tab row (Phase 4).
 
-## Phase 3 — Scene core (`phase/3-scene-core`)
-- [ ] Node (name, wire colour, parent, PRS, pivot offset, object ref).
-- [ ] ParamBlock; Object → modifier stack → Mesh (verts, faces, smoothing, mat IDs).
-- [ ] Primitive builders ported from the JS loader with Max vertex order.
-- [ ] Undo/redo.
-- [ ] Unit tests reproduce the loader's regression table (box 12 tris, sphere 960, …).
+## Phase 3 — Scene core (`phase/3-scene-core`) ✔ v0.3.0
+- [x] Node (name, wire colour, parent, PRS, pivot offset, object ref, stable id).
+- [x] ParamBlock; Object → modifier stack (Derived Object, Edit Mesh vertex moves) → Mesh
+      (verts, faces, smoothing groups, material IDs, edge visibility).
+- [x] All ten Standard Primitives; Box in Max's verified vertex/face order; counts of
+      Cylinder, Cone, Tube, Torus, Sphere, GeoSphere, Teapot equal R3.1's Summary Info.
+- [x] Scene drawn in the viewports: wireframe (node colour), Smooth + Highlights and the
+      other shading modes.
+- [x] Undo/redo (command pattern).
+- [x] Unit tests hold the loader's verified results and R3.1's own counts (the JS
+      loader's counts for most primitives turned out to be three.js's, not Max's).
 
 ## Phase 4 — Command panel (`phase/4-command-panel`)
 - [ ] Rollout, rollup, spinner, colour swatch, check button, flyout controls.
 - [ ] Six tabs, category row, Standard Primitives combo, Object Type, Name and Color.
+- [ ] Pixel check of the Create panel against the reference (default state) and the
+      R3.1 screenshots with an object selected.
 
 ## Phase 5 — Interactive creation (`phase/5-creation`)
-- [ ] Creation state machines for all ten Standard Primitives.
+- [ ] Creation state machines for all ten Standard Primitives, through the undo system
+      (one undo step per created object).
 - [ ] Parameters rollout updates live while dragging.
+- [ ] Objects tab strip of the tab panel.
 
 ## Phase 6 — Selection and transforms (`phase/6-select-transform`)
-- [ ] Click and region selection, selection filter.
+- [ ] Click and region selection, selection filter; selected objects drawn white.
 - [ ] Move/Rotate/Scale with tripod, axis constraints, reference coord systems.
 - [ ] Status bar X/Y/Z type-in.
 
@@ -73,5 +83,7 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 ## Phase 8 — `.max` import (`phase/8-max-import`)
 - [ ] CFB reader, zlib, chunk walker, class directory, DLL directory.
 - [ ] ParamBlock / PB2, Derived Object, node controllers (quaternion conjugate).
-- [ ] All loader samples pass the regression table.
+- [ ] All loader samples import with R3.1's vertex/face counts (`04-primitives.md`; the
+      JS regression table's counts for most primitives are three.js's) and the verified
+      transforms, colours and instances.
 - [ ] Native save in own chunked format.

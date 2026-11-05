@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(maxlike VERSION 0.2.0 LANGUAGES C CXX RC)
+project(maxlike VERSION 0.3.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -69,6 +69,8 @@ add_executable(maxlike WIN32
     src/gl/GLContext.h
     src/gl/LineRenderer.cpp
     src/gl/LineRenderer.h
+    src/gl/MeshRenderer.cpp
+    src/gl/MeshRenderer.h
     src/view/OrthoGrid.cpp
     src/view/OrthoGrid.h
     src/view/PerspectiveView.cpp
@@ -81,6 +83,26 @@ add_executable(maxlike WIN32
     src/ui/LabelText.h
     src/math/Mat4.cpp
     src/math/Mat4.h
+    src/math/Quat.cpp
+    src/math/Quat.h
+    src/scene/Mesh.cpp
+    src/scene/Mesh.h
+    src/scene/ParamBlock.cpp
+    src/scene/ParamBlock.h
+    src/scene/Object.h
+    src/scene/Node.cpp
+    src/scene/Node.h
+    src/scene/Scene.cpp
+    src/scene/Scene.h
+    src/scene/Primitives.cpp
+    src/scene/Primitives.h
+    src/scene/TeapotData.h
+    src/scene/Modifier.cpp
+    src/scene/Modifier.h
+    src/scene/Undo.cpp
+    src/scene/Undo.h
+    src/scene/DemoScene.cpp
+    src/scene/DemoScene.h
     res/resource.h
     res/maxlike.rc
 )
@@ -133,7 +155,11 @@ maxlike_add_test(test_toolbar_spec tests/test_toolbar_spec.cpp src/ui/ToolbarSpe
 maxlike_add_test(test_time_slider tests/test_time_slider.cpp src/ui/TimeSliderGeometry.cpp)
 maxlike_add_test(test_status_layout tests/test_status_layout.cpp src/ui/StatusLayout.cpp)
 maxlike_add_test(test_viewport_layout tests/test_viewport_layout.cpp src/ui/ViewportLayout.cpp)
-maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp)
+maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_perspective tests/test_perspective.cpp src/math/Mat4.cpp src/view/PerspectiveView.cpp src/view/OrthoGrid.cpp)
 maxlike_add_test(test_tripod tests/test_tripod.cpp src/view/Tripod.cpp)
 maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.cpp src/view/OrthoGrid.cpp src/view/PerspectiveView.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_scene tests/test_scene.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_primitives tests/test_primitives.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp)
+maxlike_add_test(test_modifiers tests/test_modifiers.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_undo tests/test_undo.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)

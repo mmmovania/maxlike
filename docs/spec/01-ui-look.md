@@ -129,14 +129,36 @@ Code: `src/view/Tripod.*`, `src/ui/LabelText.*`, `Viewport::DrawLabelAndTripod`.
   Colours `#FF0000`, `#00FF00`, `#0000FF`. All four reference tripods reproduced exactly.
 
 ## Viewports (default)
-| Pos | View | Construction plane | Tripod labels |
-|---|---|---|---|
-| Top-left | Top | XY | x right, y up |
-| Top-right | Front | XZ | x right, z up |
-| Bottom-left | Left | YZ | y left, z up (check screenshot) |
-| Bottom-right | Perspective | XY | x, y, z |
+| Pos | View | Construction plane | Tripod | Default display |
+|---|---|---|---|---|
+| Top-left | Top | XY | x right, y up, z at the viewer | Wireframe |
+| Top-right | Front | XZ | x right, z up, y away | Wireframe |
+| Bottom-left | Left | YZ | y left, z up, x away | Wireframe |
+| Bottom-right | Perspective | XY | x right, z up, y into the scene | Smooth + Highlights |
 
-Label: top-left, ~6 px inset. Tripod: bottom-left, ~40×40 px.
+Label and tripod positions: see "Viewport labels and axis tripods" above (measured).
+Other views from the label menu: Bottom (y down), Back (x left), Right (y right).
+
+## Objects in the viewports (Phase 3)
+Code: `Viewport::DrawScene`, `Viewport::DrawShaded`, `src/gl/MeshRenderer.*`.
+
+- Wireframe: visible edges only (a quad's diagonal is hidden), all of them (no
+  hidden-line removal), in the node's wire colour. Ortho views map points through the
+  grid's pixel formula, so edges on grid lines land on the grid's pixels.
+- Selected objects: R3.1 draws them white (screenshots `r3.1-*-selected-zoomed.png`);
+  not implemented yet (Phase 6).
+- Shading modes (label menu): Smooth + Highlights, Wireframe, Other → Smooth, Facets +
+  Highlights, Facets, Lit Wireframes (drawn as wireframe for now), Bounding Box.
+- Lighting (unverified): ambient 25 %, diffuse 75 % in the object colour, white Blinn-Phong
+  highlight (exponent 40) in the Highlights modes, one light above, left of and behind
+  the viewer, two-sided. Needs an R3.1 screenshot of a shaded object.
+
+## Navigation (Phase 2, behaviour unverified)
+Status-area buttons set a mode until right-click: Zoom, Zoom All, Region Zoom, Pan, Arc
+Rotate; Zoom Extents (All) frame the defaults while the scene is empty. Middle-drag pans,
+Alt + middle orbits, Ctrl + Alt + middle zooms, the wheel zooms ×1.25 per notch. Grid
+thins out when lines would be closer than 4 px. Cursors, prompts and directions are
+from memory.
 
 ## Main toolbar (measured, step 1.4a)
 Code: `src/ui/ToolbarSpec.*` (items + layout), `src/ui/Toolbar.*` (drawing, input).
@@ -180,13 +202,14 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
-## Command panel
+## Command panel (Phase 4: to be measured)
 - Tabs: Create, Modify, Hierarchy, Motion, Display, Utilities.
 - Create categories: Geometry, Shapes, Lights, Cameras, Helpers, Space Warps, Systems.
 - Subcategory combo: `Standard Primitives`.
 - Rollout `Object Type`: AutoGrid (disabled checkbox), two-column buttons
   Box/Cone, Sphere/GeoSphere, Cylinder/Tube, Torus/Pyramid, Teapot/Plane.
-- Rollout `Name and Color`: edit box + colour swatch.
+- Rollout `Name and Color`: edit box + colour swatch. With an object selected (R3.1
+  screenshots) it shows the object's name, e.g. `Cylinder01`, and its colour.
 
 ## Status area
 MAXScript mini-listener (pink), prompt line 1 (`None Selected`), prompt line 2

@@ -1,0 +1,178 @@
+#pragma once
+#include "scene/Scene.h"
+#include <cstddef>
+#include <deque>
+#include <memory>
+#include <string>
+#include <vector>
+
+// Undo and redo with the command pattern: every change to the scene is a Command that
+// knows how to do and undo itself. Commands refer to nodes by id (never by pointer),
+// so they stay valid when an undo deletes and a redo recreates a node.
+namespace scene {
+
+class Command {
+public:
+    virtual ~Command() = default;
+    virtual std::string Name() const = 0;   // shown as "Undo <name>" in the Edit menu
+    virtual void Do(Scene& scene) = 0;
+    virtual void Undo(Scene& scene) = 0;
+};
+
+class UndoStack {
+public:
+    // R3's default number of undo levels (Preferences > General: Scene Undo Levels).
+    // NOTE: the default of 20 is from memory, not verified.
+    explicit UndoStack(size_t levels = 20) : levels_(levels) {}
+
+    // Do the command and record it. Clears the redo list.
+    void Execute(std::unique_ptr<Command> command, Scene& scene);
+    bool Undo(Scene& scene);
+    bool Redo(Scene& scene);
+
+    bool CanUndo() const { return !undo_.empty(); }
+    bool CanRedo() const { return !redo_.empty(); }
+    std::string UndoName() const { return CanUndo() ? undo_.back()->Name() : std::string(); }
+    std::string RedoName() const { return CanRedo() ? redo_.back()->Name() : std::string(); }
+    size_t UndoCount() const { return undo_.size(); }
+
+    // "Saved" bookkeeping: IsClean() is true when the scene matches the last MarkClean().
+    void MarkClean() { cleanAt_ = position_; cleanValid_ = true; }
+    bool IsClean() const { return cleanValid_ && cleanAt_ == position_; }
+    void Clear() { undo_.clear(); redo_.clear(); position_ = 0; cleanValid_ = false; }
+
+private:
+    size_t levels_;
+    std::deque<std::unique_ptr<Command>> undo_;
+    std::vector<std::unique_ptr<Command>> redo_;
+    long long position_ = 0;      // +1 per Execute/Redo, -1 per Undo
+    long long cleanAt_ = 0;
+    bool cleanValid_ = true;      // a new, empty scene counts as clean
+};
+
+// ---- commands -------------------------------------------------------------------
+
+// Create a node showing `object` (Max's "Create").
+class CreateNodeCommand : public Command {
+public:
+    CreateNodeCommand(std::string name, std::shared_ptr<Object> object, uint32_t wireColor, PRS transform)
+        : name_(std::move(name)), object_(std::move(object)), color_(wireColor), transform_(transform) {}
+    std::string Name() const override { return "Create"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+    Node::Id CreatedId() const { return id_; }
+
+private:
+    std::string name_;
+    std::shared_ptr<Object> object_;
+    uint32_t color_;
+    PRS transform_;
+    Node::Id id_ = 0;   // assigned on the first Do, reused on redo
+};
+
+// Delete a node. Its children move to its parent (keeping their world placement);
+// undo puts everything back exactly, including the children's own transforms.
+class DeleteNodeCommand : public Command {
+public:
+    explicit DeleteNodeCommand(Node::Id id) : id_(id) {}
+    std::string Name() const override { return "Delete"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    struct ChildState { Node::Id id; PRS transform; };
+    Node::Id id_;
+    // Snapshot taken in Do.
+    std::string name_;
+    std::shared_ptr<Object> object_;
+    uint32_t color_ = 0;
+    PRS transform_, offset_;
+    Node::Id parent_ = 0;
+    std::vector<ChildState> children_;
+};
+
+// Set a node's transform (Move, Rotate, Scale).
+class TransformCommand : public Command {
+public:
+    TransformCommand(Node::Id id, PRS before, PRS after, std::string name = "Move")
+        : id_(id), before_(before), after_(after), name_(std::move(name)) {}
+    std::string Name() const override { return name_; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    Node::Id id_;
+    PRS before_, after_;
+    std::string name_;
+};
+
+// Change one parameter of an object (e.g. a Box's height); affects every instance.
+class SetParamCommand : public Command {
+public:
+    SetParamCommand(std::shared_ptr<Object> object, size_t index, double after)
+        : object_(std::move(object)), index_(index), after_(after) {}
+    std::string Name() const override { return "Parameter Change"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    std::shared_ptr<Object> object_;
+    size_t index_;
+    double before_ = 0, after_;
+};
+
+// Link a node under a parent (0 = unlink), keeping its world placement.
+class LinkCommand : public Command {
+public:
+    LinkCommand(Node::Id child, Node::Id parent) : child_(child), parent_(parent) {}
+    std::string Name() const override { return parent_ ? "Link" : "Unlink"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    Node::Id child_, parent_;
+    Node::Id oldParent_ = 0;
+    PRS oldTransform_;
+};
+
+// Rename a node / change its wireframe colour.
+class RenameCommand : public Command {
+public:
+    RenameCommand(Node::Id id, std::string name) : id_(id), after_(std::move(name)) {}
+    std::string Name() const override { return "Rename"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    Node::Id id_;
+    std::string before_, after_;
+};
+
+class WireColorCommand : public Command {
+public:
+    WireColorCommand(Node::Id id, uint32_t color) : id_(id), after_(color) {}
+    std::string Name() const override { return "Color Change"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    Node::Id id_;
+    uint32_t before_ = 0, after_;
+};
+
+// Several commands as one undo step (e.g. creating an object, then adjusting it while
+// dragging). Undone in reverse order.
+class MacroCommand : public Command {
+public:
+    explicit MacroCommand(std::string name) : name_(std::move(name)) {}
+    void Add(std::unique_ptr<Command> c) { parts_.push_back(std::move(c)); }
+    std::string Name() const override { return name_; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    std::string name_;
+    std::vector<std::unique_ptr<Command>> parts_;
+};
+
+} // namespace scene

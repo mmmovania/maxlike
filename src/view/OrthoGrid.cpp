@@ -18,17 +18,36 @@ static double ScaleY(int w, int h, const OrthoView& v) {
     return (h - 0.5) / (v.width * h / static_cast<double>(w));
 }
 
-int ColumnOf(double u, int w, int /*h*/, const OrthoView& v) {
-    return static_cast<int>(std::floor((w - 1) / 2.0 + kOffsetX + (u - v.centerU) * ScaleX(w, v)));
+double ColumnF(double u, int w, int /*h*/, const OrthoView& v) {
+    return (w - 1) / 2.0 + kOffsetX + (u - v.centerU) * ScaleX(w, v);
 }
 
-int RowOf(double vv, int w, int h, const OrthoView& v) {
-    return static_cast<int>(std::floor((h - 1) / 2.0 + kOffsetY - (vv - v.centerV) * ScaleY(w, h, v)));
+double RowF(double vv, int w, int h, const OrthoView& v) {
+    return (h - 1) / 2.0 + kOffsetY - (vv - v.centerV) * ScaleY(w, h, v);
 }
+
+int ColumnOf(double u, int w, int h, const OrthoView& v) { return static_cast<int>(std::floor(ColumnF(u, w, h, v))); }
+int RowOf(double vv, int w, int h, const OrthoView& v) { return static_cast<int>(std::floor(RowF(vv, w, h, v))); }
 
 // Lines closer than this (in pixels) are skipped when zoomed far out; the axes are
 // always drawn. NOTE: R3's exact thinning rule is not measured yet.
 static constexpr double kMinLineGap = 4.0;
+
+math::Mat4 OrthoWorldToClip(const math::Vec3& right, const math::Vec3& up, int w, int h, const OrthoView& v) {
+    // ColumnF and RowF are linear: x = ax + bx * u, y = ay + by * v.
+    const double ax = ColumnF(0, w, h, v), bx = ColumnF(1, w, h, v) - ax;
+    const double ay = RowF(0, w, h, v), by = RowF(1, w, h, v) - ay;
+    const math::Vec3 toward = math::Cross(right, up);          // out of the screen
+    constexpr double kDepth = 1e5;                             // world units of depth range
+    // clip x = 2 x / W - 1, clip y = 1 - 2 y / H (top-down rows), clip z = -(p . toward) / kDepth.
+    const double sx = 2.0 / w, sy = -2.0 / h;
+    math::Mat4 m;
+    m.m[0][0] = sx * bx * right.x; m.m[1][0] = sx * bx * right.y; m.m[2][0] = sx * bx * right.z; m.m[3][0] = sx * ax - 1.0;
+    m.m[0][1] = sy * by * up.x;    m.m[1][1] = sy * by * up.y;    m.m[2][1] = sy * by * up.z;    m.m[3][1] = sy * ay + 1.0;
+    m.m[0][2] = -toward.x / kDepth; m.m[1][2] = -toward.y / kDepth; m.m[2][2] = -toward.z / kDepth; m.m[3][2] = 0.0;
+    m.m[0][3] = 0; m.m[1][3] = 0; m.m[2][3] = 0; m.m[3][3] = 1;
+    return m;
+}
 
 static LineKind KindOf(long long index) {
     if (index == 0) return LineKind::Axis;

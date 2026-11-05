@@ -1,4 +1,5 @@
 #pragma once
+#include "math/Mat4.h"
 #include <vector>
 
 // The home grid of the orthographic views (Top, Front, Left), computed directly in
@@ -27,6 +28,18 @@ inline constexpr int    kMajorEvery  = 10;     // every 10th line is major
 // Pixel column of world coordinate `u` / pixel row (top-down) of world coordinate `v`.
 int ColumnOf(double u, int width, int height, const OrthoView& view);
 int RowOf(double v, int width, int height, const OrthoView& view);
+
+// The same before rounding down: the pixel is floor() of these. Objects drawn in an
+// ortho view go through this too, so their edges land on the grid's pixels.
+double ColumnF(double u, int width, int height, const OrthoView& view);
+double RowF(double v, int width, int height, const OrthoView& view);
+
+// World -> clip space for an ortho view, consistent with ColumnF/RowF: a world point
+// lands at window x = ColumnF(u), y = RowF(v) (top-down), where u = point . right and
+// v = point . up. Depth: points nearer the viewer (larger point . (right x up)) get
+// smaller clip z, so the depth test keeps the nearest surface.
+math::Mat4 OrthoWorldToClip(const math::Vec3& right, const math::Vec3& up, int width, int height,
+                            const OrthoView& view);
 
 // Every grid line visible in a `width` x `height` viewport.
 std::vector<GridLine> OrthoGridLines(int width, int height, const OrthoView& view);

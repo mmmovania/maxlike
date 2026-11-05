@@ -7,7 +7,8 @@
 #include "view/Navigation.h"
 #include "ui/LabelText.h"
 
-namespace gl { class GLContext; class LineRenderer; }
+namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
+namespace scene { class Scene; }
 
 namespace ui {
 
@@ -26,8 +27,9 @@ public:
     std::function<void()> onExitMode;            // right-click while a mode is active
     std::function<void(double)> onZoomAll;       // Zoom All: zoom the other views too
 
-    // `lines` is the panel's shared line renderer (created lazily on first paint).
-    bool Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines, ViewType type);
+    // `lines` and `meshes` are the panel's shared renderers (created on first paint).
+    bool Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines,
+                gl::MeshRenderer& meshes, ViewType type);
     ViewType Type() const { return type_; }
     const wchar_t* Name() const;
     void SetType(ViewType type);
@@ -40,6 +42,8 @@ public:
     void Orbit(int dx, int dy);
     void ZoomRegion(int x0, int y0, int x1, int y1);
     void ResetView();   // Zoom Extents with an empty scene: back to the default framing
+
+    void SetScene(const scene::Scene* scene) { scene_ = scene; InvalidateRect(Hwnd(), nullptr, FALSE); }
 
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.Viewport"; }
@@ -57,6 +61,10 @@ private:
     void DrawOrthoGrid(int width, int height);
     void DrawPerspectiveGrid(int width, int height);
     void DrawLabelAndTripod(int width, int height);
+    void DrawScene(int width, int height);
+    void DrawShaded(int width, int height, bool facets, bool highlights);
+    // The view's right and up directions in world space (ortho views).
+    void OrthoBasis(math::Vec3& right, math::Vec3& up) const;
     void DrawRegionRectangle(int width, int height);
     void BeginDrag(NavMode op, int x, int y);
     void EndDrag(bool apply);
@@ -65,6 +73,8 @@ private:
 
     gl::GLContext* context_ = nullptr;
     gl::LineRenderer* lines_ = nullptr;
+    gl::MeshRenderer* meshes_ = nullptr;
+    const scene::Scene* scene_ = nullptr;
     ViewType type_ = ViewType::Top;
     Shading shading_ = Shading::Wireframe;  // stored and shown; used once objects exist
     bool showGrid_ = true;

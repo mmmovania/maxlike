@@ -10,3 +10,4 @@ per-step checklists in `docs/phases/`.
 | 0 — Skeleton | [phase0-tech-docs.md](phase0-tech-docs.md) | Win32 message loop, the window wrapper, painting, DPI, manifest and classic controls, theme, CMake |
 | 1 — Frame layout | [phase1-tech-docs.md](phase1-tech-docs.md) | Measuring, pure layout + tests, child windows, menus, custom controls, toolbar, combos, tooltips, flyouts, sliders, subclassing, pixel comparison, Git lessons |
 | 2 — Viewports | [phase2-tech-docs.md](phase2-tech-docs.md) | OpenGL on Win32 (WGL, pixel formats, contexts, GLAD), shaders and buffers, fitting formulas and cameras to measurements, 3D maths, pixel-exact drawing, menus on demand, dividers, navigation |
+| 3 — Scene core | [phase3-tech-docs.md](phase3-tech-docs.md) | Nodes and objects, ownership, transforms and quaternions, primitives built Max's way (and how R3.1's counts corrected them), modifier stack, smoothing groups, lighting and the depth buffer, undo/redo |

@@ -2,6 +2,7 @@
 #include "win/Window.h"
 #include "gl/GLContext.h"
 #include "gl/LineRenderer.h"
+#include "gl/MeshRenderer.h"
 #include "ui/Viewport.h"
 #include "ui/ViewportLayout.h"
 #include <array>
@@ -19,6 +20,8 @@ public:
     NavMode Mode() const { return mode_; }
     void SetNavMode(NavMode mode);          // None leaves the current mode
     void ZoomExtents(bool allViews);        // empty scene: back to the default framing
+    void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
+    void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     int  Active() const { return active_; }
     void SetActive(int index);
     void ToggleMaximized();                 // Min/Max: the active viewport fills the area
@@ -39,6 +42,7 @@ private:
 
     gl::GLContext context_;           // declared first: destroyed last
     gl::LineRenderer lines_;          // shared by all viewports (needs the context current)
+    gl::MeshRenderer meshes_;         // likewise, for shaded display
     std::array<Viewport, viewports::kCount> views_;
     viewports::Layout layout_{};
     int active_ = viewports::kTopLeft; // the reference screenshot shows Top active

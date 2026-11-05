@@ -1,18 +1,25 @@
 #include <glad/gl.h>
 #include <windowsx.h>
 #include <algorithm>
+#include <cmath>
 #include "ui/Viewport.h"
 #include "gl/GLContext.h"
 #include "gl/LineRenderer.h"
+#include "gl/MeshRenderer.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
 #include "view/Tripod.h"
+#include "scene/Scene.h"
 
 namespace ui {
 
-bool Viewport::Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines, ViewType type) {
+bool Viewport::Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines,
+                      gl::MeshRenderer& meshes, ViewType type) {
     context_ = &context;
     lines_ = &lines;
+    meshes_ = &meshes;
+    // R3's defaults: the perspective view is shaded, the ortho views are wireframe.
+    shading_ = type == ViewType::Perspective ? Shading::SmoothHighlights : Shading::Wireframe;
     type_ = type;
     CreateParams p;
     p.title = L"Viewport";
@@ -35,12 +42,14 @@ void Viewport::Render(HDC dc) {
     // OpenGL objects must be created with the context current, so the shared line
     // renderer is created on the first paint of whichever viewport comes first.
     if (!lines_->IsValid()) lines_->Create();
+    if (!meshes_->IsValid()) meshes_->Create();
     if (showGrid_) {
         if (type_ == ViewType::Perspective)
             DrawPerspectiveGrid(rc.right, rc.bottom);
         else
             DrawOrthoGrid(rc.right, rc.bottom);
     }
+    DrawScene(rc.right, rc.bottom);
     DrawLabelAndTripod(rc.right, rc.bottom);
     if (regionVisible_) DrawRegionRectangle(rc.right, rc.bottom);
 
@@ -179,6 +188,143 @@ void Viewport::DrawRegionRectangle(int w, int h) {
     lines_->Draw(box, math::PixelToClip(w, h), 1.0f, 1.0f, 1.0f);
 }
 
+// Every node's mesh as a wireframe in the node's colour: visible edges only, all of
+// them (no hidden-line removal), over the grid and under the label and tripod.
+void Viewport::OrthoBasis(math::Vec3& right, math::Vec3& up) const {
+    double axes[3][2];
+    ScreenAxes(axes);
+    right = {axes[0][0], axes[1][0], axes[2][0]};
+    up = {axes[0][1], axes[1][1], axes[2][1]};
+}
+
+// A mesh made of an object's bounding box, for the Bounding Box display mode.
+static scene::Mesh BoxOutline(const scene::Bounds& b) {
+    scene::Mesh m;
+    for (int i = 0; i < 8; ++i)
+        m.verts.push_back({(i & 1) ? b.max.x : b.min.x, (i & 2) ? b.max.y : b.min.y, (i & 4) ? b.max.z : b.min.z});
+    // Twelve edges as degenerate faces with one visible edge each (only edges are drawn).
+    const int e[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+    for (const auto& ed : e) {
+        scene::Face f;
+        f.v[0] = static_cast<uint32_t>(ed[0]); f.v[1] = static_cast<uint32_t>(ed[1]); f.v[2] = static_cast<uint32_t>(ed[1]);
+        f.edgeVisible = 0x1;
+        m.faces.push_back(f);
+    }
+    return m;
+}
+
+void Viewport::DrawScene(int w, int h) {
+    if (!scene_) return;
+    switch (shading_) {
+    case Shading::SmoothHighlights: DrawShaded(w, h, false, true); return;
+    case Shading::Smooth:           DrawShaded(w, h, false, false); return;
+    case Shading::FacetsHighlights: DrawShaded(w, h, true, true); return;
+    case Shading::Facets:           DrawShaded(w, h, true, false); return;
+    case Shading::Wireframe:
+    case Shading::LitWireframe:     // NOTE: drawn like Wireframe for now
+    case Shading::BoundingBox:      break;
+    }
+    using Line = gl::LineRenderer::Line;
+    const bool persp = type_ == ViewType::Perspective;
+    // Ortho: the view's right and up directions in world space (from the same table
+    // as the tripod), so a world point maps to (u, v) and then to pixels exactly like
+    // the grid does.
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    const math::Mat4 toClip = persp ? perspective_.ProjectionMatrix(w, h) * perspective_.ViewMatrix()
+                                    : math::PixelToClip(w, h);
+
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->GetObject()) continue;
+        const scene::Mesh mesh = shading_ == Shading::BoundingBox
+            ? BoxOutline(node->GetObject()->Evaluate().GetBounds())
+            : node->GetObject()->Evaluate();
+        const math::Mat4 m = node->ObjectMatrix();
+        std::vector<math::Vec3> p(mesh.verts.size());
+        for (size_t i = 0; i < p.size(); ++i) p[i] = math::TransformPoint(m, mesh.verts[i]);
+
+        std::vector<Line> lines;
+        for (const auto& [a, b] : mesh.VisibleEdges()) {
+            if (persp) {
+                lines.push_back({static_cast<float>(p[a].x), static_cast<float>(p[a].y), static_cast<float>(p[a].z),
+                                 static_cast<float>(p[b].x), static_cast<float>(p[b].y), static_cast<float>(p[b].z)});
+                continue;
+            }
+            // Snap both ends to pixel centres (as the grid lines are). OpenGL leaves out a
+            // line's last pixel (the "diamond-exit" rule), so extend only the end by half
+            // a pixel; extending the start too would add a pixel before it.
+            auto px = [&](const math::Vec3& q, float& x, float& y) {
+                x = static_cast<float>(std::floor(view::ColumnF(math::Dot(q, right), w, h, ortho_))) + 0.5f;
+                y = static_cast<float>(std::floor(view::RowF(math::Dot(q, up), w, h, ortho_))) + 0.5f;
+            };
+            float x0, y0, x1, y1;
+            px(p[a], x0, y0);
+            px(p[b], x1, y1);
+            const float dx = x1 - x0, dy = y1 - y0, len = std::sqrt(dx * dx + dy * dy);
+            const float ex = len > 0 ? 0.5f * dx / len : 0.5f, ey = len > 0 ? 0.5f * dy / len : 0.0f;
+            lines.push_back({x0, y0, 0, x1 + ex, y1 + ey, 0});
+        }
+        const uint32_t c = node->WireColor();
+        lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
+    }
+}
+
+// Lit triangles with the depth test on, so nearer surfaces hide farther ones. Normals
+// come from smoothing groups (Smooth modes) or the faces themselves (Facets modes).
+void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
+    const bool persp = type_ == ViewType::Perspective;
+    math::Vec3 right, up, toward;
+    gl::MeshRenderer::Lighting light;
+    math::Mat4 toClip;
+    if (persp) {
+        const math::Mat4 view = perspective_.ViewMatrix();
+        right = {view.m[0][0], view.m[1][0], view.m[2][0]};
+        up = {view.m[0][1], view.m[1][1], view.m[2][1]};
+        toward = math::Normalize(perspective_.Eye() - perspective_.target);
+        toClip = perspective_.ProjectionMatrix(w, h) * view;
+        light.eye = perspective_.Eye();
+    } else {
+        OrthoBasis(right, up);
+        toward = math::Cross(right, up);
+        toClip = view::OrthoWorldToClip(right, up, w, h, ortho_);
+        light.ortho = true;
+    }
+    // A light above, to the left and behind the viewer (NOTE: R3's placement unverified).
+    light.toLight = math::Normalize(toward + up * 0.6 - right * 0.4);
+    light.viewDir = toward;
+    light.highlights = highlights;
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->GetObject()) continue;
+        const scene::Mesh mesh = node->GetObject()->Evaluate();
+        const math::Mat4 m = node->ObjectMatrix();
+        // Normals transform with the inverse transpose (correct under non-uniform scale).
+        const math::Mat4 inv = math::AffineInverse(m);
+        auto normalToWorld = [&](const math::Vec3& n) {
+            return math::Normalize(math::Vec3{inv.m[0][0] * n.x + inv.m[0][1] * n.y + inv.m[0][2] * n.z,
+                                              inv.m[1][0] * n.x + inv.m[1][1] * n.y + inv.m[1][2] * n.z,
+                                              inv.m[2][0] * n.x + inv.m[2][1] * n.y + inv.m[2][2] * n.z});
+        };
+        const std::vector<math::Vec3> corner = facets ? std::vector<math::Vec3>{} : mesh.CornerNormals();
+        std::vector<float> v;
+        v.reserve(mesh.faces.size() * 18);
+        for (size_t i = 0; i < mesh.faces.size(); ++i) {
+            const math::Vec3 fn = facets ? mesh.FaceNormal(i) : math::Vec3{};
+            for (int k = 0; k < 3; ++k) {
+                const math::Vec3 p = math::TransformPoint(m, mesh.verts[mesh.faces[i].v[k]]);
+                const math::Vec3 n = normalToWorld(facets ? fn : corner[i * 3 + static_cast<size_t>(k)]);
+                v.insert(v.end(), {static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z),
+                                   static_cast<float>(n.x), static_cast<float>(n.y), static_cast<float>(n.z)});
+            }
+        }
+        const uint32_t c = node->WireColor();
+        meshes_->Draw(v, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, light);
+    }
+    glDisable(GL_DEPTH_TEST);
+}
+
 void Viewport::SetShowGrid(bool show) {
     showGrid_ = show;
     InvalidateRect(Hwnd(), nullptr, FALSE);
@@ -271,6 +417,7 @@ void Viewport::ShowLabelMenu(POINT screen) {
     case kPersp:    SetType(ViewType::Perspective); break;
     default: break; // cancelled (0) or not implemented yet
     }
+    InvalidateRect(Hwnd(), nullptr, FALSE); // the shading may have changed
 }
 
 // How world X, Y, Z appear on screen: components along screen-right and screen-up.
