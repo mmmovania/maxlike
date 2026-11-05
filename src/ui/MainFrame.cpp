@@ -33,6 +33,8 @@ bool MainFrame::Create() {
 
 bool MainFrame::LoadDemoScene(const std::string& which) {
     if (!scene::BuildDemoScene(scene_, which)) return false;
+    undo_.Clear();      // like opening a file: nothing to undo
+    undo_.MarkClean();
     viewports_.SetScene(&scene_);
     return true;
 }
@@ -161,6 +163,12 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
 
+    if (command == "edit.undo" || command == "edit.redo") {
+        const bool ok = command == "edit.undo" ? undo_.Undo(scene_) : undo_.Redo(scene_);
+        if (ok) viewports_.Redraw();
+        return;
+    }
+
     if (command == "nav.min_max") {
         viewports_.ToggleMaximized();
         return;
@@ -189,6 +197,20 @@ void MainFrame::OnCommand(const std::string& command) {
         std::wstring name(command.begin(), command.end()); // command names are ASCII
         statusArea_.SetPrompt(1, name + L"  (not implemented yet)");
     }
+}
+
+// Before the Edit menu opens: show what Undo/Redo would do, and grey them when there
+// is nothing to undo or redo. NOTE: R3's exact wording ("Undo Create"?) is not verified.
+void MainFrame::UpdateEditMenu(HMENU menu) {
+    auto update = [&](const char* command, const wchar_t* label, bool can, const std::string& what) {
+        const UINT id = commands_.Find(command);
+        if (!id || GetMenuState(menu, id, MF_BYCOMMAND) == static_cast<UINT>(-1)) return;
+        std::wstring text = label;
+        if (can) text += L" " + std::wstring(what.begin(), what.end());
+        ModifyMenuW(menu, id, MF_BYCOMMAND | MF_STRING | (can ? MF_ENABLED : MF_GRAYED), id, text.c_str());
+    };
+    update("edit.undo", L"&Undo", undo_.CanUndo(), undo_.UndoName());
+    update("edit.redo", L"&Redo", undo_.CanRedo(), undo_.RedoName());
 }
 
 void MainFrame::OnPaint() {
@@ -230,6 +252,11 @@ LRESULT MainFrame::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
                 return 0;
             }
         }
+        break;
+
+    case WM_INITMENUPOPUP:
+        // Sent just before a menu opens: the moment to update its items.
+        UpdateEditMenu(reinterpret_cast<HMENU>(wp));
         break;
 
     case WM_SIZE:

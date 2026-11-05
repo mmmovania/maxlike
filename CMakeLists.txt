@@ -98,6 +98,8 @@ add_executable(maxlike WIN32
     src/scene/Primitives.h
     src/scene/Modifier.cpp
     src/scene/Modifier.h
+    src/scene/Undo.cpp
+    src/scene/Undo.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
     res/resource.h
@@ -159,3 +161,4 @@ maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.c
 maxlike_add_test(test_scene tests/test_scene.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_primitives tests/test_primitives.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp)
 maxlike_add_test(test_modifiers tests/test_modifiers.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_undo tests/test_undo.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)

@@ -21,7 +21,11 @@ struct PRS {
 
 class Node {
 public:
-    explicit Node(std::string name) : name_(std::move(name)) {}
+    using Id = uint64_t;   // stable for the node's life, never reused (undo refers to nodes by id)
+
+    Node(Id id, std::string name) : id_(id), name_(std::move(name)) {}
+
+    Id GetId() const { return id_; }
 
     const std::string& Name() const { return name_; }
     void SetName(std::string name) { name_ = std::move(name); }
@@ -50,6 +54,7 @@ public:
 private:
     friend class Scene;  // the scene keeps parent/child links consistent
 
+    Id id_;
     std::string name_;
     uint32_t wireColor_ = 0x808080;
     PRS transform_;

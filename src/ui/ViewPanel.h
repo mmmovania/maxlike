@@ -21,6 +21,7 @@ public:
     void SetNavMode(NavMode mode);          // None leaves the current mode
     void ZoomExtents(bool allViews);        // empty scene: back to the default framing
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
+    void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     int  Active() const { return active_; }
     void SetActive(int index);
     void ToggleMaximized();                 // Min/Max: the active viewport fills the area

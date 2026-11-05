@@ -2,6 +2,7 @@
 #include "win/Window.h"
 #include "ui/CommandTable.h"
 #include "scene/Scene.h"
+#include "scene/Undo.h"
 #include "ui/Placeholder.h"
 #include "ui/StatusBar.h"
 #include "ui/TabPanel.h"
@@ -34,6 +35,7 @@ private:
     void RecreateFonts();
     void OnPaint();
     void OnCommand(const std::string& command);
+    void UpdateEditMenu(HMENU menu);   // "Undo <name>" / "Redo <name>", greyed when empty
     void ShowFrame(int frame);
 
     std::array<win::Window*, 7> Regions();
@@ -41,6 +43,7 @@ private:
     HFONT uiFont_ = nullptr;
     CommandTable commands_;
     scene::Scene scene_;            // the document; declared before the views that show it
+    scene::UndoStack undo_;         // every scene change goes through here (Phase 5 on)
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout. Placeholders are replaced by

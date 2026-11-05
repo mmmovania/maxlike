@@ -6,8 +6,21 @@
 namespace scene {
 
 Node* Scene::CreateNode(const std::string& name) {
-    nodes_.push_back(std::make_unique<Node>(name));
+    nodes_.push_back(std::make_unique<Node>(nextId_++, name));
     return nodes_.back().get();
+}
+
+Node* Scene::RestoreNode(Node::Id id, const std::string& name) {
+    if (id == 0 || FindById(id)) return nullptr;
+    nodes_.push_back(std::make_unique<Node>(id, name));
+    if (id >= nextId_) nextId_ = id + 1;
+    return nodes_.back().get();
+}
+
+Node* Scene::FindById(Node::Id id) const {
+    for (const auto& n : nodes_)
+        if (n->GetId() == id) return n.get();
+    return nullptr;
 }
 
 std::string Scene::UniqueName(const std::string& base) const {

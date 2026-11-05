@@ -26,7 +26,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       Highlights (Perspective's default, as in R3), Smooth, Facets + Highlights, Facets,
       Bounding Box from the viewport menu; ortho views use `OrthoWorldToClip`, consistent
       with the grid's pixel formula
-- [ ] 3.7 Undo/redo
+- [x] **3.7 Undo/redo**: command pattern (`scene::Command`, `UndoStack` with levels and
+      saved-state tracking); nodes get stable ids; commands for create, delete (exact
+      hierarchy restore), transform, parameter, link, rename, colour, and macro steps;
+      Edit > Undo/Redo and the toolbar buttons, menu text "Undo <name>", greyed when empty
 - [ ] 3.8 Wrap-up: pixel checks, `docs/tech/phase3-tech-docs.md`, version 0.3.0
 
 ## Step 3.1 verification
@@ -93,6 +96,18 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [ ] Unverified: R3's viewport lighting (light direction, ambient, highlight size) —
       an R3.1 screenshot of a shaded object would let us tune it; Lit Wireframes is drawn
       as plain wireframe for now
+
+## Step 3.7 verification
+- [x] Builds warning-free; fifteen test programs pass (MinGW + Wine)
+- [x] `test_undo`: create/undo/redo keeps the id, name, object (instances), colour and
+      transform; deleting a node with a parent and a child and undoing restores the
+      hierarchy and every local transform exactly; transform, parameter (all instances),
+      link, rename, colour each undo and redo; a macro is one step; 3 levels forget the
+      oldest steps; a new command clears redo; the saved state is tracked through undo,
+      redo, and lost when a new branch replaces it
+- [ ] On Windows: Edit > Undo / Redo are greyed (nothing in the UI creates commands until
+      Phase 5); `ctest` passes
+- [ ] Unverified: R3's undo levels default (20 assumed) and menu wording ("Undo Create")
 
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the
