@@ -26,8 +26,27 @@ struct Layout {
     Frame view[kCount];
 };
 
+// Where the dividers are, as fractions of the area (0.5 = R3's default, which gives
+// exactly the measured split lines), and whether one viewport fills the whole area.
+struct Arrangement {
+    double splitX = 0.5;
+    double splitY = 0.5;
+    int maximized = -1;   // index of the maximised viewport, or -1 for the 2x2 layout
+};
+
+inline constexpr int kMinViewport = 40;   // smallest content size when dragging dividers
+
 // `w` x `h` is the whole viewport area. Lines stay 1 px thick at every DPI, like
-// the rest of the classic frame, so `dpi` only matters for future gaps.
-Layout ComputeViewportLayout(int w, int h, unsigned dpi);
+// the rest of the classic frame. Hidden viewports (when one is maximised) get empty
+// rectangles.
+Layout ComputeViewportLayout(int w, int h, unsigned dpi, const Arrangement& arrangement = {});
+
+// The divider positions in pixels for an arrangement (the shared column and row).
+void SplitLines(int w, int h, const Arrangement& arrangement, int& splitX, int& splitY);
+
+// The fraction that puts a divider at pixel `pos` (inverse of SplitLines), clamped
+// so every viewport keeps at least kMinViewport pixels of content.
+double FractionForSplitX(int pos, int w);
+double FractionForSplitY(int pos, int h);
 
 } // namespace ui::viewports

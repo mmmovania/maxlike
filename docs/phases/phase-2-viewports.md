@@ -17,7 +17,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] **2.3 Labels and axis tripods**: tripods computed as exact pixels (`view::TripodPixels`,
       measured rule and glyphs); labels drawn by GDI into an off-screen bitmap and read back
       (`ui::RenderText`); both drawn as 1-px points
-- [ ] 2.4 Viewport interaction: right-click label menu, Min/Max toggle, splitter dragging
+- [x] **2.4 Viewport interaction**: right-click label menu (shading, Show Grid, Views:
+      Top/Bottom/Front/Back/Left/Right/Perspective); Min/Max toggle; dragging the dividers
+      (`viewports::Arrangement`, unit-tested)
 - [ ] 2.5 Navigation: pan, zoom, orbit; the status-area navigation buttons
 - [ ] 2.6 Pixel check and `docs/tech/phase2-tech-docs.md`
 
@@ -60,6 +62,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] Perspective tripod: the same 128 coloured pixels as the reference
 - [ ] On Windows: labels "Top", "Front", "Left", "Perspective" look like R3's
       (font is a best guess: MS Sans Serif Bold 10 pt; compare letter shapes)
+
+## Step 2.4 verification
+- [x] Builds warning-free; ten test programs pass (MinGW + Wine)
+- [x] Default layout unchanged: ortho views and frames still 0 differing pixels
+- [x] Under Wine: dragging the vertical divider, Views > Bottom from the label menu (label
+      and tripod change), Min/Max toggle on and off
+- [ ] On Windows: the same; cursors over the dividers (↔, ↕, ✥ at the crossing)
+- [ ] Unverified against R3.1: the label menu's items and order; whether R3.1 lets you
+      drag the dividers; whether enlarging a view keeps the zoom or the visible width
 
 ## Notes
 - `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact

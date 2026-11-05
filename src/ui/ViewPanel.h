@@ -15,6 +15,9 @@ public:
     bool Create(HWND parent);
     int  Active() const { return active_; }
     void SetActive(int index);
+    void ToggleMaximized();                 // Min/Max: the active viewport fills the area
+    // (Not "IsMaximized": windows.h defines that name as a macro for IsZoomed.)
+    bool HasMaximizedView() const { return arrangement_.maximized >= 0; }
     const gl::GLContext& Context() const { return context_; }
 
 protected:
@@ -22,6 +25,8 @@ protected:
     LRESULT HandleMessage(UINT msg, WPARAM wp, LPARAM lp) override;
 
 private:
+    enum Drag { kNone = 0, kDragX = 1, kDragY = 2, kDragBoth = 3 };
+    int  DividerAt(int x, int y) const;     // which divider(s) a point is on
     void Relayout();
     void ReleaseGpuObjects();
     void OnPaint();
@@ -31,6 +36,8 @@ private:
     std::array<Viewport, viewports::kCount> views_;
     viewports::Layout layout_{};
     int active_ = viewports::kTopLeft; // the reference screenshot shows Top active
+    viewports::Arrangement arrangement_;
+    int drag_ = kNone;
 };
 
 } // namespace ui

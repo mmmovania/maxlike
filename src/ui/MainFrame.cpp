@@ -133,6 +133,11 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
 
+    if (command == "nav.min_max") {
+        viewports_.ToggleMaximized();
+        return;
+    }
+
     if (command == "file.exit") {
         // Same path as the close button, so a future "save changes?" prompt
         // in WM_CLOSE covers both.

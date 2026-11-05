@@ -44,8 +44,37 @@ static void TinyAreaNeverNegative() {
     }
 }
 
+static void DividersMove() {
+    // Dragging the vertical divider to column 600 and back.
+    Arrangement a;
+    a.splitX = FractionForSplitX(600, 1736);
+    int sx = 0, sy = 0;
+    SplitLines(1736, 858, a, sx, sy);
+    if (sx != 600) { ++failures; std::printf("FAIL split x: %d\n", sx); }
+    a.splitY = FractionForSplitY(300, 858);
+    SplitLines(1736, 858, a, sx, sy);
+    if (sy != 300) { ++failures; std::printf("FAIL split y: %d\n", sy); }
+    const Layout L = ComputeViewportLayout(1736, 858, 96, a);
+    Check("TL after drag", L.view[kTopLeft].outer, {0, 1, 601, 301});
+    // Clamped: every viewport keeps at least kMinViewport pixels of content.
+    a.splitX = FractionForSplitX(2, 1736);
+    const Layout C = ComputeViewportLayout(1736, 858, 96, a);
+    if (C.view[kTopLeft].content.Width() < kMinViewport) { ++failures; std::printf("FAIL clamp\n"); }
+}
+
+static void Maximize() {
+    Arrangement a;
+    a.maximized = kBottomRight;
+    const Layout L = ComputeViewportLayout(1736, 858, 96, a);
+    Check("maximised outer", L.view[kBottomRight].outer, {0, 1, 1736, 858});
+    Check("maximised content", L.view[kBottomRight].content, {3, 4, 1733, 855});
+    Check("hidden", L.view[kTopLeft].content, {0, 0, 0, 0});
+}
+
 int main() {
     ReferenceLayout();
+    DividersMove();
+    Maximize();
     TinyAreaNeverNegative();
     if (failures == 0) std::printf("viewport layout: all tests passed\n");
     return failures == 0 ? 0 : 1;

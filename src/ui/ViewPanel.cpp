@@ -1,6 +1,8 @@
 #include "ui/ViewPanel.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
+#include <windowsx.h>
+#include <cstdlib>
 
 namespace ui {
 
@@ -46,18 +48,42 @@ void ViewPanel::SetActive(int index) {
     InvalidateRect(Hwnd(), nullptr, FALSE); // only the frames change
 }
 
+void ViewPanel::ToggleMaximized() {
+    arrangement_.maximized = HasMaximizedView() ? -1 : active_;
+    Relayout();
+}
+
 void ViewPanel::Relayout() {
     RECT rc;
     GetClientRect(Hwnd(), &rc);
-    layout_ = viewports::ComputeViewportLayout(rc.right, rc.bottom, Dpi());
+    layout_ = viewports::ComputeViewportLayout(rc.right, rc.bottom, Dpi(), arrangement_);
     HDWP dwp = BeginDeferWindowPos(viewports::kCount);
     for (int i = 0; i < viewports::kCount && dwp; ++i) {
         const Rect& c = layout_.view[i].content;
+        const bool visible = c.Width() > 0 && c.Height() > 0;
+        // Hidden viewports (one is maximised) are hidden, not just shrunk to nothing.
         dwp = DeferWindowPos(dwp, views_[static_cast<size_t>(i)].Hwnd(), nullptr,
-                             c.left, c.top, c.Width(), c.Height(), SWP_NOZORDER | SWP_NOACTIVATE);
+                             c.left, c.top, c.Width(), c.Height(),
+                             SWP_NOZORDER | SWP_NOACTIVATE | (visible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
     }
     if (dwp) EndDeferWindowPos(dwp);
     InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+// The dividers are the frame lines between the viewports (part of this window, not
+// of the viewports). A point within 3 px of the shared column/row is on a divider;
+// near both, it is on the crossing and moves both.
+int ViewPanel::DividerAt(int x, int y) const {
+    if (HasMaximizedView()) return kNone;
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    int sx = 0, sy = 0;
+    viewports::SplitLines(rc.right, rc.bottom, arrangement_, sx, sy);
+    const int reach = Scale(3);
+    int d = kNone;
+    if (std::abs(x - sx) <= reach) d |= kDragX;
+    if (std::abs(y - sy) <= reach) d |= kDragY;
+    return d;
 }
 
 // Frames (measured): a 2-px border, white for the active viewport and black for the
@@ -84,8 +110,8 @@ void ViewPanel::OnPaint() {
         DrawRing(dc, {r.left + 2, r.top + 2, r.right - 2, r.bottom - 2}, ring, ring);
     };
     for (int i = 0; i < viewports::kCount; ++i)
-        if (i != active_) frame(i);
-    frame(active_);
+        if (i != active_ && layout_.view[i].outer.Width() > 0) frame(i);
+    frame(HasMaximizedView() ? arrangement_.maximized : active_);
     EndPaint(Hwnd(), &ps);
 }
 
@@ -101,6 +127,39 @@ LRESULT ViewPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_DESTROY:
         ReleaseGpuObjects();
+        return 0;
+
+    case WM_SETCURSOR:
+        if (LOWORD(lp) == HTCLIENT) {
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(Hwnd(), &pt);
+            const int d = drag_ ? drag_ : DividerAt(pt.x, pt.y);
+            if (d) {
+                SetCursor(LoadCursorW(nullptr, d == kDragBoth ? IDC_SIZEALL : d == kDragX ? IDC_SIZEWE : IDC_SIZENS));
+                return TRUE;
+            }
+        }
+        break;
+    case WM_LBUTTONDOWN:
+        drag_ = DividerAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+        if (drag_) SetCapture(Hwnd());
+        return 0;
+    case WM_MOUSEMOVE:
+        if (drag_) {
+            RECT rc;
+            GetClientRect(Hwnd(), &rc);
+            if (drag_ & kDragX) arrangement_.splitX = viewports::FractionForSplitX(GET_X_LPARAM(lp), rc.right);
+            if (drag_ & kDragY) arrangement_.splitY = viewports::FractionForSplitY(GET_Y_LPARAM(lp), rc.bottom);
+            Relayout();
+            UpdateWindow(Hwnd()); // repaint the frames now, not after the drag
+        }
+        return 0;
+    case WM_LBUTTONUP:
+        if (drag_) ReleaseCapture();
+        return 0;
+    case WM_CAPTURECHANGED:
+        drag_ = kNone;
         return 0;
     }
     return win::Window::HandleMessage(msg, wp, lp);

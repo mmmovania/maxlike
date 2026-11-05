@@ -10,7 +10,8 @@ namespace gl { class GLContext; class LineRenderer; }
 
 namespace ui {
 
-enum class ViewType { Top, Front, Left, Perspective };
+enum class ViewType { Top, Bottom, Front, Back, Left, Right, Perspective };
+enum class Shading { SmoothHighlights, Wireframe, Smooth, FacetsHighlights, Facets, LitWireframe, BoundingBox };
 
 // One viewport: a child window drawn with OpenGL. Its frame (border and ring) is
 // drawn by the ViewPanel around it.
@@ -22,6 +23,9 @@ public:
     bool Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines, ViewType type);
     ViewType Type() const { return type_; }
     const wchar_t* Name() const;
+    void SetType(ViewType type);
+    bool ShowGrid() const { return showGrid_; }
+    void SetShowGrid(bool show);
 
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.Viewport"; }
@@ -32,6 +36,8 @@ protected:
 
 private:
     void Render(HDC dc);
+    bool InLabel(int x, int y) const;       // the right-click area: the label text
+    void ShowLabelMenu(POINT screen);       // R3's viewport menu
     void PaintFallback(HDC dc); // GDI drawing when OpenGL is unavailable
 
     void DrawOrthoGrid(int width, int height);
@@ -42,6 +48,8 @@ private:
     gl::GLContext* context_ = nullptr;
     gl::LineRenderer* lines_ = nullptr;
     ViewType type_ = ViewType::Top;
+    Shading shading_ = Shading::Wireframe;  // stored and shown; used once objects exist
+    bool showGrid_ = true;
     view::OrthoView ortho_;              // what an ortho view shows (pan/zoom in step 2.5)
     view::PerspectiveView perspective_;  // the perspective camera (orbit in step 2.5)
     TextPixels label_;                   // the view's name, as pixels
