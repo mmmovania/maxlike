@@ -1,6 +1,7 @@
 #include "ui/MainFrame.h"
 #include "ui/FrameLayout.h"
 #include "ui/Bevel.h"
+#include "scene/DemoScene.h"
 #include "ui/MenuBuilder.h"
 #include "ui/MenuSpec.h"
 #include "ui/TabStrip.h"
@@ -30,6 +31,12 @@ bool MainFrame::Create() {
     return false;
 }
 
+bool MainFrame::LoadDemoScene(const std::string& which) {
+    if (!scene::BuildDemoScene(scene_, which)) return false;
+    viewports_.SetScene(&scene_);
+    return true;
+}
+
 void MainFrame::SetDocumentName(const std::wstring& name) {
     docName_ = name;
     if (Hwnd()) {
@@ -48,6 +55,8 @@ bool MainFrame::CreateRegions() {
         !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()) || !statusArea_.Create(Hwnd()) ||
         !viewports_.Create(Hwnd()) || !commandPanel_.Create(Hwnd()))
         return false;
+
+    viewports_.SetScene(&scene_);
 
     tabPanel_.onTabChanged = [this](int index) {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];

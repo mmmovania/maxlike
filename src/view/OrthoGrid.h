@@ -28,6 +28,11 @@ inline constexpr int    kMajorEvery  = 10;     // every 10th line is major
 int ColumnOf(double u, int width, int height, const OrthoView& view);
 int RowOf(double v, int width, int height, const OrthoView& view);
 
+// The same before rounding down: the pixel is floor() of these. Objects drawn in an
+// ortho view go through this too, so their edges land on the grid's pixels.
+double ColumnF(double u, int width, int height, const OrthoView& view);
+double RowF(double v, int width, int height, const OrthoView& view);
+
 // Every grid line visible in a `width` x `height` viewport.
 std::vector<GridLine> OrthoGridLines(int width, int height, const OrthoView& view);
 

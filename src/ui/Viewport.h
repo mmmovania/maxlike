@@ -8,6 +8,7 @@
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; }
+namespace scene { class Scene; }
 
 namespace ui {
 
@@ -41,6 +42,8 @@ public:
     void ZoomRegion(int x0, int y0, int x1, int y1);
     void ResetView();   // Zoom Extents with an empty scene: back to the default framing
 
+    void SetScene(const scene::Scene* scene) { scene_ = scene; InvalidateRect(Hwnd(), nullptr, FALSE); }
+
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.Viewport"; }
     // CS_OWNDC: a private, permanent device context. OpenGL needs the same DC (and
@@ -57,6 +60,7 @@ private:
     void DrawOrthoGrid(int width, int height);
     void DrawPerspectiveGrid(int width, int height);
     void DrawLabelAndTripod(int width, int height);
+    void DrawScene(int width, int height);
     void DrawRegionRectangle(int width, int height);
     void BeginDrag(NavMode op, int x, int y);
     void EndDrag(bool apply);
@@ -65,6 +69,7 @@ private:
 
     gl::GLContext* context_ = nullptr;
     gl::LineRenderer* lines_ = nullptr;
+    const scene::Scene* scene_ = nullptr;
     ViewType type_ = ViewType::Top;
     Shading shading_ = Shading::Wireframe;  // stored and shown; used once objects exist
     bool showGrid_ = true;

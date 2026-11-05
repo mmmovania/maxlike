@@ -18,13 +18,16 @@ static double ScaleY(int w, int h, const OrthoView& v) {
     return (h - 0.5) / (v.width * h / static_cast<double>(w));
 }
 
-int ColumnOf(double u, int w, int /*h*/, const OrthoView& v) {
-    return static_cast<int>(std::floor((w - 1) / 2.0 + kOffsetX + (u - v.centerU) * ScaleX(w, v)));
+double ColumnF(double u, int w, int /*h*/, const OrthoView& v) {
+    return (w - 1) / 2.0 + kOffsetX + (u - v.centerU) * ScaleX(w, v);
 }
 
-int RowOf(double vv, int w, int h, const OrthoView& v) {
-    return static_cast<int>(std::floor((h - 1) / 2.0 + kOffsetY - (vv - v.centerV) * ScaleY(w, h, v)));
+double RowF(double vv, int w, int h, const OrthoView& v) {
+    return (h - 1) / 2.0 + kOffsetY - (vv - v.centerV) * ScaleY(w, h, v);
 }
+
+int ColumnOf(double u, int w, int h, const OrthoView& v) { return static_cast<int>(std::floor(ColumnF(u, w, h, v))); }
+int RowOf(double vv, int w, int h, const OrthoView& v) { return static_cast<int>(std::floor(RowF(vv, w, h, v))); }
 
 // Lines closer than this (in pixels) are skipped when zoomed far out; the axes are
 // always drawn. NOTE: R3's exact thinning rule is not measured yet.

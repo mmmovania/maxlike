@@ -1,12 +1,14 @@
 #include <glad/gl.h>
 #include <windowsx.h>
 #include <algorithm>
+#include <cmath>
 #include "ui/Viewport.h"
 #include "gl/GLContext.h"
 #include "gl/LineRenderer.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
 #include "view/Tripod.h"
+#include "scene/Scene.h"
 
 namespace ui {
 
@@ -41,6 +43,7 @@ void Viewport::Render(HDC dc) {
         else
             DrawOrthoGrid(rc.right, rc.bottom);
     }
+    DrawScene(rc.right, rc.bottom);
     DrawLabelAndTripod(rc.right, rc.bottom);
     if (regionVisible_) DrawRegionRectangle(rc.right, rc.bottom);
 
@@ -177,6 +180,55 @@ void Viewport::DrawRegionRectangle(int w, int h) {
     const std::vector<gl::LineRenderer::Line> box = {
         {x0, y0, 0, x1, y0, 0}, {x1, y0, 0, x1, y1, 0}, {x1, y1, 0, x0, y1, 0}, {x0, y1, 0, x0, y0, 0}};
     lines_->Draw(box, math::PixelToClip(w, h), 1.0f, 1.0f, 1.0f);
+}
+
+// Every node's mesh as a wireframe in the node's colour: visible edges only, all of
+// them (no hidden-line removal), over the grid and under the label and tripod.
+void Viewport::DrawScene(int w, int h) {
+    if (!scene_) return;
+    using Line = gl::LineRenderer::Line;
+    const bool persp = type_ == ViewType::Perspective;
+    // Ortho: the view's right and up directions in world space (from the same table
+    // as the tripod), so a world point maps to (u, v) and then to pixels exactly like
+    // the grid does.
+    double axes[3][2];
+    ScreenAxes(axes);
+    const math::Vec3 right{axes[0][0], axes[1][0], axes[2][0]};
+    const math::Vec3 up{axes[0][1], axes[1][1], axes[2][1]};
+    const math::Mat4 toClip = persp ? perspective_.ProjectionMatrix(w, h) * perspective_.ViewMatrix()
+                                    : math::PixelToClip(w, h);
+
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->GetObject()) continue;
+        const scene::Mesh mesh = node->GetObject()->Evaluate();
+        const math::Mat4 m = node->ObjectMatrix();
+        std::vector<math::Vec3> p(mesh.verts.size());
+        for (size_t i = 0; i < p.size(); ++i) p[i] = math::TransformPoint(m, mesh.verts[i]);
+
+        std::vector<Line> lines;
+        for (const auto& [a, b] : mesh.VisibleEdges()) {
+            if (persp) {
+                lines.push_back({static_cast<float>(p[a].x), static_cast<float>(p[a].y), static_cast<float>(p[a].z),
+                                 static_cast<float>(p[b].x), static_cast<float>(p[b].y), static_cast<float>(p[b].z)});
+                continue;
+            }
+            // Snap both ends to pixel centres (as the grid lines are). OpenGL leaves out a
+            // line's last pixel (the "diamond-exit" rule), so extend only the end by half
+            // a pixel; extending the start too would add a pixel before it.
+            auto px = [&](const math::Vec3& q, float& x, float& y) {
+                x = static_cast<float>(std::floor(view::ColumnF(math::Dot(q, right), w, h, ortho_))) + 0.5f;
+                y = static_cast<float>(std::floor(view::RowF(math::Dot(q, up), w, h, ortho_))) + 0.5f;
+            };
+            float x0, y0, x1, y1;
+            px(p[a], x0, y0);
+            px(p[b], x1, y1);
+            const float dx = x1 - x0, dy = y1 - y0, len = std::sqrt(dx * dx + dy * dy);
+            const float ex = len > 0 ? 0.5f * dx / len : 0.5f, ey = len > 0 ? 0.5f * dy / len : 0.0f;
+            lines.push_back({x0, y0, 0, x1 + ex, y1 + ey, 0});
+        }
+        const uint32_t c = node->WireColor();
+        lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
+    }
 }
 
 void Viewport::SetShowGrid(bool show) {

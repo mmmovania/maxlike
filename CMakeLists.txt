@@ -92,6 +92,10 @@ add_executable(maxlike WIN32
     src/scene/Node.h
     src/scene/Scene.cpp
     src/scene/Scene.h
+    src/scene/Primitives.cpp
+    src/scene/Primitives.h
+    src/scene/DemoScene.cpp
+    src/scene/DemoScene.h
     res/resource.h
     res/maxlike.rc
 )
@@ -149,3 +153,4 @@ maxlike_add_test(test_perspective tests/test_perspective.cpp src/math/Mat4.cpp s
 maxlike_add_test(test_tripod tests/test_tripod.cpp src/view/Tripod.cpp)
 maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.cpp src/view/OrthoGrid.cpp src/view/PerspectiveView.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_scene tests/test_scene.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_primitives tests/test_primitives.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp)
