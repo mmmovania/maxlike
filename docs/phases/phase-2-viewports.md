@@ -102,7 +102,7 @@ interiors, the command panel's tabs and rollouts (Phase 4). Wine's system greys 
 | Time slider + track bar | 55,702 | 0 |
 | Status area | 29,508 | 7 (icon art) |
 
-- [ ] On Windows: a final look with `--client-size 1920x998` next to the R3.1 screenshot
+- [x] On Windows: a final look with `--client-size 1920x998` next to the R3.1 screenshot
 
 ## Notes
 - `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact
