@@ -9,16 +9,19 @@ Recreate the look and workflow of 3D Studio MAX R3.1 on modern Windows, pixel-cl
 |---|---|---|
 | Language | C++17, MSVC, Unicode | Native Win32, no runtime |
 | UI | Raw Win32 + classic common controls behind a thin wrapper (`Window` base class, `this` in `GWLP_USERDATA`) | Exact classic bevel look; no heavy framework |
-| Theming | No comctl32 v6 manifest, or `SetWindowTheme(hwnd, L"", L"")` | Keeps 1999-style 3D controls |
-| Font | `MS Shell Dlg` / MS Sans Serif 8 pt | Matches R3 |
-| Viewports | OpenGL 3.3 via GLAD, one shared `HGLRC`, four child windows with `CS_OWNDC` | Matches Max's per-viewport windows |
-| Viewport text | `wglUseFontBitmaps` | No GDI-over-GL flicker |
+| Theming | No comctl32 v6 manifest (classic common controls) | Keeps 1999-style 3D controls |
+| Font | `MS Shell Dlg` / MS Sans Serif 8 pt; viewport labels MS Sans Serif Bold 10 pt | Matches R3 |
+| Viewports | OpenGL 3.3 core via GLAD; one shared context created on a hidden helper window; four child windows with `CS_OWNDC` | Matches Max's per-viewport windows; a helper avoids a black first viewport |
+| Viewport drawing | Two small shader programs (lines/points with one matrix; lit triangles); ortho views use the measured pixel formula | Pixel-exact grid, tripods and wireframes |
+| Viewport text | GDI renders the text into an off-screen bitmap; its pixels are drawn as 1-px points | Exact pixels, testable, no GDI-over-GL flicker |
 | Build | CMake | VS and command line |
 | `.max` import | Own CFB reader + zlib | Format already understood |
-| Coordinates | Z-up, Max convention internally | Same as loader; no conversion |
+| Coordinates | Z-up, Max convention internally; right-handed quaternions (files store the conjugate: `Quat::FromMaxFile`) | Same as loader; one conversion point |
+| Geometry | Primitives built like Max's, matching R3.1's vertex/face counts (`04-primitives.md`) | Imported Edit Mesh data addresses vertices by index |
 | Redraw | On demand only | Same as Max |
 | DPI | Per-monitor aware; all metrics are 96-DPI values scaled by `GetDpiForWindow/96` | Exact at 100%, clean elsewhere |
-| Undo | From Phase 3 | Hard to retrofit |
+| Undo | Command pattern from Phase 3; commands refer to nodes by stable id | Hard to retrofit; pointers die when an undo recreates a node |
+| Testing | Logic kept pure and unit-tested (CTest); UI checked by pixel comparison with R3.1 screenshots | Measurable fidelity |
 
 ## Out of scope / rules
 - No Autodesk icons, bitmaps or name. All art is original.

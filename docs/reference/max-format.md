@@ -232,10 +232,10 @@ All primitives build in object space with Max's Z-up axes. Unless noted, they si
 | Box | `0x10` | old | 0 length (Y), 1 width (X), 2 height (Z), 3 width segs, 4 length segs, 5 height segs, 6 mapping | ✔ |
 | Sphere | `0x11` | old | 0 radius, 1 segments, 2 smooth, 3 hemisphere, 4 chop/squash, 5 base to pivot, 6 mapping, 7 slice on, 8 slice from, 9 slice to | ✔; centred on pivot unless *base to pivot* |
 | GeoSphere | `0x7F9E` | PB2 | 0 radius, 1 segments, 2 base type (0 tetra, 1 octa, 2 icosa), 3 hemisphere, 4 smooth, 5 base to pivot, 6 mapping | ✔; segments = geodesic frequency |
-| Cylinder | `0x12` | old | 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides, 5 smooth | ◐ visually checked |
+| Cylinder | `0x12` | old | 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides, 5 smooth | ◐ visually checked; mesh ✔ (§7.6) |
 | Cone | `0xA86C23DD` | old | 0 radius 1 (base), 1 radius 2 (top), 2 height, 3 height segs, 4 cap segs, 5 sides, 6 smooth, 7 slice on, 8 slice from, 9 slice to, 10 mapping | ✔ |
 | Tube | `0x7B21` | old | 0 radius 1, 1 radius 2, 2 height, **3 sides, 4 cap segs, 5 height segs**, 6 smooth, 7–9 slice, 10 mapping | ✔; note the order differs from Cone |
-| Torus | `0x20` ○ | old | 0 radius 1, 1 radius 2, 2 rotation, 3 twist, 4 segments, 5 sides | ◐ visually checked |
+| Torus | `0x20` ○ | old | 0 radius 1, 1 radius 2, 2 rotation, 3 twist, 4 segments, 5 sides | ◐ visually checked; mesh counts ✔ (§7.6) |
 | Pyramid | `0x76BF318A, 0x4BF37B10` | old | 0 width (X), 1 depth (Y), 2 height, 3 width segs, 4 depth segs, 5 height segs, 6 mapping | ✔ |
 | Teapot | `0xACAD13D3, 0xACAD26D9` | old | 0 radius, 1 segments, 2 smooth, 3 unused (−1), 4 body, 5 handle, 6 spout, 7 lid, 8 mapping | ✔; Utah teapot, Radius = body radius |
 | Plane | `0x081F1DFC, 0x77566F65` | PB2 | 0 length (Y), 1 width (X), 2 length segs ◐, 3 width segs ◐, 4 render scale, 5 render density, 6 mapping | ✔; centred, facing +Z |
@@ -279,6 +279,27 @@ Also inside `0x08FE`:
 ### 7.5 Smoothing groups ✔ verified (rendering), ◐ (Editable Mesh source untested)
 
 Each face has a 32-bit mask. A face corner's normal averages the normals of the faces around that vertex that share at least one bit with the face; faces with mask 0 are flat. The `instances.max` boxes show why this matters: each twisted side is a non-planar quad split into two triangles, and Max shades it smoothly across the diagonal because both triangles share a group.
+
+
+### 7.6 Mesh topology verified against R3.1 (added by maxlike)
+
+R3.1's File → Summary Info gives Max's own counts (screenshots in
+`docs/reference/screenshots/`). They differ from the JS viewer's three.js-based counts:
+
+| Sample | R3.1 vertices / faces | JS (three.js) triangles |
+|---|---|---|
+| cone (24 × 5, r2 = 0) | 146 / 288 | 264 |
+| tube | 216 / 432 | 432 |
+| cylinder (18 × 5) | 110 / 216 | — |
+| torus (24 × 12) | 288 / 576 | — |
+| sphere (32) | 482 / 960 | 960 |
+| geosphere (icosa, 4) | 162 / 320 | 320 |
+| teapot (4 segments) | 530 / 1024 | 992 |
+
+Findings: Max keeps zero-size geometry (the cone's tip ring and top cap, the teapot's
+degenerate triangles); the teapot merges points only within each part (Body, Handle,
+Spout, Lid); cap fans hide their spokes; rings start at +X. Construction rules:
+`docs/spec/04-primitives.md`.
 
 ---
 

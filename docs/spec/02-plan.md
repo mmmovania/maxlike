@@ -4,12 +4,13 @@ Each phase lives on `phase/<n>-<name>` and merges into `main` when every criteri
 Every phase ends with a technical document, `docs/tech/phase<n>-tech-docs.md`, collecting
 the explanations, design reasons and lessons of that phase (index: `docs/tech/README.md`).
 
-## Phase 0 — Skeleton (`phase/0-skeleton`)
-- [ ] CMake project builds with MSVC (Debug/Release, Unicode, C++17).
-- [ ] Thin wrapper: `Window` base class, message routing, `App` message loop.
-- [ ] `Theme` struct with every colour and metric from `01-ui-look.md`.
-- [ ] Per-monitor DPI awareness; metric scaling helper.
-- [ ] Empty main window titled `Untitled - <app name>`.
+## Phase 0 — Skeleton (`phase/0-skeleton`) ✔
+- [x] CMake project builds with MSVC (Debug/Release, Unicode, C++17).
+- [x] Thin wrapper: `Window` base class, message routing, `App` message loop.
+- [x] `Theme` struct with the colours and metrics known at the time (later phases moved
+      measured metrics into `Metrics.h` and per-control code).
+- [x] Per-monitor DPI awareness; metric scaling helper.
+- [x] Empty main window titled `Untitled - <app name>`.
 
 ## Phase 1 — Frame layout (`phase/1-frame-layout`) ✔ v0.1.0
 - [x] Menu bar with all R3 top-level menus.
@@ -60,13 +61,17 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 ## Phase 4 — Command panel (`phase/4-command-panel`)
 - [ ] Rollout, rollup, spinner, colour swatch, check button, flyout controls.
 - [ ] Six tabs, category row, Standard Primitives combo, Object Type, Name and Color.
+- [ ] Pixel check of the Create panel against the reference (default state) and the
+      R3.1 screenshots with an object selected.
 
 ## Phase 5 — Interactive creation (`phase/5-creation`)
-- [ ] Creation state machines for all ten Standard Primitives.
+- [ ] Creation state machines for all ten Standard Primitives, through the undo system
+      (one undo step per created object).
 - [ ] Parameters rollout updates live while dragging.
+- [ ] Objects tab strip of the tab panel.
 
 ## Phase 6 — Selection and transforms (`phase/6-select-transform`)
-- [ ] Click and region selection, selection filter.
+- [ ] Click and region selection, selection filter; selected objects drawn white.
 - [ ] Move/Rotate/Scale with tripod, axis constraints, reference coord systems.
 - [ ] Status bar X/Y/Z type-in.
 
@@ -78,5 +83,7 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 ## Phase 8 — `.max` import (`phase/8-max-import`)
 - [ ] CFB reader, zlib, chunk walker, class directory, DLL directory.
 - [ ] ParamBlock / PB2, Derived Object, node controllers (quaternion conjugate).
-- [ ] All loader samples pass the regression table.
+- [ ] All loader samples import with R3.1's vertex/face counts (`04-primitives.md`; the
+      JS regression table's counts for most primitives are three.js's) and the verified
+      transforms, colours and instances.
 - [ ] Native save in own chunked format.

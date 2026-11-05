@@ -76,7 +76,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       110 / 216, Cone 146 / 288, Tube 216 / 432, Torus 288 / 576, Sphere 482 / 960,
       GeoSphere 162 / 320; all watertight and outward-facing; the cylinder shows no cap spokes
 - [ ] On Windows: `--demo-scene sphere|geosphere|all`
-- [ ] R3.1 Summary Info still wanted for: Box, Plane, Pyramid, Teapot
+- [ ] R3.1 Summary Info still wanted for: Box, Plane, Pyramid (Teapot received: step 3.4b)
 
 ## Step 3.5 verification
 - [x] Builds warning-free; fourteen test programs pass (MinGW + Wine)
