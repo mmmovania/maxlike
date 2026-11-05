@@ -81,6 +81,17 @@ add_executable(maxlike WIN32
     src/ui/LabelText.h
     src/math/Mat4.cpp
     src/math/Mat4.h
+    src/math/Quat.cpp
+    src/math/Quat.h
+    src/scene/Mesh.cpp
+    src/scene/Mesh.h
+    src/scene/ParamBlock.cpp
+    src/scene/ParamBlock.h
+    src/scene/Object.h
+    src/scene/Node.cpp
+    src/scene/Node.h
+    src/scene/Scene.cpp
+    src/scene/Scene.h
     res/resource.h
     res/maxlike.rc
 )
@@ -137,3 +148,4 @@ maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cp
 maxlike_add_test(test_perspective tests/test_perspective.cpp src/math/Mat4.cpp src/view/PerspectiveView.cpp src/view/OrthoGrid.cpp)
 maxlike_add_test(test_tripod tests/test_tripod.cpp src/view/Tripod.cpp)
 maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.cpp src/view/OrthoGrid.cpp src/view/PerspectiveView.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_scene tests/test_scene.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
