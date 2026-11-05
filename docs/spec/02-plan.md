@@ -32,14 +32,18 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 | Modifiers, Modeling | Phase 7 (modify panel) |
 | Rendering | when rendering exists (after Phase 8) |
 
-## Phase 2 — Viewports (`phase/2-viewports`)
-- [ ] Four GL child windows sharing one context; sunken frames and gaps.
-- [ ] Top / Front / Left / Perspective cameras; Z-up.
-- [ ] Infinite ortho grid; perspective home grid; minor/major/axis colours.
-- [ ] Labels and axis tripods.
-- [ ] Active viewport, right-click label menu (view type, shading, Show Grid).
-- [ ] Splitter drag, Min/Max toggle, 8 navigation tools, MMB pan, wheel zoom.
-- [ ] Overlay test: empty scene matches the reference screenshot.
+## Phase 2 — Viewports (`phase/2-viewports`) ✔ v0.2.0
+- [x] Four GL child windows sharing one context; measured frames (white active border).
+- [x] Top / Front / Left / Perspective cameras (plus Bottom, Back, Right); Z-up. The
+      perspective camera was fitted to the reference: 250 units, 15°, 45° FOV.
+- [x] Infinite ortho grid (pixel-exact); perspective home grid (±200, within 1 px);
+      minor/major/axis colours; thinning when zoomed far out.
+- [x] Labels and axis tripods (tripods pixel-exact).
+- [x] Active viewport, right-click label menu (view type, shading, Show Grid).
+- [x] Divider drag, Min/Max toggle, navigation modes and buttons, middle-drag pan, wheel zoom.
+- [x] Overlay test at 1920 × 998: Top, Front, Left, frames, all bars 0 differing pixels;
+      Perspective lines all within 1 px; remaining differences only in icon art and
+      the command panel's tab row (Phase 4).
 
 ## Phase 3 — Scene core (`phase/3-scene-core`)
 - [ ] Node (name, wire colour, parent, PRS, pivot offset, object ref).

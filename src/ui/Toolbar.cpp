@@ -146,6 +146,18 @@ void Toolbar::SetEditText(const std::string& command, const std::wstring& text) 
             SetWindowTextW(combos_[i], text.c_str());
 }
 
+void Toolbar::SetChecked(const std::string& command, bool checked) {
+    for (size_t i = 0; i < items_.size(); ++i) {
+        const toolbar::Item& it = items_[i];
+        bool match = it.kind == Kind::Button && it.command == command;
+        for (const toolbar::Alternative& a : it.flyout) match = match || a.command == command;
+        if (match && checked_[i] != checked) {
+            checked_[i] = checked;
+            InvalidateItem(static_cast<int>(i));
+        }
+    }
+}
+
 void Toolbar::ShowStrip(int index, const std::wstring& label) {
     strip_ = index;
     stripLabel_ = label;

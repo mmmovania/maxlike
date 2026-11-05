@@ -74,6 +74,11 @@ bool StatusBar::Create(HWND parent) {
     return true;
 }
 
+void StatusBar::SetCommandChecked(const std::string& command, bool checked) {
+    snapTools_.SetChecked(command, checked);
+    animTools_.SetChecked(command, checked);
+}
+
 void StatusBar::SetFrame(int frame) {
     animTools_.SetEditText("anim.frame", std::to_wstring(frame));
 }

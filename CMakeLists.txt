@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(maxlike VERSION 0.1.0 LANGUAGES CXX RC)
+project(maxlike VERSION 0.2.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +8,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT WIN32)
     message(FATAL_ERROR "maxlike is a Windows application")
 endif()
+
+# GLAD: the generated OpenGL 3.3 core + WGL loader (third_party/glad, see its README).
+add_library(glad STATIC
+    third_party/glad/src/gl.c
+    third_party/glad/src/wgl.c
+)
+target_include_directories(glad PUBLIC third_party/glad/include)
 
 add_executable(maxlike WIN32
     src/main.cpp
@@ -52,6 +59,28 @@ add_executable(maxlike WIN32
     src/ui/StatusLayout.h
     src/ui/StatusBar.cpp
     src/ui/StatusBar.h
+    src/ui/ViewportLayout.cpp
+    src/ui/ViewportLayout.h
+    src/ui/Viewport.cpp
+    src/ui/Viewport.h
+    src/ui/ViewPanel.cpp
+    src/ui/ViewPanel.h
+    src/gl/GLContext.cpp
+    src/gl/GLContext.h
+    src/gl/LineRenderer.cpp
+    src/gl/LineRenderer.h
+    src/view/OrthoGrid.cpp
+    src/view/OrthoGrid.h
+    src/view/PerspectiveView.cpp
+    src/view/PerspectiveView.h
+    src/view/Tripod.cpp
+    src/view/Tripod.h
+    src/view/Navigation.cpp
+    src/view/Navigation.h
+    src/ui/LabelText.cpp
+    src/ui/LabelText.h
+    src/math/Mat4.cpp
+    src/math/Mat4.h
     res/resource.h
     res/maxlike.rc
 )
@@ -78,7 +107,7 @@ else()
     target_link_options(maxlike PRIVATE -municode -static)
 endif()
 
-target_link_libraries(maxlike PRIVATE user32 gdi32 msimg32 comctl32) # msimg32: TransparentBlt; comctl32: tooltips
+target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32) # msimg32: TransparentBlt; comctl32: tooltips
 
 # ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
 enable_testing()
@@ -103,3 +132,8 @@ maxlike_add_test(test_tab_strip tests/test_tab_strip.cpp src/ui/TabStrip.cpp)
 maxlike_add_test(test_toolbar_spec tests/test_toolbar_spec.cpp src/ui/ToolbarSpec.cpp)
 maxlike_add_test(test_time_slider tests/test_time_slider.cpp src/ui/TimeSliderGeometry.cpp)
 maxlike_add_test(test_status_layout tests/test_status_layout.cpp src/ui/StatusLayout.cpp)
+maxlike_add_test(test_viewport_layout tests/test_viewport_layout.cpp src/ui/ViewportLayout.cpp)
+maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp)
+maxlike_add_test(test_perspective tests/test_perspective.cpp src/math/Mat4.cpp src/view/PerspectiveView.cpp src/view/OrthoGrid.cpp)
+maxlike_add_test(test_tripod tests/test_tripod.cpp src/view/Tripod.cpp)
+maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.cpp src/view/OrthoGrid.cpp src/view/PerspectiveView.cpp src/math/Mat4.cpp)

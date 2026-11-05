@@ -8,7 +8,6 @@ enum class Edge {
     Outline,       // 1 px grey outline: marks a placeholder region, not part of the R3 look
     Raised,        // classic raised 3D edge (DrawEdge EDGE_RAISED), e.g. command panel
     Sunken,        // classic sunken 3D edge (DrawEdge EDGE_SUNKEN)
-    ViewportFrame, // the two-ring frame around viewports (refined in Phase 2)
     CommandPanel,  // the command panel's outer frame (measured; tabs and rollouts: Phase 4)
 };
 

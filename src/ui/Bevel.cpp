@@ -72,11 +72,6 @@ RECT DrawFrameEdge(HDC dc, RECT r, Edge edge) {
         fill(1, h - 1, w - 1, h, sh);
         return {x + 2, y + 1, x + w - 3, y + h - 3};
     }
-    case Edge::ViewportFrame:
-        DrawRing(dc, r, theme::kFrameOuterTL.Ref(), theme::kFrameOuterBR.Ref());
-        r = Shrink(r, 1);
-        DrawRing(dc, r, theme::kFrameInnerTL.Ref(), theme::kFrameInnerBR.Ref());
-        return Shrink(r, 1);
     }
     return r;
 }

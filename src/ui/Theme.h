@@ -25,14 +25,11 @@ inline constexpr Rgb kTripodX        {0xFF, 0x00, 0x00};
 inline constexpr Rgb kTripodY        {0x00, 0xFF, 0x00};
 inline constexpr Rgb kTripodZ        {0x00, 0x00, 0xFF};
 
-// Viewport frame bevel (outer then inner ring).
-inline constexpr Rgb kFrameOuterTL   {0xA0, 0xA0, 0xA0};
-inline constexpr Rgb kFrameOuterBR   {0xFF, 0xFF, 0xFF};
-inline constexpr Rgb kFrameInnerTL   {0x00, 0x00, 0x00};
-inline constexpr Rgb kFrameInnerBR   {0xC0, 0xC0, 0xC0};
-
-// TODO(spec): active viewport highlight colour is unverified.
-inline constexpr Rgb kViewportActive {0xFF, 0xFF, 0xFF};
+// Viewport frames (measured, Phase 2): a 2-px border, white around the active
+// viewport and black around the others, then a 1-px ring.
+inline constexpr Rgb kViewportActiveBorder {0xFF, 0xFF, 0xFF};
+inline constexpr Rgb kViewportBorder       {0x00, 0x00, 0x00};
+inline constexpr Rgb kViewportRing         {0xC0, 0xC0, 0xC0};
 
 // ---- Tab panel (measured) ----
 inline constexpr Rgb kTabHighlight    {0xFF, 0xFF, 0xFF};
