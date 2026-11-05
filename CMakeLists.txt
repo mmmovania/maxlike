@@ -69,6 +69,8 @@ add_executable(maxlike WIN32
     src/gl/GLContext.h
     src/gl/LineRenderer.cpp
     src/gl/LineRenderer.h
+    src/gl/MeshRenderer.cpp
+    src/gl/MeshRenderer.h
     src/view/OrthoGrid.cpp
     src/view/OrthoGrid.h
     src/view/PerspectiveView.cpp
@@ -150,7 +152,7 @@ maxlike_add_test(test_toolbar_spec tests/test_toolbar_spec.cpp src/ui/ToolbarSpe
 maxlike_add_test(test_time_slider tests/test_time_slider.cpp src/ui/TimeSliderGeometry.cpp)
 maxlike_add_test(test_status_layout tests/test_status_layout.cpp src/ui/StatusLayout.cpp)
 maxlike_add_test(test_viewport_layout tests/test_viewport_layout.cpp src/ui/ViewportLayout.cpp)
-maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp)
+maxlike_add_test(test_ortho_grid tests/test_ortho_grid.cpp src/view/OrthoGrid.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_perspective tests/test_perspective.cpp src/math/Mat4.cpp src/view/PerspectiveView.cpp src/view/OrthoGrid.cpp)
 maxlike_add_test(test_tripod tests/test_tripod.cpp src/view/Tripod.cpp)
 maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.cpp src/view/OrthoGrid.cpp src/view/PerspectiveView.cpp src/math/Mat4.cpp)

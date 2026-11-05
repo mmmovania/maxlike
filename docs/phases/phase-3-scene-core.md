@@ -22,7 +22,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] **3.5 Modifier stack**: `DerivedObject` (base + modifiers, bottom up),
       `EditMeshModifier` (vertex moves by index, skipped if the vertex count changed),
       `Mesh::CornerNormals` (smoothing groups); `--demo-scene instances` (illustrative)
-- [ ] 3.6 Shaded display (Smooth + Highlights)
+- [x] **3.6 Shaded display**: `gl::MeshRenderer` (lit triangles, depth test); Smooth +
+      Highlights (Perspective's default, as in R3), Smooth, Facets + Highlights, Facets,
+      Bounding Box from the viewport menu; ortho views use `OrthoWorldToClip`, consistent
+      with the grid's pixel formula
 - [ ] 3.7 Undo/redo
 - [ ] 3.8 Wrap-up: pixel checks, `docs/tech/phase3-tech-docs.md`, version 0.3.0
 
@@ -79,6 +82,17 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       their diagonals, group 0 flat
 - [ ] On Windows: `--demo-scene instances`
 - [ ] Unverified: how Max weights faces when averaging normals (equal weights for now)
+
+## Step 3.6 verification
+- [x] Builds warning-free; fourteen test programs pass (MinGW + Wine);
+      `test_ortho_grid` checks the ortho world-to-clip matrix against the pixel formula
+- [x] Under Wine: the empty scene is still identical to the reference; the demo scenes
+      shade correctly (sphere highlight, flat cylinder caps, the tube's inner wall, the
+      twisted boxes smooth across their diagonals)
+- [ ] On Windows: shading modes from the viewport label menu in every view
+- [ ] Unverified: R3's viewport lighting (light direction, ambient, highlight size) —
+      an R3.1 screenshot of a shaded object would let us tune it; Lit Wireframes is drawn
+      as plain wireframe for now
 
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the

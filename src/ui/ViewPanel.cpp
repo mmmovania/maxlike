@@ -14,6 +14,7 @@ void ViewPanel::ReleaseGpuObjects() {
     HDC dc = GetDC(views_[0].Hwnd());
     if (context_.MakeCurrent(dc)) {
         lines_.Release();
+        meshes_.Release();
         wglMakeCurrent(nullptr, nullptr);
     }
     ReleaseDC(views_[0].Hwnd(), dc);
@@ -35,7 +36,7 @@ bool ViewPanel::Create(HWND parent) {
     // The shared context first; each viewport then takes its pixel format on creation.
     context_.Create(); // on failure the viewports draw a message instead
     for (int i = 0; i < viewports::kCount; ++i)
-        if (!views_[static_cast<size_t>(i)].Create(Hwnd(), context_, lines_, types[i]))
+        if (!views_[static_cast<size_t>(i)].Create(Hwnd(), context_, lines_, meshes_, types[i]))
             return false;
     for (int i = 0; i < viewports::kCount; ++i) {
         Viewport& v = views_[static_cast<size_t>(i)];
