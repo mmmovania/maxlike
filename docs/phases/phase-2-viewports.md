@@ -80,7 +80,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] Under Wine: middle-drag (+50, +30) in Top moves the axes by exactly (+50, +30); two
       wheel notches zoom x1.5625; Arc Rotate turns the perspective camera and its tripod;
       Zoom Extents All returns every view to the default (0 differing pixels again)
-- [ ] On Windows: each navigation button; the pressed button follows the mode; right-click
+- [x] On Windows: each navigation button; the pressed button follows the mode; right-click
       leaves the mode; the prompt line explains the mode
 - [ ] Unverified against R3.1: cursors (R3 has its own), prompt texts, middle-button
       combinations (Alt = orbit, Ctrl+Alt = zoom), wheel step, drag directions, grid
