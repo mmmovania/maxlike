@@ -96,6 +96,7 @@ add_executable(maxlike WIN32
     src/scene/Scene.h
     src/scene/Primitives.cpp
     src/scene/Primitives.h
+    src/scene/TeapotData.h
     src/scene/Modifier.cpp
     src/scene/Modifier.h
     src/scene/Undo.cpp

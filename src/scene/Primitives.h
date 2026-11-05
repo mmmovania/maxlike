@@ -97,4 +97,14 @@ public:
     Mesh Evaluate() const override;
 };
 
+// Teapot. 0 radius, 1 segments, 2 smooth, 3 unused, 4 body, 5 handle, 6 spout, 7 lid.
+// The Utah teapot, Radius = body radius, spout towards +X, base on the pivot.
+class TeapotObject : public Object {
+public:
+    enum { kRadius = 0, kSegments, kSmooth, kUnused, kBody, kHandle, kSpout, kLid };
+    explicit TeapotObject(double radius = 25);
+    std::string ClassName() const override { return "Teapot"; }
+    Mesh Evaluate() const override;
+};
+
 } // namespace scene

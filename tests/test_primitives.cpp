@@ -262,7 +262,45 @@ static void GeoSphere() {
         }
 }
 
+// Signed volume (sum of tetrahedra to the origin): positive when faces point outwards.
+static double SignedVolume(const Mesh& m) {
+    double v = 0;
+    for (const Face& f : m.faces) v += math::Dot(m.verts[f.v[0]], math::Cross(m.verts[f.v[1]], m.verts[f.v[2]])) / 6;
+    return v;
+}
+
+static void Teapot() {
+    // teapot.max: radius 30, 4 segments. R3.1 Summary Info: 530 vertices, 1024 faces.
+    TeapotObject t(30);
+    const Mesh m = t.Evaluate();
+    CHECK(m.verts.size() == 530 && m.faces.size() == 1024 && m.Valid());
+    // Radius = body radius; height 3.15 / 2 x radius = 47.25; base on the pivot; spout +X.
+    const Bounds b = m.GetBounds();
+    CHECK(std::fabs(b.min.z) < 1e-9 && std::fabs(b.max.z - 47.25) < 1e-9);
+    CHECK(std::fabs(b.max.y - 30) < 1e-9 && std::fabs(b.min.y + 30) < 1e-9);
+    CHECK(b.max.x > 50 && b.max.x < 53);                   // spout tip, about 1.71 x radius
+    CHECK(b.min.x < -44 && b.min.x > -46);                 // handle, about 1.5 x radius
+    // Each part on its own faces outwards; per-part counts add up (merging is per part).
+    size_t verts = 0, faces = 0;
+    for (int part = 0; part < 4; ++part) {
+        TeapotObject p(30);
+        for (int k = 0; k < 4; ++k) p.Params().Set(static_cast<size_t>(TeapotObject::kBody + k), k == part);
+        const Mesh pm = p.Evaluate();
+        CHECK(SignedVolume(pm) > 0);
+        verts += pm.verts.size();
+        faces += pm.faces.size();
+    }
+    CHECK(verts == 530 && faces == 1024);
+    // Other segment counts: 32 patches x n x n x 2 faces.
+    for (int n : {1, 2, 3, 6}) {
+        TeapotObject s(30);
+        s.Params().Set(TeapotObject::kSegments, n);
+        CHECK(s.Evaluate().faces.size() == static_cast<size_t>(64 * n * n));
+    }
+}
+
 int main() {
+    Teapot();
     Sphere();
     GeoSphere();
     ClosedBoxAndPyramid();

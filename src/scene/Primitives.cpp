@@ -1,6 +1,8 @@
 #include "scene/Primitives.h"
+#include "scene/TeapotData.h"
 #include <algorithm>
 #include <array>
+#include <iterator>
 #include <cmath>
 #include <map>
 #include <tuple>
@@ -496,6 +498,96 @@ Mesh GeoSphereObject::Evaluate() const {
                     m.faces.push_back(dn);
                 }
             }
+    }
+    return m;
+}
+
+// ---------------------------------------------------------------- Teapot
+//
+// Verified against R3.1 (Summary Info of teapot.max, 4 segments): 530 vertices, 1024
+// faces = 32 patches x 4 x 4 cells x 2 triangles. Nothing is removed (the zero-area
+// triangles at the lid's knob and the base stay, as with the cone's tip), and points
+// are merged only within each part (Body = rim + body + bottom, Handle, Spout, Lid):
+// merging everything gives 529, because the handle's end touches the body at one
+// grid point. NOTE: the vertex and face order are not verified.
+
+TeapotObject::TeapotObject(double radius) {
+    params_.Define(kRadius, ParamType::Float, radius);
+    params_.Define(kSegments, ParamType::Int, 4);
+    params_.Define(kSmooth, ParamType::Bool, 1);
+    params_.Define(kUnused, ParamType::Int, -1);
+    params_.Define(kBody, ParamType::Bool, 1);
+    params_.Define(kHandle, ParamType::Bool, 1);
+    params_.Define(kSpout, ParamType::Bool, 1);
+    params_.Define(kLid, ParamType::Bool, 1);
+}
+
+namespace {
+
+// Cubic Bernstein weights.
+void Bernstein(double t, double b[4]) {
+    const double s = 1 - t;
+    b[0] = s * s * s; b[1] = 3 * t * s * s; b[2] = 3 * t * t * s; b[3] = t * t * t;
+}
+
+math::Vec3 PatchPoint(int patch, double u, double v) {
+    double bu[4], bv[4];
+    Bernstein(u, bu);
+    Bernstein(v, bv);
+    math::Vec3 p{0, 0, 0};
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j) {
+            const double* c = teapot::kPoints[teapot::kPatches[patch][i * 4 + j]];
+            const double w = bu[i] * bv[j];
+            p = p + math::Vec3{c[0], c[1], c[2]} * w;
+        }
+    return p;
+}
+
+} // namespace
+
+Mesh TeapotObject::Evaluate() const {
+    const double radius = std::fabs(params_.Float(kRadius));
+    const double scale = radius / 2.0;                       // the data's body radius is 2.0
+    const int n = std::clamp(params_.Int(kSegments, 4), 1, 64);
+    const uint32_t group = params_.Bool(kSmooth) ? 1u : 0u;
+
+    struct Part { size_t param; int first, count; };
+    const Part parts[] = {
+        {kBody, 0, 12}, {kBody, 28, 4},                       // rim + body, bottom
+        {kHandle, 12, 4}, {kSpout, 16, 4}, {kLid, 20, 8},
+    };
+    // Body's three pieces are one part for merging; give each part an id.
+    const int partId[] = {0, 0, 1, 2, 3};
+
+    Mesh m;
+    std::map<std::tuple<int, long long, long long, long long>, uint32_t> index;
+    for (size_t pi = 0; pi < std::size(parts); ++pi) {
+        const Part& part = parts[pi];
+        if (!params_.Bool(part.param)) continue;
+        for (int patch = part.first; patch < part.first + part.count; ++patch) {
+            std::vector<uint32_t> grid(static_cast<size_t>((n + 1) * (n + 1)));
+            for (int a = 0; a <= n; ++a)
+                for (int b = 0; b <= n; ++b) {
+                    const math::Vec3 p = PatchPoint(patch, static_cast<double>(a) / n, static_cast<double>(b) / n) * scale;
+                    const auto key = std::make_tuple(partId[pi], std::llround(p.x * 1e6 / scale),
+                                                     std::llround(p.y * 1e6 / scale), std::llround(p.z * 1e6 / scale));
+                    auto it = index.find(key);
+                    uint32_t id;
+                    if (it != index.end()) {
+                        id = it->second;
+                    } else {
+                        id = static_cast<uint32_t>(m.verts.size());
+                        m.verts.push_back(p);
+                        index.emplace(key, id);
+                    }
+                    grid[static_cast<size_t>(a * (n + 1) + b)] = id;
+                }
+            auto G = [&](int a, int b) { return grid[static_cast<size_t>(a * (n + 1) + b)]; };
+            for (int a = 0; a < n; ++a)
+                for (int b = 0; b < n; ++b)
+                    AddCell(m, G(a, b), G(a, b + 1), G(a + 1, b + 1), G(a + 1, b), group);
+        }
     }
     return m;
 }

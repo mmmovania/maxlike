@@ -18,7 +18,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] **3.4a Sphere, GeoSphere; ring primitives corrected to R3.1**: counts now exactly
       Max's (Summary Info); the cone keeps its tip ring and top cap; cap spokes hidden; rings
       start at +X (fitted to the cylinder outline)
-- [ ] 3.4b Teapot (waiting for R3.1 Summary Info of teapot.max and its Segments value)
+- [x] **3.4b Teapot**: the Utah teapot's 32 Bezier patches (`TeapotData.h`, from three.js,
+      MIT), Radius = body radius; R3.1's counts reproduced by keeping every triangle and
+      merging points only within each part
 - [x] **3.5 Modifier stack**: `DerivedObject` (base + modifiers, bottom up),
       `EditMeshModifier` (vertex moves by index, skipped if the vertex count changed),
       `Mesh::CornerNormals` (smoothing groups); `--demo-scene instances` (illustrative)
@@ -108,6 +110,19 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [ ] On Windows: Edit > Undo / Redo are greyed (nothing in the UI creates commands until
       Phase 5); `ctest` passes
 - [ ] Unverified: R3's undo levels default (20 assumed) and menu wording ("Undo Create")
+
+## Step 3.4b verification
+- [x] Builds warning-free; fifteen test programs pass (MinGW + Wine)
+- [x] `test_primitives`: Teapot radius 30, 4 segments = 530 vertices / 1024 faces (R3.1
+      Summary Info); height 47.25; body radius 30; spout +X; every part faces outwards
+      (positive signed volume); 64 n² faces for other segment counts
+- [x] Why 530 and not 529: merging all points gives 529 because the handle's end touches
+      the body at one grid point; merging per part (Body = rim + body + bottom, Handle,
+      Spout, Lid) keeps it separate: 530
+- [ ] On Windows: `--demo-scene teapot`
+- [ ] Optional check in R3.1 (Segments 4, one part ticked): predicted Body 257 / 512,
+      Handle 72 / 128, Spout 72 / 128, Lid 129 / 256; and all parts at Segments 1, 2, 3:
+      38 / 64, 138 / 256, 302 / 576
 
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the

@@ -57,6 +57,7 @@ bool BuildDemoScene(Scene& s, const std::string& which) {
         {"torus", "Torus", 0xE0C657, 140, [] { return std::shared_ptr<Object>(std::make_shared<TorusObject>(25, 5)); }},
         {"sphere", "Sphere", 0x860606, -110, [] { return std::shared_ptr<Object>(std::make_shared<SphereObject>(10)); }, 70},
         {"geosphere", "GeoSphere", 0x99E4B8, -110, [] { return std::shared_ptr<Object>(std::make_shared<GeoSphereObject>(10)); }, -70},
+        {"teapot", "Teapot", 0xC6E057, 40, [] { return std::shared_ptr<Object>(std::make_shared<TeapotObject>(30)); }, -65},
     };
     const bool all = which == "all";
     bool found = all;

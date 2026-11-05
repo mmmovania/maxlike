@@ -13,6 +13,7 @@ namespace scene {
 //   "tube"    Tube 10 / 6.185, h 10, 18 sides, 1 cap seg, 5 height segs, #1AB158
 //   "sphere"  Sphere r 10, 32 segments, #860606
 //   "geosphere" GeoSphere r 10, icosahedron, 4 segments, #99E4B8
+//   "teapot"  Teapot radius 30, 4 segments, #C6E057
 //   "cylinder", "torus"  Max's defaults (their samples were only checked visually)
 //   "all"     all of them in a row along X
 //   "instances" seven nodes sharing one Box + Edit Mesh (illustrative, see the .cpp)
