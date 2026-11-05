@@ -34,6 +34,14 @@ struct Mesh {
     std::vector<std::pair<uint32_t, uint32_t>> VisibleEdges() const;
     // Checks indices are in range; returns false if not.
     bool Valid() const;
+
+    // Shading normals per face corner (3 per face, in face order), from smoothing
+    // groups (max-format.md §7.5): a corner's normal averages the normals of the faces
+    // around its vertex that share at least one smoothing bit with its face; a face
+    // with no smoothing bits is flat. Zero-area faces contribute nothing.
+    // NOTE: faces are weighted equally (as the JS reader did); Max's weighting is not
+    // verified.
+    std::vector<math::Vec3> CornerNormals() const;
 };
 
 } // namespace scene

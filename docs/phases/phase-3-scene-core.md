@@ -18,8 +18,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] **3.4a Sphere, GeoSphere; ring primitives corrected to R3.1**: counts now exactly
       Max's (Summary Info); the cone keeps its tip ring and top cap; cap spokes hidden; rings
       start at +X (fitted to the cylinder outline)
-- [ ] 3.4b Teapot
-- [ ] 3.5 Modifier stack: Derived Object, Edit Mesh vertex moves, smoothing groups
+- [ ] 3.4b Teapot (waiting for R3.1 Summary Info of teapot.max and its Segments value)
+- [x] **3.5 Modifier stack**: `DerivedObject` (base + modifiers, bottom up),
+      `EditMeshModifier` (vertex moves by index, skipped if the vertex count changed),
+      `Mesh::CornerNormals` (smoothing groups); `--demo-scene instances` (illustrative)
 - [ ] 3.6 Shaded display (Smooth + Highlights)
 - [ ] 3.7 Undo/redo
 - [ ] 3.8 Wrap-up: pixel checks, `docs/tech/phase3-tech-docs.md`, version 0.3.0
@@ -67,6 +69,16 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       GeoSphere 162 / 320; all watertight and outward-facing; the cylinder shows no cap spokes
 - [ ] On Windows: `--demo-scene sphere|geosphere|all`
 - [ ] R3.1 Summary Info still wanted for: Box, Plane, Pyramid, Teapot
+
+## Step 3.5 verification
+- [x] Builds warning-free; fourteen test programs pass (MinGW + Wine)
+- [x] `test_modifiers`: the instances.max situation (one Box + Edit Mesh turning vertices 4–7
+      by +25°, shared by seven nodes; Box01 −41.5°, Box07 +47.0°); the base can still be
+      edited under the modifier; a changed vertex count skips the Edit Mesh; stack order and
+      disabling; smoothing: box sides flat, sphere radial, the twisted sides smooth across
+      their diagonals, group 0 flat
+- [ ] On Windows: `--demo-scene instances`
+- [ ] Unverified: how Max weights faces when averaging normals (equal weights for now)
 
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the

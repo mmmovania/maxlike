@@ -1,5 +1,7 @@
 #include "scene/DemoScene.h"
 #include "scene/Primitives.h"
+#include "scene/Modifier.h"
+#include "math/Quat.h"
 
 namespace scene {
 
@@ -12,7 +14,28 @@ static Node* Add(Scene& s, const std::string& base, std::shared_ptr<Object> obje
     return n;
 }
 
+// Illustrative version of instances.max: seven nodes sharing one Derived Object (a Box
+// with an Edit Mesh that turns the top four vertices by +25 degrees), each node turned
+// about Z from -41.5 (Box01) to +47.0 degrees (Box07). The box size and the node
+// positions are not from the sample.
+static void BuildInstances(Scene& s) {
+    constexpr double kPi = 3.14159265358979323846;
+    auto box = std::make_shared<BoxObject>(20, 20, 40);
+    const Mesh base = box->Evaluate();
+    const math::Quat twist = math::Quat::FromAxisAngle({0, 0, 1}, 25 * kPi / 180);
+    std::vector<EditMeshModifier::Move> moves;
+    for (uint32_t v = 4; v < 8; ++v) moves.push_back({v, twist.Rotate(base.verts[v]) - base.verts[v]});
+    auto derived = std::make_shared<DerivedObject>(box);
+    derived->AddModifier(std::make_shared<EditMeshModifier>(base.verts.size(), moves));
+    for (int i = 0; i < 7; ++i) {
+        const double deg = -41.5 + (47.0 + 41.5) * i / 6;
+        Node* n = Add(s, "Box", derived, 0x1AB194, {-150.0 + 50.0 * i, 0, 0});
+        n->Transform().rotation = math::Quat::FromAxisAngle({0, 0, 1}, deg * kPi / 180);
+    }
+}
+
 bool BuildDemoScene(Scene& s, const std::string& which) {
+    if (which == "instances") { BuildInstances(s); return true; }
     struct Sample { const char* name; const char* base; uint32_t colour; double allX;
                     std::shared_ptr<Object> (*make)(); double allY = 0; };
     static const Sample kSamples[] = {

@@ -15,6 +15,7 @@ namespace scene {
 //   "geosphere" GeoSphere r 10, icosahedron, 4 segments, #99E4B8
 //   "cylinder", "torus"  Max's defaults (their samples were only checked visually)
 //   "all"     all of them in a row along X
+//   "instances" seven nodes sharing one Box + Edit Mesh (illustrative, see the .cpp)
 // Each single sample sits at the origin (where the sample files put them is still to
 // be confirmed). Returns false for an unknown name.
 bool BuildDemoScene(Scene& scene, const std::string& which);
