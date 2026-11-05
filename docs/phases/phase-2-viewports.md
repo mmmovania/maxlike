@@ -24,7 +24,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
       Pan, Arc Rotate; right-click leaves a mode), Zoom Extents (All), middle-drag pan,
       wheel zoom; pure maths in `view/Navigation.*` (unit-tested); the ortho grid thins out
       when zoomed far out
-- [ ] 2.6 Pixel check and `docs/tech/phase2-tech-docs.md`
+- [x] **2.6 Wrap-up**: whole-window pixel check, `docs/tech/phase2-tech-docs.md`,
+      version 0.2.0
 
 ## Step 2.1 verification
 - [x] Builds warning-free; seven test programs pass (MinGW + Wine)
@@ -86,6 +87,22 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
       combinations (Alt = orbit, Ctrl+Alt = zoom), wheel step, drag directions, grid
       thinning rule, Arc Rotate in ortho views (R3 turns them into User views; not yet),
       Region Zoom in Perspective (R3: Field-of-View; not yet), the region rectangle's look
+
+## Step 2.6 verification (whole client area at 1920 × 998, Wine)
+Masked: label text (no MS Sans Serif under Wine), icon art, Wine-drawn combo and edit
+interiors, the command panel's tabs and rollouts (Phase 4). Wine's system greys normalised.
+
+| Region | Compared | Differing |
+|---|---|---|
+| Tab panel + main toolbar | 75,602 | 0 |
+| Viewport frames | 30,138 | 0 |
+| Top, Front, Left views | 1,089,324 | 0 |
+| Perspective view | 362,826 | 41,129 (every line pixel within 1 px, both ways) |
+| Command panel frame | 6,058 | 3 (edge pixels of its own tab row, Phase 4) |
+| Time slider + track bar | 55,702 | 0 |
+| Status area | 29,508 | 7 (icon art) |
+
+- [ ] On Windows: a final look with `--client-size 1920x998` next to the R3.1 screenshot
 
 ## Notes
 - `maxlike.exe --client-size 1920x998` opens un-maximised with the reference's exact
