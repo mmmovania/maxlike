@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity type="win32" name="maxlike" version="0.2.0.0"/>
+  <assemblyIdentity type="win32" name="maxlike" version="0.3.0.0"/>
   <!--
     Deliberately NO dependency on Microsoft.Windows.Common-Controls 6.0:
     common controls stay on v5, which draws the classic 3D look of 3ds Max R3.

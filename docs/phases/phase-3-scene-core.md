@@ -32,7 +32,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       saved-state tracking); nodes get stable ids; commands for create, delete (exact
       hierarchy restore), transform, parameter, link, rename, colour, and macro steps;
       Edit > Undo/Redo and the toolbar buttons, menu text "Undo <name>", greyed when empty
-- [ ] 3.8 Wrap-up: pixel checks, `docs/tech/phase3-tech-docs.md`, version 0.3.0
+- [x] **3.8 Wrap-up**: final checks, `docs/tech/phase3-tech-docs.md`, version 0.3.0
 
 ## Step 3.1 verification
 - [x] Builds warning-free; twelve test programs pass (MinGW + Wine)
@@ -123,6 +123,12 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [ ] Optional check in R3.1 (Segments 4, one part ticked): predicted Body 257 / 512,
       Handle 72 / 128, Spout 72 / 128, Lid 129 / 256; and all parts at Segments 1, 2, 3:
       38 / 64, 138 / 256, 302 / 576
+
+## Step 3.8 verification
+- [x] Clean rebuild: 0 warnings; fifteen test programs pass (MinGW + Wine)
+- [x] Empty scene at 1920 × 998 still identical to the R3.1 reference: frames, Top, Front,
+      Left 0 differing pixels of 1,119,462 (labels masked)
+- [ ] On Windows: `ctest`, and `--demo-scene all`, `teapot`, `instances` look right
 
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the

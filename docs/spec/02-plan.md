@@ -45,12 +45,17 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       Perspective lines all within 1 px; remaining differences only in icon art and
       the command panel's tab row (Phase 4).
 
-## Phase 3 — Scene core (`phase/3-scene-core`)
-- [ ] Node (name, wire colour, parent, PRS, pivot offset, object ref).
-- [ ] ParamBlock; Object → modifier stack → Mesh (verts, faces, smoothing, mat IDs).
-- [ ] Primitive builders ported from the JS loader with Max vertex order.
-- [ ] Undo/redo.
-- [ ] Unit tests reproduce the loader's regression table (box 12 tris, sphere 960, …).
+## Phase 3 — Scene core (`phase/3-scene-core`) ✔ v0.3.0
+- [x] Node (name, wire colour, parent, PRS, pivot offset, object ref, stable id).
+- [x] ParamBlock; Object → modifier stack (Derived Object, Edit Mesh vertex moves) → Mesh
+      (verts, faces, smoothing groups, material IDs, edge visibility).
+- [x] All ten Standard Primitives; Box in Max's verified vertex/face order; counts of
+      Cylinder, Cone, Tube, Torus, Sphere, GeoSphere, Teapot equal R3.1's Summary Info.
+- [x] Scene drawn in the viewports: wireframe (node colour), Smooth + Highlights and the
+      other shading modes.
+- [x] Undo/redo (command pattern).
+- [x] Unit tests hold the loader's verified results and R3.1's own counts (the JS
+      loader's counts for most primitives turned out to be three.js's, not Max's).
 
 ## Phase 4 — Command panel (`phase/4-command-panel`)
 - [ ] Rollout, rollup, spinner, colour swatch, check button, flyout controls.
