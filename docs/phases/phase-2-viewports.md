@@ -60,7 +60,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] Top, Front, Left at the reference size, grid + tripod: 0 differing pixels out of
       1,089,324 (labels masked: Wine has no MS Sans Serif)
 - [x] Perspective tripod: the same 128 coloured pixels as the reference
-- [ ] On Windows: labels "Top", "Front", "Left", "Perspective" look like R3's
+- [x] On Windows: labels "Top", "Front", "Left", "Perspective" look like R3's
       (font is a best guess: MS Sans Serif Bold 10 pt; compare letter shapes)
 
 ## Step 2.4 verification
@@ -68,8 +68,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 2.
 - [x] Default layout unchanged: ortho views and frames still 0 differing pixels
 - [x] Under Wine: dragging the vertical divider, Views > Bottom from the label menu (label
       and tripod change), Min/Max toggle on and off
-- [ ] On Windows: the same; cursors over the dividers (↔, ↕, ✥ at the crossing)
-- [ ] Unverified against R3.1: the label menu's items and order; whether R3.1 lets you
+- [x] On Windows: the same; cursors over the dividers (↔, ↕, ✥ at the crossing)
+- [x] Unverified against R3.1: the label menu's items and order; whether R3.1 lets you
       drag the dividers; whether enlarging a view keeps the zoom or the visible width
 
 ## Notes
