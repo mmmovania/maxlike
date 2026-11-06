@@ -36,7 +36,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
       pixels of 81,384 (tab labels and icons masked); the default window is unchanged
 - [x] Clicking Box in the strip activates Box creation (green in the panel, pressed in
       the strip)
-- [ ] On Windows: the same; the other buttons report "not implemented yet"
+- [x] On Windows: the same; the other buttons report "not implemented yet"
 - [ ] Unverified: names after the ten Standard Primitives (read from the icons); whether
       R3 shows the active strip button pressed
 
@@ -50,7 +50,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] Under Wine: create (selected, white, "1 Object Selected"), click empty (None), click
       the edge (selected), Delete (gone), Undo (back, selected); a region selected 3 demo
       objects; brackets around a selected object in Perspective; default window unchanged
-- [ ] On Windows: the same; Ctrl+click adds, Alt+click removes
+- [x] On Windows: the same; Ctrl+click adds, Alt+click removes
 - [ ] Unverified: pick tolerance (4 px), crossing as the default region mode, Ctrl/Alt
       rules, the selection rectangle's look (solid white here), bracket length (¼ edge,
       measured roughly), "N Objects Selected" plural
@@ -61,7 +61,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
       (by id); undo restores the name
 - [x] Under Wine: create Box01 (name shown), type "Crate" + Enter (renamed), click empty
       (field disabled), click the box (shows "Crate"); default window unchanged
-- [ ] On Windows: rename; recolour one and several objects with the swatch; undo both
+- [x] On Windows: rename; recolour one and several objects with the swatch; undo both
 - [ ] Unverified: R3's Name and Color with several objects selected; R3's own Object
       Color dialog (Windows' colour dialog stands in); duplicate names (allowed here)
 
@@ -75,7 +75,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
       screenshot: Top 83 %, Left 79 %, Front 68 % of R3's gizmo pixels identical; the rest
       are arrowhead edges (R3's rasteriser) and overlaps with the box's edges
 - [x] With nothing selected, the window is unchanged
-- [ ] On Windows: select objects with Select / Move; switch constraints; check each view
+- [x] On Windows: select objects with Select / Move; switch constraints; check each view
 - [ ] Unverified: arrowhead edges (fitted triangle, about 10 % of edge pixels differ);
       several objects selected (one
       figure at the average pivot); the tripod in Perspective
@@ -88,7 +88,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] Under Wine: Top view, a 100-px drag moves the box exactly 100 px; with Y only a
       horizontal drag moves nothing (and records nothing); one Undo restores it; in
       Perspective a drag slides it along the ground (Top moves, Front height unchanged)
-- [ ] On Windows: move in every view with X, Y, Z, XY, YZ, ZX; undo; right-click cancels
+- [x] On Windows: move in every view with X, Y, Z, XY, YZ, ZX; undo; right-click cancels
 - [ ] Unverified: R3's cursor while moving; whether R3 shows the movement in the status
       bar's X/Y/Z fields while dragging (Phase 6 type-in item); several objects about
       their own pivots or a common centre (the same movement is applied to each)
@@ -101,7 +101,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] Under Wine: a 60 × 20 box rotated 180 px up turns from 129 × 43 px to 43 × 129 px
       about its centre; a uniform scale 100 px up doubles it (86 × 259); two Undos restore
       each step
-- [ ] On Windows: rotate and scale with each constraint, in every view; undo; cancel
+- [x] On Windows: rotate and scale with each constraint, in every view; undo; cancel
 - [ ] Unverified: R3's drag directions and speeds (0.5°/px, 1 %/px); the axis for a plane
       constraint; non-uniform and squash axes (local axes here); transform centres
       other than each pivot
@@ -115,7 +115,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] Under Wine: cursor 20 units right of the Top view's centre shows 19.828 / 0.334 /
       0.000 (within a pixel); a 100-px move shows 46.377 / 0 / 0; a 180-px rotation
       shows 0 / 0 / 90
-- [ ] On Windows: the same in each view; Scale shows percentages
+- [x] On Windows: the same in each view; Scale shows percentages
 - [ ] Unverified: R3's number format; whether R3 shows the cursor position in every
       view (here: ortho view planes and the ground in Perspective); what it shows
       after a drag ends (the last amount stays here)
@@ -125,7 +125,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] With nothing selected, the window is identical to the end of Phase 5 (the X/Y/Z
       text, which shows the cursor position, masked)
 - [x] A viewport reports cursor coordinates only for points inside it
-- [ ] On Windows: `ctest`; select, rename, recolour, move, rotate, scale, delete, undo
+- [x] On Windows: `ctest`; select, rename, recolour, move, rotate, scale, delete, undo
 
 ## Notes
 - The strip is a second `Toolbar` (`ObjectsToolbarConfig`) shown in the main toolbar's
