@@ -55,6 +55,8 @@ public:
     // misses the plane (perspective view, above the horizon).
     bool PointOnPlane(int x, int y, scene::ConstructionPlane& plane, double& u, double& v,
                       double& unitsPerPixel) const;
+    // This view's construction plane (ortho: its right and up; perspective: the ground).
+    scene::ConstructionPlane CreationPlane() const;
 
     void SetScene(const scene::Scene* scene) { scene_ = scene; InvalidateRect(Hwnd(), nullptr, FALSE); }
 

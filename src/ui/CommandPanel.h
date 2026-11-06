@@ -26,6 +26,8 @@ public:
     // true when a change is complete (one undo step later).
     std::function<void(int paramIndex, double value, bool final)> onParamChanged;
     std::function<void(int method)> onCreationMethodChanged;
+    // Keyboard Entry's Create: world position and the typed sizes (Max indices).
+    std::function<void(double x, double y, double z, const std::vector<std::pair<int, double>>& sizes)> onKeyboardCreate;
 
     // What Parameters shows: the block of the object being built or just created (or
     // a template with the defaults). Not owned; must outlive its use or be reset.
@@ -60,7 +62,7 @@ private:
     void PaintObjectType(HDC dc, int titleTop);
     void PaintNameAndColor(HDC dc, int titleTop);
     void PaintCreationMethod(HDC dc, int titleTop);
-    void PaintParameters(HDC dc, int titleTop);
+    void PaintRows(HDC dc, int titleTop, bool keyboard);   // Parameters or Keyboard Entry
 
     // Rollouts shown now: Object Type, Name and Color, and while a primitive is active,
     // Creation Method, Keyboard Entry and Parameters.
@@ -73,6 +75,12 @@ private:
     enum class Part { None, Field, Up, Down, Check };
     Part ParamPartAt(int x, int y, int& row) const;
     double ParamValue(const params::Row& r) const;
+    static constexpr int kKeyBase = 1000;     // Keyboard Entry row ids start here
+    const params::Row& RowAt(int id) const;
+    int RowTitleTop(int id) const;
+    double RowValue(int id) const;
+    void RowChanged(int id, double value, bool final);
+    bool OnCreateButton(int x, int y) const;
     void BeginTyping(int row);
     void EndTyping(bool commit);
     static LRESULT CALLBACK EditProc(HWND, UINT, WPARAM, LPARAM);
@@ -87,6 +95,8 @@ private:
     HWND dropdown_ = nullptr;            // classic COMBOBOX (draws R3's look itself)
     bool open_[kRollCount] = {true, true, true, false, true};   // R3: Keyboard Entry starts collapsed
     params::Spec spec_;                  // Parameters of the active primitive
+    params::KeyboardSpec keyboard_;      // Keyboard Entry of the active primitive
+    std::vector<double> keValues_;       // its typed values (X, Y, Z, sizes)
     int method_ = 1;                     // Creation Method radio
     const scene::ParamBlock* source_ = nullptr;
     std::wstring objectName_;

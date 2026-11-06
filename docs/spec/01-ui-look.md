@@ -283,6 +283,9 @@ Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
   Parameters rows: title + 24, + 45, + 66, gap, + 94, + 115, + 136, checkbox + 162; the
   frame ends 21 rows below the last row. Classic radio buttons are drawn from their
   measured pattern (Wine draws them differently).
+- Keyboard Entry opened (NOTE: unverified, laid out by the Parameters rule): X, Y, Z at
+  title + 24, + 45, + 66; the primitive's sizes from + 94; a Create button (69 × 18 at
+  x 57) 5 rows below the last size row.
 - Verified: whole panel 0 differing pixels of 143,519 (text, icons and the dropdown's
   interior masked); while creating a Box, 0 of 122,771 against R3.1's screenshot.
 - Unverified: a checked button's look, the collapsed "+", spacing after a collapsed

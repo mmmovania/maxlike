@@ -19,7 +19,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
       spinners, Parameters per primitive (`ui::params`), Creation Method radios, Keyboard
       Entry collapsed, the green checked button, AutoGrid and the name field enabled, the
       swatch showing the new object's colour; spinner edits become undo steps
-- [ ] 5.4 Keyboard Entry contents (X, Y, Z and sizes, Create button)
+- [x] **5.4 Keyboard Entry**: X, Y, Z, the primitive's sizes and a Create button
+      (`params::KeyboardEntryFor`), laid out by the Parameters rule; Create makes the typed
+      object at the typed position, oriented by the active viewport, as one undo step
 - [ ] 5.5 Wrap-up: checks, `docs/tech/phase5-tech-docs.md`, version 0.5.0
 
 ## Step 5.1 verification
@@ -74,6 +76,17 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [ ] Unverified: other primitives' Parameters and Creation Method lists (from memory);
       non-default creation methods (not implemented); the right-hand gutter's condition;
       spinner speeds; a pressed arrow's look
+
+## Step 5.4 verification
+- [x] Builds warning-free; twenty-one test programs pass (MinGW + Wine)
+- [x] `test_parameters_spec`: Keyboard Entry rows (X, Y, Z, then sizes; Sphere 4 rows,
+      Torus 5 without the angles) and the Create button below them
+- [x] Under Wine: the panel while creating a Box still matches R3.1 exactly (Keyboard Entry
+      collapsed, 0 of 122,771); typed X 50, Length 40, Width 30, Height 20 and Create made
+      a 30 × 40 box centred at X = 50 in the Top view
+- [ ] On Windows: open Keyboard Entry, type values, Create; undo
+- [ ] Unverified: Keyboard Entry's layout, labels and default values (no R3.1 screenshot
+      of it opened yet)
 
 ## Notes
 - Steps are from memory of R3; the defaults (Creation Method: Box not Cube, Sphere from

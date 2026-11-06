@@ -177,6 +177,13 @@ bool Viewport::PointOnPlane(int x, int y, scene::ConstructionPlane& plane, doubl
     return true;
 }
 
+scene::ConstructionPlane Viewport::CreationPlane() const {
+    if (type_ == ViewType::Perspective) return scene::TopPlane();
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    return {right, up, math::Cross(right, up)};
+}
+
 bool Viewport::CreateEvent(scene::Creator::Event e, LPARAM lp) {
     if (!onCreateEvent) return false;
     scene::ConstructionPlane plane;

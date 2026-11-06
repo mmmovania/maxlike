@@ -87,6 +87,14 @@ bool MainFrame::CreateRegions() {
         statusArea_.SetPrompt(1, type >= 0 ? L"Click and drag to begin creation process"
                                            : L"Click or click-and-drag to select objects");
     };
+    // Keyboard Entry's Create: the typed object, oriented by the active viewport.
+    commandPanel_.onKeyboardCreate = [this](double x, double y, double z, const std::vector<std::pair<int, double>>& sizes) {
+        std::vector<std::pair<size_t, double>> params;
+        for (const auto& [index, value] : sizes) params.push_back({static_cast<size_t>(index), value});
+        if (creation_.CreateDirect(params, viewports_.ActivePlane(), {x, y, z}).empty()) return;
+        UpdateCreatePanel();
+        viewports_.Redraw();
+    };
     commandPanel_.onCreationMethodChanged = [this](int method) {
         if (method != ui::params::CreationMethodsFor(commandPanel_.CreateType()).selected)
             statusArea_.SetPrompt(1, L"This creation method is not implemented yet");

@@ -112,6 +112,29 @@ Spec ParametersFor(int type) {
     return b.Done();
 }
 
+KeyboardSpec KeyboardEntryFor(int type) {
+    const Spec params = ParametersFor(type);
+    KeyboardSpec k;
+    if (params.rows.empty()) return k;
+    int y = 24;
+    for (auto [label, index] : {std::pair<const wchar_t*, int>{L"X:", kPosX}, {L"Y:", kPosY}, {L"Z:", kPosZ}}) {
+        k.fields.rows.push_back({label, index, Kind::Float, -kBig, kBig, 0.1, y});
+        y += 21;
+    }
+    y += 7;
+    // The sizes: Parameters' first group of float rows (lengths and radii, not angles).
+    for (const Row& r : params.rows) {
+        if (r.kind != Kind::Float || r.step != 0.1) break;
+        Row copy = r;
+        copy.top = y;
+        k.fields.rows.push_back(copy);
+        y += 21;
+    }
+    k.buttonTop = y + 5;
+    k.fields.contentHeight = k.buttonTop + kCreateButtonHeight + 8 - 15;
+    return k;
+}
+
 Methods CreationMethodsFor(int type) {
     switch (type) {
     case 0:  return {L"Cube", L"Box", 1};                 // measured

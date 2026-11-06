@@ -29,6 +29,14 @@ int main() {
             if (r.paramIndex >= 0) CHECK(object->Params().Has(static_cast<size_t>(r.paramIndex)));
     }
     CHECK(ParametersFor(42).rows.empty());
+    // Keyboard Entry: X, Y, Z, then the sizes, then the Create button below them.
+    const KeyboardSpec kb = KeyboardEntryFor(0);
+    CHECK(kb.fields.rows.size() == 6 && kb.fields.rows[0].paramIndex == kPosX && kb.fields.rows[2].paramIndex == kPosZ);
+    CHECK(kb.fields.rows[3].label == L"Length:" && kb.fields.rows[5].label == L"Height:");
+    CHECK(kb.fields.rows[3].top == 94 && kb.buttonTop > kb.fields.rows.back().top + 16);
+    CHECK(KeyboardEntryFor(2).fields.rows.size() == 4);              // Sphere: X, Y, Z, Radius
+    CHECK(KeyboardEntryFor(6).fields.rows.size() == 5);              // Torus: no angles
+    CHECK(KeyboardEntryFor(42).fields.rows.empty());
     if (failures == 0) std::printf("parameters spec: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

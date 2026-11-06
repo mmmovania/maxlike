@@ -71,7 +71,7 @@ std::vector<rollup::Item> CommandPanel::RolloutItems() const {
         case kRollObjectType:     content = kObjectTypeContent; break;
         case kRollNameColor:      content = kNameColorContent; break;
         case kRollCreationMethod: content = params::kCreationMethodContent; break;
-        case kRollKeyboardEntry:  content = 40; break;   // NOTE: contents (and height) in step 5.4
+        case kRollKeyboardEntry:  content = keyboard_.fields.contentHeight; break;
         case kRollParameters:     content = spec_.contentHeight; break;
         }
         items.push_back({content, open_[id]});
@@ -168,7 +168,8 @@ void CommandPanel::PaintRollouts(HDC dc) {
                 if (id == kRollObjectType) PaintObjectType(dc, r.titleTop);
                 if (id == kRollNameColor) PaintNameAndColor(dc, r.titleTop);
                 if (id == kRollCreationMethod) PaintCreationMethod(dc, r.titleTop);
-                if (id == kRollParameters) PaintParameters(dc, r.titleTop);
+                if (id == kRollParameters) PaintRows(dc, r.titleTop, false);
+                if (id == kRollKeyboardEntry) PaintRows(dc, r.titleTop, true);
             }
         }
         // Title button over the frame's top edge.
@@ -312,6 +313,31 @@ void CommandPanel::PaintCreationMethod(HDC dc, int titleTop) {
     }
 }
 
+// Spinner rows have one id across both lists: Parameters rows 0, 1, ...; Keyboard Entry
+// rows from kKeyBase. These hide the difference: Parameters edits the object (through
+// onParamChanged), Keyboard Entry keeps its own values until Create.
+const params::Row& CommandPanel::RowAt(int id) const {
+    return id >= kKeyBase ? keyboard_.fields.rows[static_cast<size_t>(id - kKeyBase)] : spec_.rows[static_cast<size_t>(id)];
+}
+
+int CommandPanel::RowTitleTop(int id) const {
+    return TitleTopOf(id >= kKeyBase ? kRollKeyboardEntry : kRollParameters);
+}
+
+double CommandPanel::RowValue(int id) const {
+    if (id >= kKeyBase) return keValues_[static_cast<size_t>(id - kKeyBase)];
+    return ParamValue(RowAt(id));
+}
+
+void CommandPanel::RowChanged(int id, double value, bool final) {
+    if (id >= kKeyBase) {
+        keValues_[static_cast<size_t>(id - kKeyBase)] = value;
+    } else if (onParamChanged && RowAt(id).paramIndex >= 0) {
+        onParamChanged(RowAt(id).paramIndex, value, final);
+    }
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
 double CommandPanel::ParamValue(const params::Row& r) const {
     if (r.paramIndex < 0 || !source_) return 0;
     return source_->Float(static_cast<size_t>(r.paramIndex));
@@ -321,17 +347,19 @@ double CommandPanel::ParamValue(const params::Row& r) const {
 // (1-px sunken edge, black inner top and left, face inner right and bottom, white
 // inside); the arrows x 146..157 split into up (rows 0..7) and down (8..15), each a
 // small raised button with a 5-px triangle; checkboxes: classic, 13 x 13 at x 18.
-void CommandPanel::PaintParameters(HDC dc, int titleTop) {
+void CommandPanel::PaintRows(HDC dc, int titleTop, bool keyboard) {
     auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
         if (x1 < x0 || y1 < y0) return;
         FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
     };
     const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), face = theme::Face();
     const COLORREF k = RGB(0, 0, 0);
-    for (size_t i = 0; i < spec_.rows.size(); ++i) {
-        const params::Row& row = spec_.rows[i];
+    const std::vector<params::Row>& rows = keyboard ? keyboard_.fields.rows : spec_.rows;
+    for (size_t i = 0; i < rows.size(); ++i) {
+        const params::Row& row = rows[i];
+        const int id = static_cast<int>(i) + (keyboard ? kKeyBase : 0);
         const int T = titleTop + row.top;
-        const double value = (static_cast<int>(i) == spinRow_ && spinModel_) ? spinModel_->Value() : ParamValue(row);
+        const double value = (id == spinRow_ && spinModel_) ? spinModel_->Value() : RowValue(id);
         if (row.kind == params::Kind::Check) {
             RECT box{Scale(params::kCheckLeft), Scale(T), Scale(params::kCheckLeft + 13), Scale(T + 13)};
             DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | (value != 0 ? DFCS_CHECKED : 0));
@@ -348,7 +376,7 @@ void CommandPanel::PaintParameters(HDC dc, int titleTop) {
         px(L + 1, T + 1, R - 2, T + 1, k);   px(L + 1, T + 1, L + 1, B - 1, k);
         px(R - 1, T + 1, R - 1, B - 1, face); px(L + 2, B - 1, R - 1, B - 1, face);
         px(L + 2, T + 2, R - 2, B - 2, hi);
-        if (!(typing_ && typingRow_ == static_cast<int>(i))) {
+        if (!(typing_ && typingRow_ == id)) {
             SpinnerModel shown(value, row.min, row.max, row.step, row.kind == params::Kind::Int, params::kFloatDecimals);
             const std::wstring text = shown.Text();
             RECT tr{Scale(L + 4), Scale(T + 2), Scale(R - 1), Scale(B - 1)};
@@ -372,37 +400,60 @@ void CommandPanel::PaintParameters(HDC dc, int titleTop) {
         px(151, T + 3, 151, T + 3, k); px(150, T + 4, 152, T + 4, k); px(149, T + 5, 153, T + 5, k);     // up
         px(149, T + 10, 153, T + 10, k); px(150, T + 11, 152, T + 11, k); px(151, T + 12, 151, T + 12, k); // down
     }
+    if (keyboard) {
+        // The Create button, drawn like the Object Type buttons. NOTE: position unverified.
+        const int L = params::kCreateButtonLeft, R = L + params::kCreateButtonWidth - 1;
+        const int T = titleTop + keyboard_.buttonTop, B = T + params::kCreateButtonHeight - 1;
+        px(L, T, R, B, face);
+        px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);
+        px(R, T, R, B, k);       px(L + 1, B, R, B, k);
+        px(R - 1, T + 1, R - 1, B - 1, sh);  px(L + 2, B - 1, R - 1, B - 1, sh);
+        RECT text{Scale(L), Scale(T), Scale(R + 1), Scale(B)};
+        DrawTextW(dc, L"Create", -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
 }
 
 CommandPanel::Part CommandPanel::ParamPartAt(int x, int y, int& row) const {
     row = -1;
-    const int titleTop = ShowsRollouts() ? TitleTopOf(kRollParameters) : -1;
-    if (titleTop < 0) return Part::None;
-    for (size_t i = 0; i < spec_.rows.size(); ++i) {
-        const params::Row& r = spec_.rows[i];
-        const int T = titleTop + r.top;
-        if (r.kind == params::Kind::Check) {
-            if (y >= T && y < T + 13 && x >= params::kCheckLeft && x < 170) { row = static_cast<int>(i); return Part::Check; }
-            continue;
+    if (!ShowsRollouts()) return Part::None;
+    for (int list = 0; list < 2; ++list) {
+        const bool keyboard = list == 1;
+        const int titleTop = TitleTopOf(keyboard ? kRollKeyboardEntry : kRollParameters);
+        if (titleTop < 0) continue;
+        const std::vector<params::Row>& rows = keyboard ? keyboard_.fields.rows : spec_.rows;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const params::Row& r = rows[i];
+            const int id = static_cast<int>(i) + (keyboard ? kKeyBase : 0);
+            const int T = titleTop + r.top;
+            if (r.kind == params::Kind::Check) {
+                if (y >= T && y < T + 13 && x >= params::kCheckLeft && x < 170) { row = id; return Part::Check; }
+                continue;
+            }
+            if (y < T || y >= T + params::kSpinnerHeight) continue;
+            if (x >= params::kFieldLeft && x <= params::kFieldRight) { row = id; return Part::Field; }
+            if (x >= params::kArrowsLeft && x <= params::kArrowsRight) { row = id; return y < T + 8 ? Part::Up : Part::Down; }
         }
-        if (y < T || y >= T + params::kSpinnerHeight) continue;
-        row = static_cast<int>(i);
-        if (x >= params::kFieldLeft && x <= params::kFieldRight) return Part::Field;
-        if (x >= params::kArrowsLeft && x <= params::kArrowsRight) return y < T + 8 ? Part::Up : Part::Down;
-        row = -1;
     }
     return Part::None;
+}
+
+bool CommandPanel::OnCreateButton(int x, int y) const {
+    const int titleTop = TitleTopOf(kRollKeyboardEntry);
+    if (titleTop < 0) return false;
+    const int T = titleTop + keyboard_.buttonTop;
+    return x >= params::kCreateButtonLeft && x < params::kCreateButtonLeft + params::kCreateButtonWidth &&
+           y >= T && y < T + params::kCreateButtonHeight;
 }
 
 // Typing: a borderless EDIT over the field's white area; Enter or leaving it commits,
 // Esc cancels (NOTE: R3's typing behaviour details are unverified).
 void CommandPanel::BeginTyping(int row) {
     EndTyping(true);
-    const int titleTop = TitleTopOf(kRollParameters);
+    const int titleTop = RowTitleTop(row);
     if (titleTop < 0) return;
-    const params::Row& r = spec_.rows[static_cast<size_t>(row)];
+    const params::Row& r = RowAt(row);
     const int T = titleTop + r.top;
-    SpinnerModel m(ParamValue(r), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+    SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
     typing_ = CreateWindowExW(0, L"EDIT", m.Text().c_str(), WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL,
                               Scale(params::kFieldLeft + 2), Scale(T + 2), Scale(params::kFieldRight - params::kFieldLeft - 3),
                               Scale(params::kSpinnerHeight - 4), Hwnd(), nullptr, win::App::Instance(), nullptr);
@@ -421,12 +472,12 @@ void CommandPanel::EndTyping(bool commit) {
     const int row = typingRow_;
     typing_ = nullptr;                    // first: destroying the edit sends WM_KILLFOCUS
     typingRow_ = -1;
-    if (commit && row >= 0 && static_cast<size_t>(row) < spec_.rows.size()) {
+    if (commit && row >= 0) {
         wchar_t buf[64] = {};
         GetWindowTextW(edit, buf, 64);
-        const params::Row& r = spec_.rows[static_cast<size_t>(row)];
-        SpinnerModel m(ParamValue(r), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
-        if (m.SetText(buf) && onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, m.Value(), true);
+        const params::Row& r = RowAt(row);
+        SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+        if (m.SetText(buf)) RowChanged(row, m.Value(), true);
     }
     DestroyWindow(edit);
     InvalidateRect(Hwnd(), nullptr, FALSE);
@@ -628,6 +679,8 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (type >= 0) {
             createType_ = (type == createType_) ? -1 : type;
             spec_ = params::ParametersFor(createType_);
+            keyboard_ = params::KeyboardEntryFor(createType_);
+            keValues_.assign(keyboard_.fields.rows.size(), 0.0);   // NOTE: R3's defaults unverified
             method_ = params::CreationMethodsFor(createType_).selected;
             scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
             InvalidateRect(Hwnd(), nullptr, FALSE);
@@ -646,13 +699,28 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
                 }
         }
         // Parameters: checkboxes toggle; arrows step (click) or drag; the field takes typing.
+        // Keyboard Entry's Create button.
+        if (OnCreateButton(x, y)) {
+            if (onKeyboardCreate) {
+                std::vector<std::pair<int, double>> sizes;
+                double pos[3] = {0, 0, 0};
+                for (size_t i = 0; i < keyboard_.fields.rows.size(); ++i) {
+                    const int index = keyboard_.fields.rows[i].paramIndex;
+                    if (index == params::kPosX) pos[0] = keValues_[i];
+                    else if (index == params::kPosY) pos[1] = keValues_[i];
+                    else if (index == params::kPosZ) pos[2] = keValues_[i];
+                    else sizes.push_back({index, keValues_[i]});
+                }
+                onKeyboardCreate(pos[0], pos[1], pos[2], sizes);
+            }
+            return 0;
+        }
         int row = -1;
         const Part part = ParamPartAt(x, y, row);
         if (part != Part::None) {
-            const params::Row& r = spec_.rows[static_cast<size_t>(row)];
+            const params::Row& r = RowAt(row);
             if (part == Part::Check) {
-                if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, ParamValue(r) != 0 ? 0 : 1, true);
-                InvalidateRect(Hwnd(), nullptr, FALSE);
+                RowChanged(row, RowValue(row) != 0 ? 0 : 1, true);
             } else if (part == Part::Field) {
                 BeginTyping(row);
             } else {
@@ -660,7 +728,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
                 spinPart_ = part;
                 spinPressY_ = GET_Y_LPARAM(lp);
                 spinMoved_ = false;
-                spinModel_ = std::make_unique<SpinnerModel>(ParamValue(r), r.min, r.max, r.step,
+                spinModel_ = std::make_unique<SpinnerModel>(RowValue(row), r.min, r.max, r.step,
                                                             r.kind == params::Kind::Int, params::kFloatDecimals);
                 spinModel_->BeginDrag();
                 SetCapture(Hwnd());
@@ -683,16 +751,14 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             if (!spinMoved_ && std::abs(up) < 2) return 0;
             spinMoved_ = true;
             spinModel_->DragTo(up, (wp & MK_CONTROL) != 0, GetKeyState(VK_MENU) < 0);
-            const params::Row& r = spec_.rows[static_cast<size_t>(spinRow_)];
-            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, spinModel_->Value(), false);
-            InvalidateRect(Hwnd(), nullptr, FALSE);
+            RowChanged(spinRow_, spinModel_->Value(), false);
             return 0;
         }
         if (dragging_) SetScroll(dragStartScroll_ - (GET_Y_LPARAM(lp) - dragStartY_) * 96 / static_cast<int>(Dpi()));
         return 0;
     case WM_LBUTTONUP:
         if (spinModel_) {
-            const params::Row& r = spec_.rows[static_cast<size_t>(spinRow_)];
+            const int id = spinRow_;
             if (!spinMoved_) {                      // a click: one step
                 spinModel_->CancelDrag();
                 spinModel_->StepBy(spinPart_ == Part::Up ? 1 : -1);
@@ -703,8 +769,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             spinModel_.reset();
             spinRow_ = -1;
             ReleaseCapture();
-            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, v, true);
-            InvalidateRect(Hwnd(), nullptr, FALSE);
+            RowChanged(id, v, true);
             return 0;
         }
         if (dragging_) ReleaseCapture();
@@ -713,24 +778,22 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         const int x = GET_X_LPARAM(lp) * 96 / static_cast<int>(Dpi());
         const int y = GET_Y_LPARAM(lp) * 96 / static_cast<int>(Dpi());
         if (spinModel_) {                           // right-click while dragging: cancel
-            const params::Row& r = spec_.rows[static_cast<size_t>(spinRow_)];
+            const int id = spinRow_;
             spinModel_->CancelDrag();
             const double v = spinModel_->Value();
             spinModel_.reset();
             spinRow_ = -1;
             ReleaseCapture();
-            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, v, true);
-            InvalidateRect(Hwnd(), nullptr, FALSE);
+            RowChanged(id, v, true);
             return 0;
         }
         int row = -1;
         const Part part = ParamPartAt(x, y, row);
         if (part == Part::Up || part == Part::Down) {   // right-click on the arrows: reset
-            const params::Row& r = spec_.rows[static_cast<size_t>(row)];
-            SpinnerModel m(ParamValue(r), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+            const params::Row& r = RowAt(row);
+            SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
             m.Reset();
-            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, m.Value(), true);
-            InvalidateRect(Hwnd(), nullptr, FALSE);
+            RowChanged(row, m.Value(), true);
         }
         return 0;
     }

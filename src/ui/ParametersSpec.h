@@ -52,4 +52,15 @@ inline constexpr int kMethodRadioLeft[2] = {34, 102};
 inline constexpr int kMethodTop = 22, kRadioSize = 12;
 inline constexpr int kCreationMethodContent = 28;
 
+// Keyboard Entry: X, Y, Z (world position of the pivot), a gap, the primitive's sizes
+// (its Parameters' size rows), then a Create button. Laid out by the Parameters rule;
+// NOTE: R3's exact Keyboard Entry layout and default values are unverified.
+inline constexpr int kPosX = -10, kPosY = -11, kPosZ = -12;   // paramIndex of X, Y, Z
+struct KeyboardSpec {
+    Spec fields;               // spinner rows (X, Y, Z, then sizes)
+    int buttonTop;             // the Create button's top, rows below the title's top
+};
+KeyboardSpec KeyboardEntryFor(int type);
+inline constexpr int kCreateButtonLeft = 57, kCreateButtonWidth = 69, kCreateButtonHeight = 18;
+
 } // namespace ui::params
