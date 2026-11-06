@@ -39,6 +39,10 @@ int main() {
     // Every category lists something; Geometry starts with the reference's entry.
     for (int c = 0; c < kCategoryCount; ++c) CHECK(!Subcategories(c).empty() && !CategoryName(c).empty());
     CHECK(Subcategories(kGeometry).front() == L"Standard Primitives");
+    // Object Type buttons (title top 99): Box x 17..85 rows 135..152, Cone x 95..163,
+    // Teapot (index 8) rows 219..236.
+    CHECK(Is(TypeButtonBox(0, 99), 17, 135, 85, 152) && Is(TypeButtonBox(1, 99), 95, 135, 163, 152));
+    CHECK(Is(TypeButtonBox(8, 99), 17, 219, 85, 236) && StandardPrimitiveNames()[8] == L"Teapot");
     if (failures == 0) std::printf("command panel layout: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

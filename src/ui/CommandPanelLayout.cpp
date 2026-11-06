@@ -56,4 +56,14 @@ std::wstring CategoryName(int c) {
     return (c >= 0 && c < kCategoryCount) ? kNames[c] : L"";
 }
 
+std::vector<std::wstring> StandardPrimitiveNames() {
+    return {L"Box", L"Cone", L"Sphere", L"GeoSphere", L"Cylinder", L"Tube", L"Torus", L"Pyramid", L"Teapot", L"Plane"};
+}
+
+Box TypeButtonBox(int i, int titleTop) {
+    const int left = kTypeButtonLeft[i % 2];
+    const int top = titleTop + kTypeButtonTop + (i / 2) * kTypeButtonPitch;
+    return {left, top, left + kTypeButtonWidth - 1, top + kTypeButtonHeight - 1};
+}
+
 } // namespace ui::cmdpanel

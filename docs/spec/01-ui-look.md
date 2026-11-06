@@ -237,7 +237,27 @@ Code: `cmdpanel::CategoryBox`, `CommandPanel::PaintCategories`.
   interior masked).
 - Only on the Create tab.
 
-## Command panel: rollouts (Phase 4, steps 4.3–4.4: to be measured)
+## Command panel: rollup and rollouts (measured, step 4.3)
+Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
+
+- Rollup container: 1-px sunken edge (shadow top and left, highlight right and bottom),
+  x 4–178, rows 94–885; the shadow runs down to the bottom row.
+- Rollouts stack from row 99 (container top + 5): each a **title button** x 11–168,
+  16 rows tall (2-px highlight top and left, 2-px shadow bottom and right; "–" 4 px
+  wide at x 17–20, 8 rows below the title's top; title text centred), over an **etched
+  frame** x 7–172 from 8 rows below the title's top to the end of its contents. The
+  frame is a shadow rectangle with a highlight rectangle 1 px down and right drawn over
+  it, and its top edge stops 1 px short of the title button on each side.
+- Next rollout: 7 rows below the previous frame's bottom (241 → 248).
+- Object Type (Standard Primitives): disabled AutoGrid checkbox (13 × 13 at x 115,
+  title + 19, classic look, text embossed, ending at x 103); ten buttons 69 × 18 in two
+  columns at x 17 and 95, every 21 rows from title + 36 (1-px highlight top and left,
+  black right and bottom with a shadow line inside). Content height 127.
+- Name and Color: title rows 248–263, frame to row 299 (content height 36).
+- Verified: whole panel 0 differing pixels of 138,011 (text, icons, dropdown interior
+  and Name and Color's contents masked).
+- Unverified: a checked button's look, the collapsed "+", spacing after a collapsed
+  rollout, scrolling (hand drag, wheel step 30 px), when other categories show rollouts.
 - Tabs: Create, Modify, Hierarchy, Motion, Display, Utilities.
 - Create categories: Geometry, Shapes, Lights, Cameras, Helpers, Space Warps, Systems.
 - Subcategory combo: `Standard Primitives`.

@@ -4,6 +4,7 @@
 #include "win/App.h"
 #include "../../res/resource.h"
 #include <windowsx.h>
+#include <algorithm>
 
 namespace ui {
 
@@ -47,6 +48,128 @@ void CommandPanel::FillDropdown() {
 
 void CommandPanel::UpdateCreateControls() {
     if (dropdown_) ShowWindow(dropdown_, selected_ == kCreate ? SW_SHOW : SW_HIDE);
+}
+
+bool CommandPanel::ShowsRollouts() const {
+    // NOTE: other categories and types have their own rollouts in R3 (later phases).
+    if (selected_ != kCreate || category_ != kGeometry || !dropdown_) return false;
+    return SendMessageW(dropdown_, CB_GETCURSEL, 0, 0) == 0;   // "Standard Primitives"
+}
+
+void CommandPanel::SetScroll(int scroll) {
+    scroll = std::clamp(scroll, 0, rollup::MaxScroll(rollouts_));
+    if (scroll == scroll_) return;
+    scroll_ = scroll;
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+int CommandPanel::TypeButtonAt(int x, int y) const {
+    if (!ShowsRollouts() || !rollouts_[0].open) return -1;
+    const int titleTop = rollup::Layout(rollouts_, scroll_)[0].titleTop;
+    for (int i = 0; i < 10; ++i) {
+        const Box b = TypeButtonBox(i, titleTop);
+        if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom && y >= rollup::kContainer.top + 1 &&
+            y <= rollup::kContainer.bottom - 1)
+            return i;
+    }
+    return -1;
+}
+
+// The rollup, measured: a 1-px sunken container; each rollout an etched frame with a
+// raised title button over its top edge (2-px highlight top and left, 2-px shadow
+// bottom and right), "-" when open at x 17..20, 8 rows below the title's top.
+void CommandPanel::PaintRollouts(HDC dc) {
+    auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
+        if (x1 < x0 || y1 < y0) return;
+        FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
+    };
+    const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref();
+    const rollup::Box& k = rollup::kContainer;
+    px(k.left, k.top, k.right - 1, k.top, sh);          // sunken: shadow top and left,
+    px(k.left, k.top, k.left, k.bottom, sh);              // (down to the bottom row, measured)
+    px(k.right, k.top, k.right, k.bottom, hi);          // highlight right and bottom
+    px(k.left + 1, k.bottom, k.right, k.bottom, hi);
+
+    // Everything else stays inside the container.
+    const int saved = SaveDC(dc);
+    IntersectClipRect(dc, Scale(k.left + 1), Scale(k.top + 1), Scale(k.right), Scale(k.bottom));
+    HGDIOBJ oldFont = SelectObject(dc, font_ ? font_ : GetStockObject(DEFAULT_GUI_FONT));
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(0, 0, 0));
+
+    static const wchar_t* kTitles[] = {L"Object Type", L"Name and Color"};
+    const auto placed = rollup::Layout(rollouts_, scroll_);
+    for (size_t i = 0; i < placed.size(); ++i) {
+        const rollup::Placed& r = placed[i];
+        if (r.open) {
+            // Etched frame, measured: a shadow rectangle, then a highlight rectangle 1 px
+            // down and right drawn over it (so the highlight wins where they cross; not
+            // quite DrawEdge's EDGE_ETCHED). Its top edge stops 1 px short of the title.
+            const int fl = rollup::kFrameLeft, fr = rollup::kFrameRight, ft = r.frameTop, fb = r.frameBottom;
+            auto outline = [&](int l, int t, int rr, int bb, COLORREF c) {
+                px(l, t, rr, t, c); px(l, bb, rr, bb, c); px(l, t, l, bb, c); px(rr, t, rr, bb, c);
+            };
+            outline(fl, ft, fr - 1, fb - 1, sh);
+            outline(fl + 1, ft + 1, fr, fb, hi);
+            px(rollup::kTitleLeft - 1, ft, rollup::kTitleRight + 1, ft + 1, theme::Face());
+            if (i == 0) PaintObjectType(dc, r.titleTop);
+            // Name and Color's contents: step 4.4.
+        }
+        // Title button over the frame's top edge.
+        const int L = rollup::kTitleLeft, R = rollup::kTitleRight, T = r.titleTop, B = r.titleBottom;
+        px(L, T, R, B, theme::Face());
+        px(L, T, R - 1, T, hi);  px(L, T + 1, R - 2, T + 1, hi);       // top, 2 px
+        px(L, T, L, B, hi);      px(L + 1, T, L + 1, B - 1, hi);       // left, 2 px
+        px(R, T, R, B, sh);      px(R - 1, T + 1, R - 1, B, sh);       // right, 2 px
+        px(L + 1, B, R, B, sh);  px(L + 2, B - 1, R, B - 1, sh);       // bottom, 2 px
+        px(17, T + 8, 20, T + 8, RGB(0, 0, 0));                        // "-"
+        if (!r.open) px(18, T + 6, 19, T + 10, RGB(0, 0, 0));          // "+" (NOTE: unverified)
+        RECT text{Scale(L + 2), Scale(T + 2), Scale(R - 1), Scale(B - 1)};
+        DrawTextW(dc, kTitles[i], -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
+    SelectObject(dc, oldFont);
+    RestoreDC(dc, saved);
+}
+
+// Object Type for Standard Primitives, measured: the disabled AutoGrid checkbox, then
+// ten 69 x 18 buttons (1-px highlight top and left; dark shadow right and bottom with a
+// shadow line inside). A checked button looks pressed (NOTE: R3's checked look is
+// unverified; the category row's pressed look is used).
+void CommandPanel::PaintObjectType(HDC dc, int titleTop) {
+    auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
+        if (x1 < x0 || y1 < y0) return;
+        FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
+    };
+    const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), dk = RGB(0, 0, 0);
+
+    // AutoGrid: a classic disabled checkbox, text on its left drawn embossed.
+    RECT box{Scale(kAutoGridBoxLeft), Scale(titleTop + kAutoGridTop), Scale(kAutoGridBoxLeft + 13), Scale(titleTop + kAutoGridTop + 13)};
+    DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_INACTIVE);
+    const wchar_t* autoGrid = L"AutoGrid";
+    SIZE size{};
+    GetTextExtentPoint32W(dc, autoGrid, 8, &size);
+    DrawStateW(dc, nullptr, nullptr, reinterpret_cast<LPARAM>(autoGrid), 8,
+               Scale(kAutoGridTextRight + 1) - size.cx, Scale(titleTop + kAutoGridTop + 13) - size.cy, 0, 0,
+               DST_TEXT | DSS_DISABLED);
+
+    const auto names = StandardPrimitiveNames();
+    for (int i = 0; i < static_cast<int>(names.size()); ++i) {
+        const Box b = TypeButtonBox(i, titleTop);
+        const int L = b.left, T = b.top, R = b.right, B = b.bottom;
+        const bool checked = i == createType_;
+        px(L, T, R, B, checked ? RGB(0xE1, 0xE1, 0xE1) : theme::Face());
+        if (checked) {
+            px(L, T, R - 1, T, sh);  px(L, T, L, B, sh);
+            px(R, T, R, B, hi);      px(L + 1, B, R, B, hi);
+        } else {
+            px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);               // highlight top and left
+            px(R, T, R, B, dk);      px(L + 1, B, R, B, dk);           // dark shadow right and bottom
+            px(R - 1, T + 1, R - 1, B - 1, sh);                        // shadow inside them
+            px(L + 2, B - 1, R - 1, B - 1, sh);
+        }
+        RECT text{Scale(L) + (checked ? 1 : 0), Scale(T) + (checked ? 1 : 0), Scale(R + 1), Scale(B)};
+        DrawTextW(dc, names[static_cast<size_t>(i)].c_str(), -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
 }
 
 void CommandPanel::SelectCategory(int c) {
@@ -169,6 +292,7 @@ void CommandPanel::OnPaint() {
     DrawFrameEdge(dc, rc, Edge::CommandPanel);
     PaintTabs(dc);
     if (selected_ == kCreate) PaintCategories(dc);
+    if (ShowsRollouts()) PaintRollouts(dc);
     EndPaint(Hwnd(), &ps);
 }
 
@@ -187,15 +311,66 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (t >= 0) { SelectTab(t); return 0; }
         if (selected_ == kCreate) {
             const int c = CategoryAt(x, y);
-            if (c >= 0) SelectCategory(c);
+            if (c >= 0) { SelectCategory(c); return 0; }
+        }
+        if (!ShowsRollouts()) return 0;
+        // A title opens or closes its rollout.
+        const int title = rollup::TitleAt(rollouts_, scroll_, x, y);
+        if (title >= 0) {
+            rollouts_[static_cast<size_t>(title)].open = !rollouts_[static_cast<size_t>(title)].open;
+            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(rollouts_));
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+            return 0;
+        }
+        // A primitive button checks (or unchecks) its type.
+        const int type = TypeButtonAt(x, y);
+        if (type >= 0) {
+            createType_ = (type == createType_) ? -1 : type;
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+            if (onCreateTypeChanged) onCreateTypeChanged(createType_);
+            return 0;
+        }
+        // Anywhere else in the rollup: drag to scroll, if there is anything to scroll.
+        if (rollup::MaxScroll(rollouts_) > 0 && y > rollup::kContainer.top && y < rollup::kContainer.bottom) {
+            dragging_ = true;
+            dragStartY_ = GET_Y_LPARAM(lp);
+            dragStartScroll_ = scroll_;
+            SetCapture(Hwnd());
         }
         return 0;
     }
+    case WM_MOUSEMOVE:
+        if (dragging_) SetScroll(dragStartScroll_ - (GET_Y_LPARAM(lp) - dragStartY_) * 96 / static_cast<int>(Dpi()));
+        return 0;
+    case WM_LBUTTONUP:
+        if (dragging_) ReleaseCapture();
+        return 0;
+    case WM_CAPTURECHANGED:
+        dragging_ = false;
+        return 0;
+    case WM_MOUSEWHEEL:
+        if (ShowsRollouts()) SetScroll(scroll_ - GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA * 30);   // NOTE: step unverified
+        return 0;
+    case WM_SETCURSOR:
+        // The hand shows where the rollup can be dragged (R3: over its empty space).
+        if (LOWORD(lp) == HTCLIENT && ShowsRollouts() && rollup::MaxScroll(rollouts_) > 0) {
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(Hwnd(), &pt);
+            const int x = pt.x * 96 / static_cast<int>(Dpi()), y = pt.y * 96 / static_cast<int>(Dpi());
+            if (dragging_ || (y > rollup::kContainer.top && y < rollup::kContainer.bottom &&
+                              rollup::TitleAt(rollouts_, scroll_, x, y) < 0 && TypeButtonAt(x, y) < 0)) {
+                SetCursor(LoadCursorW(nullptr, IDC_HAND));
+                return TRUE;
+            }
+        }
+        break;
     case WM_COMMAND:
         if (LOWORD(wp) == kDropdownId && HIWORD(wp) == CBN_SELCHANGE && onSubcategoryChanged) {
             const LRESULT i = SendMessageW(dropdown_, CB_GETCURSEL, 0, 0);
             const auto items = Subcategories(category_);
             if (i >= 0 && static_cast<size_t>(i) < items.size()) onSubcategoryChanged(items[static_cast<size_t>(i)]);
+            InvalidateRect(Hwnd(), nullptr, FALSE);   // the rollouts depend on the choice
         }
         return 0;
     case WM_SETFONT:

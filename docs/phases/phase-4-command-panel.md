@@ -9,7 +9,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
       `CommandPanel` replaces the placeholder; six original tab icons; click to select
 - [x] **4.2 Category row and dropdown**: seven category buttons (measured pressed look),
       original 16 × 16 icons, a classic combo box listing each category's types
-- [ ] 4.3 Rollouts and the rollup (collapsible sections, scrolling column); Object Type
+- [x] **4.3 Rollouts and the rollup**: measured container, title buttons and etched
+      frames (`rollup::Layout`, unit-tested); Object Type with AutoGrid and ten buttons;
+      collapse/expand, check a primitive, scroll by hand-drag or wheel when needed
 - [ ] 4.4 Name and Color (name field, colour swatch); check buttons; spinners
 - [ ] 4.5 Pixel check of the whole panel, `docs/tech/phase4-tech-docs.md`, version 0.4.0
 
@@ -34,6 +36,18 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [ ] Unverified: the dropdown lists other than "Standard Primitives"; category tooltips;
       the hover look of category buttons
 
+## Step 4.3 verification
+- [x] Builds warning-free; seventeen test programs pass (MinGW + Wine)
+- [x] `test_rollup`: Object Type (title 99–114, frame 107–241) and Name and Color (title
+      248–263, frame 256–299) exactly; collapsing, scrolling by the overflow, hit testing
+- [x] Under Wine: the whole command panel identical to the reference, 138,011 pixels
+      (text, icons, dropdown interior and Name and Color's contents masked)
+- [x] Clicking a primitive checks it (again: unchecks); clicking a title collapses/expands
+- [ ] On Windows: the same; text looks like R3's
+- [ ] Unverified: see `01-ui-look.md` (checked look, "+", scrolling details)
+
 ## Notes
+- R3's etched frame is not `DrawEdge(EDGE_ETCHED)`: the corners differ (two offset
+  rectangles, the highlight drawn last).
 - Tab icons are original art in the spirit of R3's (cursor with sparkle, bent pipe,
   hierarchy, wheel, monitor, hammer), as for all icons in this project.

@@ -57,4 +57,17 @@ inline constexpr Box kDropdown{21, 66, 163, 86};
 std::vector<std::wstring> Subcategories(int category);
 std::wstring CategoryName(int category);   // e.g. tooltips (NOTE: wording unverified)
 
+// ---- Object Type rollout (measured, step 4.3), offsets from the rollout's title top ----
+// Ten buttons in two columns (left to right, top to bottom): 69 x 18 at x 17 and 95,
+// every 21 rows from title + 36. The disabled AutoGrid checkbox: 13 x 13 at x 115,
+// title + 19, its text ending at x 103.
+inline constexpr int kTypeButtonWidth = 69, kTypeButtonHeight = 18, kTypeButtonPitch = 21;
+inline constexpr int kTypeButtonLeft[2] = {17, 95};
+inline constexpr int kTypeButtonTop = 36;
+inline constexpr int kAutoGridBoxLeft = 115, kAutoGridTop = 19, kAutoGridTextRight = 103;
+inline constexpr int kObjectTypeContent = 127;   // title bottom -> frame bottom
+inline constexpr int kNameColorContent = 36;
+std::vector<std::wstring> StandardPrimitiveNames();   // Box, Cone, Sphere, GeoSphere, ...
+Box TypeButtonBox(int index, int titleTop);
+
 } // namespace ui::cmdpanel
