@@ -12,7 +12,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] **4.3 Rollouts and the rollup**: measured container, title buttons and etched
       frames (`rollup::Layout`, unit-tested); Object Type with AutoGrid and ten buttons;
       collapse/expand, check a primitive, scroll by hand-drag or wheel when needed
-- [ ] 4.4 Name and Color (name field, colour swatch); check buttons; spinners
+- [x] **4.4 Name and Color**: measured name field (disabled until a selection exists)
+      and colour swatch (`#8D073A`, as in the reference), colour picker on click;
+      spinners moved to Phase 5 (none in the reference to measure)
 - [ ] 4.5 Pixel check of the whole panel, `docs/tech/phase4-tech-docs.md`, version 0.4.0
 
 ## Step 4.1 verification
@@ -45,6 +47,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] Clicking a primitive checks it (again: unchecks); clicking a title collapses/expands
 - [ ] On Windows: the same; text looks like R3's
 - [ ] Unverified: see `01-ui-look.md` (checked look, "+", scrolling details)
+
+## Step 4.4 verification
+- [x] Builds warning-free; seventeen test programs pass (MinGW + Wine)
+- [x] `test_command_panel_layout`: name field x 15–146 and swatch x 150–166, rows 271–290
+- [x] Under Wine: the whole command panel identical to the reference, now including Name
+      and Color: 0 differing pixels of 143,519 (text, icons, dropdown interior masked)
+- [x] Clicking the swatch opens a colour dialog; the chosen colour shows in the swatch
+- [ ] On Windows: the same
+- [ ] Unverified: R3's own Object Color dialog; the name field's enabled look
 
 ## Notes
 - R3's etched frame is not `DrawEdge(EDGE_ETCHED)`: the corners differ (two offset

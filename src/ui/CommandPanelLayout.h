@@ -70,4 +70,11 @@ inline constexpr int kNameColorContent = 36;
 std::vector<std::wstring> StandardPrimitiveNames();   // Box, Cone, Sphere, GeoSphere, ...
 Box TypeButtonBox(int index, int titleTop);
 
+// ---- Name and Color rollout (measured, step 4.4), from the rollout's title top ----
+// The name field x 15..146 and the colour swatch x 150..166, both rows title + 23 .. + 42.
+Box NameFieldBox(int titleTop);
+Box SwatchBox(int titleTop);
+// R3's colour for the next object, as in the reference (it picks one at random).
+inline constexpr unsigned kReferenceObjectColor = 0x8D073A;   // 0xRRGGBB
+
 } // namespace ui::cmdpanel

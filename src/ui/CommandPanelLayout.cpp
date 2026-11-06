@@ -66,4 +66,7 @@ Box TypeButtonBox(int i, int titleTop) {
     return {left, top, left + kTypeButtonWidth - 1, top + kTypeButtonHeight - 1};
 }
 
+Box NameFieldBox(int titleTop) { return {15, titleTop + 23, 146, titleTop + 42}; }
+Box SwatchBox(int titleTop) { return {150, titleTop + 23, 166, titleTop + 42}; }
+
 } // namespace ui::cmdpanel

@@ -135,7 +135,7 @@ else()
     target_link_options(maxlike PRIVATE -municode -static)
 endif()
 
-target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32) # msimg32: TransparentBlt; comctl32: tooltips
+target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32 comdlg32) # msimg32: TransparentBlt; comctl32: tooltips
 
 # ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
 enable_testing()

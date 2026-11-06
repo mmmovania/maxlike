@@ -254,8 +254,16 @@ Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
   columns at x 17 and 95, every 21 rows from title + 36 (1-px highlight top and left,
   black right and bottom with a shadow line inside). Content height 127.
 - Name and Color: title rows 248–263, frame to row 299 (content height 36).
-- Verified: whole panel 0 differing pixels of 138,011 (text, icons, dropdown interior
-  and Name and Color's contents masked).
+  - Name field x 15–146, rows 271–290 (title + 23 … + 42): 1-px sunken edge; inside it
+    black top and left, face right and bottom; then white (one row on top, two columns
+    each side); face inside while disabled (nothing selected). Enabled look: Phase 6.
+  - Colour swatch x 150–166, same rows: 1-px sunken edge filled with the colour; the
+    reference shows `#8D073A` (R3 picks the next object's colour at random). Clicking it
+    opens Windows' colour dialog for now (R3's own "Object Color" dialog: later).
+- Spinners: none visible in the reference; measured in Phase 5 from a screenshot of the
+  Parameters rollout.
+- Verified: whole panel 0 differing pixels of 143,519 (text, icons and the dropdown's
+  interior masked).
 - Unverified: a checked button's look, the collapsed "+", spacing after a collapsed
   rollout, scrolling (hand drag, wheel step 30 px), when other categories show rollouts.
 - Tabs: Create, Modify, Hierarchy, Motion, Display, Utilities.

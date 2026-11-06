@@ -4,6 +4,7 @@
 #include "win/App.h"
 #include "../../res/resource.h"
 #include <windowsx.h>
+#include <commdlg.h>
 #include <algorithm>
 
 namespace ui {
@@ -113,7 +114,7 @@ void CommandPanel::PaintRollouts(HDC dc) {
             outline(fl + 1, ft + 1, fr, fb, hi);
             px(rollup::kTitleLeft - 1, ft, rollup::kTitleRight + 1, ft + 1, theme::Face());
             if (i == 0) PaintObjectType(dc, r.titleTop);
-            // Name and Color's contents: step 4.4.
+            if (i == 1) PaintNameAndColor(dc, r.titleTop);
         }
         // Title button over the frame's top edge.
         const int L = rollup::kTitleLeft, R = rollup::kTitleRight, T = r.titleTop, B = r.titleBottom;
@@ -170,6 +171,61 @@ void CommandPanel::PaintObjectType(HDC dc, int titleTop) {
         RECT text{Scale(L) + (checked ? 1 : 0), Scale(T) + (checked ? 1 : 0), Scale(R + 1), Scale(B)};
         DrawTextW(dc, names[static_cast<size_t>(i)].c_str(), -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
+}
+
+// Name and Color, measured with nothing selected:
+//   name field x 15..146, rows +23..+42 (title-relative): outer 1-px sunken edge (shadow
+//   top and left, highlight right and bottom); inside it black top and left, face right
+//   and bottom; then white: one row on top, two columns on each side; face inside
+//   (the field is disabled until an object is selected; its enabled look: Phase 6).
+//   swatch x 150..166, same rows: 1-px sunken edge filled with the colour.
+void CommandPanel::PaintNameAndColor(HDC dc, int titleTop) {
+    auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
+        if (x1 < x0 || y1 < y0) return;
+        FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
+    };
+    const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), face = theme::Face();
+    auto sunken = [&](const Box& b) {
+        px(b.left, b.top, b.right - 1, b.top, sh);
+        px(b.left, b.top, b.left, b.bottom, sh);
+        px(b.right, b.top, b.right, b.bottom, hi);
+        px(b.left + 1, b.bottom, b.right, b.bottom, hi);
+    };
+    const Box f = NameFieldBox(titleTop);
+    sunken(f);
+    px(f.left + 1, f.top + 1, f.right - 2, f.top + 1, RGB(0, 0, 0));      // black top
+    px(f.left + 1, f.top + 1, f.left + 1, f.bottom - 1, RGB(0, 0, 0));    // black left
+    px(f.right - 1, f.top + 1, f.right - 1, f.bottom - 1, face);          // face right
+    px(f.left + 2, f.bottom - 1, f.right - 1, f.bottom - 1, face);        // face bottom
+    px(f.left + 2, f.top + 2, f.right - 2, f.top + 2, hi);                // white top row
+    px(f.left + 2, f.top + 2, f.left + 3, f.bottom - 2, hi);              // white left, 2 px
+    px(f.right - 3, f.top + 2, f.right - 2, f.bottom - 2, hi);            // white right, 2 px
+    px(f.left + 4, f.top + 3, f.right - 4, f.bottom - 2, face);           // disabled: face inside
+
+    const Box w = SwatchBox(titleTop);
+    sunken(w);
+    const COLORREF c = RGB((objectColor_ >> 16) & 0xFF, (objectColor_ >> 8) & 0xFF, objectColor_ & 0xFF);
+    px(w.left + 1, w.top + 1, w.right - 1, w.bottom - 1, c);
+}
+
+void CommandPanel::SetObjectColor(unsigned rgb) {
+    objectColor_ = rgb & 0xFFFFFF;
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+// NOTE: R3 opens its own "Object Color" dialog (a fixed palette); until that is
+// built, Windows' standard colour dialog stands in.
+void CommandPanel::PickObjectColor() {
+    static COLORREF custom[16] = {};
+    CHOOSECOLORW cc{};
+    cc.lStructSize = sizeof(cc);
+    cc.hwndOwner = Hwnd();
+    cc.rgbResult = RGB((objectColor_ >> 16) & 0xFF, (objectColor_ >> 8) & 0xFF, objectColor_ & 0xFF);
+    cc.lpCustColors = custom;
+    cc.Flags = CC_RGBINIT | CC_FULLOPEN;
+    if (!ChooseColorW(&cc)) return;
+    SetObjectColor((GetRValue(cc.rgbResult) << 16) | (GetGValue(cc.rgbResult) << 8) | GetBValue(cc.rgbResult));
+    if (onObjectColorChanged) onObjectColorChanged(objectColor_);
 }
 
 void CommandPanel::SelectCategory(int c) {
@@ -321,6 +377,11 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(rollouts_));
             InvalidateRect(Hwnd(), nullptr, FALSE);
             return 0;
+        }
+        // The colour swatch opens the colour picker.
+        if (rollouts_[1].open) {
+            const Box w = SwatchBox(rollup::Layout(rollouts_, scroll_)[1].titleTop);
+            if (x >= w.left && x <= w.right && y >= w.top && y <= w.bottom) { PickObjectColor(); return 0; }
         }
         // A primitive button checks (or unchecks) its type.
         const int type = TypeButtonAt(x, y);

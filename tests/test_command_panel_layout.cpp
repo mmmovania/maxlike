@@ -43,6 +43,8 @@ int main() {
     // Teapot (index 8) rows 219..236.
     CHECK(Is(TypeButtonBox(0, 99), 17, 135, 85, 152) && Is(TypeButtonBox(1, 99), 95, 135, 163, 152));
     CHECK(Is(TypeButtonBox(8, 99), 17, 219, 85, 236) && StandardPrimitiveNames()[8] == L"Teapot");
+    // Name and Color (title top 248): field x 15..146, swatch x 150..166, rows 271..290.
+    CHECK(Is(NameFieldBox(248), 15, 271, 146, 290) && Is(SwatchBox(248), 150, 271, 166, 290));
     if (failures == 0) std::printf("command panel layout: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

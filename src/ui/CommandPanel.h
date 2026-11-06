@@ -16,6 +16,11 @@ public:
     std::function<void(const std::wstring& subcategory)> onSubcategoryChanged;
     // A primitive button was checked (its index in StandardPrimitiveNames) or unchecked (-1).
     std::function<void(int type)> onCreateTypeChanged;
+    std::function<void(unsigned rgb)> onObjectColorChanged;   // 0xRRGGBB
+
+    // The colour shown in Name and Color (the next object's colour, or the selection's).
+    unsigned ObjectColor() const { return objectColor_; }
+    void SetObjectColor(unsigned rgb);
 
     bool Create(HWND parent);
     int SelectedTab() const { return selected_; }
@@ -36,6 +41,8 @@ private:
     bool ShowsRollouts() const;      // Create > Geometry > Standard Primitives
     void PaintRollouts(HDC dc);
     void PaintObjectType(HDC dc, int titleTop);
+    void PaintNameAndColor(HDC dc, int titleTop);
+    void PickObjectColor();
     void SetScroll(int scroll);
     int  TypeButtonAt(int x, int y) const;
 
@@ -47,6 +54,7 @@ private:
     std::vector<rollup::Item> rollouts_{{cmdpanel::kObjectTypeContent, true}, {cmdpanel::kNameColorContent, true}};
     int scroll_ = 0;                     // pixels the rollup is scrolled up
     int createType_ = -1;                // checked primitive button, -1 = none
+    unsigned objectColor_ = cmdpanel::kReferenceObjectColor;
     bool dragging_ = false;              // scrolling the rollup by dragging (hand cursor)
     int dragStartY_ = 0, dragStartScroll_ = 0;
     HFONT font_ = nullptr;               // set by the parent with WM_SETFONT; not owned
