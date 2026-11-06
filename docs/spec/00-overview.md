@@ -24,6 +24,8 @@ Recreate the look and workflow of 3D Studio MAX R3.1 on modern Windows, pixel-cl
 | DPI | Per-monitor aware; all metrics are 96-DPI values scaled by `GetDpiForWindow/96` | Exact at 100%, clean elsewhere |
 | Undo | Command pattern from Phase 3; commands refer to nodes by stable id | Hard to retrofit; pointers die when an undo recreates a node |
 | Interaction | Mouse gestures as pure state machines (`scene::Creator`); windows only convert the mouse to plane coordinates; live changes are recorded as one undo step when finished | Testable without windows; undo matches what the user did |
+| Selection | Part of the document: undoable ("Select"), referring to nodes by id | Matches R3's Edit > Undo Select; a selection can never point at a deleted node |
+| Transforms | Live preview from each object's start, one undo step per drag; picking and dragging use the drawing's own projection | No drift, exact cancel, clicks land on what is drawn |
 | Controls | Behaviour separated from look (`SpinnerModel` vs. painting); rollout contents as data (`ui::params`) | The look waits for measurements, the behaviour doesn't |
 | Testing | Logic kept pure and unit-tested (CTest); UI checked by pixel comparison with R3.1 screenshots | Measurable fidelity |
 

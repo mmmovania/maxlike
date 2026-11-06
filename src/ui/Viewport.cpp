@@ -803,7 +803,14 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (onCursorWorld && drag_ == NavMode::None && !selecting_ && !creatingDrag_) {
             scene::ConstructionPlane plane;
             double u = 0, v = 0, upp = 1;
-            const bool ok = PointOnPlane(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), plane, u, v, upp);
+            // Only positions inside this view count: windows can receive mouse messages
+            // for points outside them (at startup, or while another view has captured
+            // the mouse), and those must not show coordinates.
+            RECT rc;
+            GetClientRect(Hwnd(), &rc);
+            const int mx = GET_X_LPARAM(lp), my = GET_Y_LPARAM(lp);
+            const bool inside = mx >= 0 && my >= 0 && mx < rc.right && my < rc.bottom;
+            const bool ok = inside && PointOnPlane(mx, my, plane, u, v, upp);
             onCursorWorld(ok, ok ? plane.ToWorld(u, v) : math::Vec3{0, 0, 0});
         }
         // Creation follows the mouse with or without the button (the height steps).

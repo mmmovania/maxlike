@@ -76,15 +76,19 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 - Objects tab strip of the tab panel → moved to Phase 6 (step 6.1): no screenshot of the
   tab existed during Phase 5.
 
-## Phase 6 — Selection and transforms (`phase/6-select-transform`)
+## Phase 6 — Selection and transforms (`phase/6-select-transform`) ✔ v0.6.0
 - [x] Objects tab strip (moved from Phase 5): 29 buttons in the main toolbar's geometry;
       the ten Standard Primitives start creation; pixel check 0 differing of 81,384.
 - [x] Click and region selection (Ctrl adds, Alt removes); selected objects drawn white,
       brackets in shaded views; "N Objects Selected"; undoable (step 6.2).
-- [ ] Selection filter (the toolbar's "All" combo).
+- Selection filter (the toolbar's "All" combo) → deferred until objects other than
+  geometry exist (with geometry only, every choice selects all or nothing).
 - [x] Delete the selection (one undo step).
 - [x] Name and Color for the selection: rename, recolour (undoable) (step 6.3).
-- [ ] Move/Rotate/Scale with tripod, axis constraints, reference coord systems.
+- [x] Move/Rotate/Scale with the axis tripod and the Move gizmo (measured from R3.1), axis
+      constraints, R3's default View coordinate system; one undo step per drag (6.4a–c).
+- Reference coordinate systems other than View (World, Local, Screen, …) and transform
+  centres other than each pivot → deferred.
 - [x] Status bar X/Y/Z display: the cursor's world position, and the movement, angle or
       scale percentage while dragging (step 6.4d). In R3.1 these fields are display-only
       (measured: plain sunken fields, no spinners); typing exact values belongs to the

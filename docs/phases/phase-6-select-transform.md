@@ -26,7 +26,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
       (volume kept); one undo step each; right-click cancels
 - [x] **6.4d Status bar X/Y/Z**: the cursor's world position; while dragging, the
       movement, the angle (degrees) or the scale (%); display-only, as in R3.1
-- [ ] 6.5 Wrap-up
+- [x] **6.5 Wrap-up**: checks, `docs/tech/phase6-tech-docs.md`, version 0.6.0
 
 ## Step 6.1 verification
 - [x] Builds warning-free (clean rebuild); twenty-one test programs pass (MinGW + Wine)
@@ -119,6 +119,13 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [ ] Unverified: R3's number format; whether R3 shows the cursor position in every
       view (here: ortho view planes and the ground in Perspective); what it shows
       after a drag ends (the last amount stays here)
+
+## Step 6.5 verification
+- [x] Clean rebuild: 0 warnings; twenty-four test programs pass (MinGW + Wine)
+- [x] With nothing selected, the window is identical to the end of Phase 5 (the X/Y/Z
+      text, which shows the cursor position, masked)
+- [x] A viewport reports cursor coordinates only for points inside it
+- [ ] On Windows: `ctest`; select, rename, recolour, move, rotate, scale, delete, undo
 
 ## Notes
 - The strip is a second `Toolbar` (`ObjectsToolbarConfig`) shown in the main toolbar's
