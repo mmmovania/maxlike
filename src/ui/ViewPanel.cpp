@@ -48,6 +48,14 @@ bool ViewPanel::Create(HWND parent) {
             return onCreateEvent && onCreateEvent(e, owner, p, u, vv, y, upp);
         };
         v.onCreateCancel = [this] { return onCreateCancel && onCreateCancel(); };
+        v.onSelect = [this](const std::vector<scene::Node::Id>& ids, bool region, bool ctrl, bool alt) {
+            if (onSelect) onSelect(ids, region, ctrl, alt);
+        };
+        v.onDeleteKey = [this] { if (onDeleteKey) onDeleteKey(); };
+        v.onMoveBegin = [this] { if (onMoveBegin) onMoveBegin(); };
+        v.onMoveDrag = [this](const math::Vec3& d, int up) { if (onMoveDrag) onMoveDrag(d, up); };
+        v.onMoveEnd = [this](bool commit) { if (onMoveEnd) onMoveEnd(commit); };
+        v.onCursorWorld = [this](bool ok, const math::Vec3& p) { if (onCursorWorld) onCursorWorld(ok, p); };
         v.navMode = [this] { return mode_; };
         v.onExitMode = [this] { SetNavMode(NavMode::None); };
         v.onZoomAll = [this, i](double factor) {

@@ -4,6 +4,7 @@
   res/status_icons.bmp   16x16 cells, status-area buttons, order of ui::toolbar::StatusIcon
   res/panel_tab_icons.bmp 22x20 cells, command panel tabs, order of ui::cmdpanel::Tab
   res/panel_category_icons.bmp 16x16 cells, Create panel categories, order of ui::cmdpanel::Category
+  res/objects_icons.bmp  24x24 cells, the tab panel's Objects strip, order of ObjectsToolbarSpec
 
 Both in src/ui/ToolbarSpec.h. Magenta (#FF00FF) is the transparent colour.
 Drawn pixel-exact with no anti-aliasing, in the spirit of 1999 toolbar art.
@@ -499,3 +500,167 @@ for n in range(CATEGORY_COUNT):
 cout = os.path.join(os.path.dirname(__file__), "..", "res", "panel_category_icons.bmp")
 cimg.save(cout)
 print("wrote", os.path.normpath(cout), cimg.size)
+
+
+# ---------------------------------------------------------------- 24x24 Objects strip
+# Shaded solids lit from the upper left, in the spirit of R3's (original art).
+OUT = (35, 45, 95)
+LIT = (190, 205, 245)
+MID = (120, 140, 215)
+SHD = (70, 85, 160)
+GRN = (40, 190, 60)
+LGRN = (150, 240, 150)
+
+
+def shaded_ellipse(d, box):
+    x0, y0, x1, y1 = box
+    d.ellipse(box, fill=SHD, outline=OUT)
+    d.ellipse([x0 + 2, y0 + 2, x1 - 3, y1 - 3], fill=MID)
+    d.ellipse([x0 + 3, y0 + 3, (x0 + x1) // 2, (y0 + y1) // 2], fill=LIT)
+
+
+def prism(d, top, front, side):
+    d.polygon(front, fill=MID, outline=OUT)
+    d.polygon(side, fill=SHD, outline=OUT)
+    d.polygon(top, fill=LIT, outline=OUT)
+
+
+def object_icon(d, n):
+    if n == 0:    # Box
+        prism(d, [(3, 7), (13, 3), (21, 6), (11, 10)], [(3, 7), (11, 10), (11, 21), (3, 17)],
+              [(11, 10), (21, 6), (21, 17), (11, 21)])
+    elif n == 1:  # Sphere
+        shaded_ellipse(d, [2, 2, 21, 21])
+    elif n == 2:  # Cylinder
+        d.rectangle([5, 5, 18, 18], fill=MID, outline=OUT)
+        d.rectangle([6, 6, 9, 18], fill=LIT)
+        d.ellipse([5, 15, 18, 21], fill=MID, outline=OUT)
+        d.rectangle([6, 9, 17, 17], fill=MID)
+        d.rectangle([6, 9, 9, 18], fill=LIT)
+        d.ellipse([5, 2, 18, 8], fill=LIT, outline=OUT)
+    elif n == 3:  # Torus
+        d.ellipse([1, 6, 22, 18], fill=MID, outline=OUT)
+        d.ellipse([3, 7, 14, 12], fill=LIT)
+        d.ellipse([7, 10, 16, 14], fill=KEY, outline=OUT)
+    elif n == 4:  # Teapot
+        d.ellipse([5, 8, 18, 20], fill=MID, outline=OUT)
+        d.ellipse([7, 9, 12, 13], fill=LIT)
+        d.rectangle([9, 5, 14, 8], fill=MID, outline=OUT)
+        d.line([(18, 12), (22, 8)], fill=OUT, width=2)
+        d.arc([1, 10, 8, 17], 90, 270, fill=OUT)
+    elif n == 5:  # Cone
+        d.polygon([(11, 2), (3, 19), (19, 19)], fill=MID, outline=OUT)
+        d.polygon([(11, 2), (5, 18), (9, 19)], fill=LIT)
+        d.ellipse([3, 16, 19, 22], fill=SHD, outline=OUT)
+    elif n == 6:  # GeoSphere: a faceted sphere
+        shaded_ellipse(d, [2, 2, 21, 21])
+        for a, b in (((11, 2), (4, 15)), ((11, 2), (18, 15)), ((4, 15), (18, 15)), ((2, 9), (21, 9))):
+            d.line([a, b], fill=OUT)
+    elif n == 7:  # Tube
+        d.rectangle([4, 5, 19, 18], fill=MID, outline=OUT)
+        d.rectangle([5, 7, 8, 18], fill=LIT)
+        d.ellipse([4, 15, 19, 21], fill=MID, outline=OUT)
+        d.rectangle([5, 9, 18, 17], fill=MID)
+        d.rectangle([5, 9, 8, 18], fill=LIT)
+        d.ellipse([4, 2, 19, 9], fill=LIT, outline=OUT)
+        d.ellipse([8, 4, 15, 7], fill=SHD, outline=OUT)
+    elif n == 8:  # Pyramid
+        prism(d, [(11, 2), (11, 2), (11, 2)], [(11, 2), (3, 18), (12, 21)], [(11, 2), (12, 21), (20, 16)])
+        d.line([(11, 2), (5, 17)], fill=LIT)
+    elif n == 9:  # Plane: a grid
+        d.rectangle([2, 4, 21, 19], fill=MID, outline=OUT)
+        for x in (7, 12, 17):
+            d.line([(x, 4), (x, 19)], fill=OUT)
+        for y in (8, 12, 16):
+            d.line([(2, y), (21, y)], fill=OUT)
+    elif n == 10:  # Hedra: a star
+        d.polygon([(11, 1), (14, 8), (21, 8), (15, 13), (18, 21), (11, 16), (4, 21), (7, 13), (1, 8), (8, 8)],
+                  fill=MID, outline=OUT)
+        d.polygon([(11, 1), (8, 8), (11, 11), (14, 8)], fill=LIT)
+    elif n == 11:  # ChamferBox: a box with its edges rounded off
+        prism(d, [(3, 7), (13, 3), (21, 6), (11, 10)], [(3, 7), (11, 10), (11, 21), (3, 17)],
+              [(11, 10), (21, 6), (21, 17), (11, 21)])
+        d.line([(4, 8), (11, 11)], fill=LIT)
+        d.line([(12, 11), (20, 7)], fill=LIT)
+        d.line([(11, 11), (11, 20)], fill=LIT)
+    elif n == 12:  # OilTank: a cylinder with domed ends
+        d.rectangle([5, 7, 18, 16], fill=MID, outline=OUT)
+        d.pieslice([5, 2, 18, 12], 180, 360, fill=LIT, outline=OUT)
+        d.pieslice([5, 11, 18, 21], 0, 180, fill=SHD, outline=OUT)
+        d.rectangle([6, 7, 17, 16], fill=MID)
+        d.rectangle([6, 7, 9, 16], fill=LIT)
+    elif n == 13:  # ChamferCyl
+        d.rounded_rectangle([4, 3, 19, 20], radius=4, fill=MID, outline=OUT)
+        d.rectangle([6, 6, 9, 17], fill=LIT)
+        d.ellipse([5, 3, 18, 8], fill=LIT, outline=OUT)
+    elif n == 14:  # Spindle: a double cone on a cylinder
+        d.polygon([(11, 1), (3, 8), (19, 8)], fill=LIT, outline=OUT)
+        d.rectangle([3, 8, 19, 14], fill=MID, outline=OUT)
+        d.polygon([(3, 14), (19, 14), (11, 22)], fill=SHD, outline=OUT)
+    elif n == 15:  # Gengon: a five-sided prism
+        prism(d, [(3, 8), (9, 3), (17, 4), (21, 9), (12, 11)], [(3, 8), (12, 11), (12, 20), (3, 17)],
+              [(12, 11), (21, 9), (21, 17), (12, 20)])
+    elif n == 16:  # RingWave: a toothed ring
+        for i in range(12):
+            import math
+            a = 2 * math.pi * i / 12
+            d.ellipse([11 + 9 * math.cos(a) - 2, 11 + 9 * math.sin(a) - 2, 11 + 9 * math.cos(a) + 2,
+                       11 + 9 * math.sin(a) + 2], fill=MID, outline=OUT)
+        d.ellipse([4, 4, 18, 18], outline=OUT, width=2)
+        d.ellipse([7, 7, 15, 15], fill=KEY)
+    elif n == 17:  # Torus Knot
+        d.ellipse([2, 3, 14, 15], outline=OUT, width=3)
+        d.ellipse([8, 8, 20, 20], outline=OUT, width=3)
+        d.ellipse([3, 4, 13, 14], outline=LIT)
+        d.ellipse([9, 9, 19, 19], outline=MID)
+    elif n == 18:  # Capsule
+        d.rounded_rectangle([7, 2, 16, 21], radius=4, fill=MID, outline=OUT)
+        d.rectangle([9, 5, 10, 18], fill=LIT)
+    elif n == 19:  # L-Ext
+        prism(d, [(2, 10), (12, 6), (15, 7), (5, 11)], [(2, 10), (5, 11), (5, 18), (2, 17)], [(5, 11), (15, 7), (15, 14), (5, 18)])
+        prism(d, [(12, 6), (15, 7), (20, 3), (17, 2)], [(15, 7), (20, 3), (20, 10), (15, 14)], [(15, 7), (15, 7), (15, 7)])
+    elif n == 20:  # C-Ext
+        prism(d, [(2, 8), (12, 4), (21, 7), (11, 11)], [(2, 8), (11, 11), (11, 19), (2, 16)], [(11, 11), (21, 7), (21, 15), (11, 19)])
+        d.polygon([(6, 9), (12, 7), (17, 8), (11, 10)], fill=SHD, outline=OUT)
+    elif n == 21:  # Prism: a triangular prism
+        prism(d, [(3, 6), (18, 3), (12, 9)], [(3, 6), (12, 9), (12, 21), (3, 18)], [(12, 9), (18, 3), (21, 16), (12, 21)])
+    elif n in (22, 23):  # Quad Patch, Tri Patch: green grids
+        d.polygon([(11, 1), (22, 11), (11, 22), (1, 11)], fill=GRN, outline=OUT)
+        for k in range(1, 4):
+            d.line([(11 - 2.5 * k + 0.5, 1 + 2.5 * k), (22 - 2.5 * k, 11 + 2.5 * k)], fill=LGRN)
+            d.line([(11 + 2.5 * k, 1 + 2.5 * k), (1 + 2.5 * k, 11 + 2.5 * k)], fill=LGRN)
+        if n == 23:
+            d.line([(1, 11), (22, 11)], fill=OUT)
+    elif n in (24, 25):  # NURBS Point Surface, CV Surface: blue grids
+        d.polygon([(11, 1), (22, 11), (11, 22), (1, 11)], fill=MID, outline=OUT)
+        for k in range(1, 4):
+            d.line([(11 - 2.5 * k + 0.5, 1 + 2.5 * k), (22 - 2.5 * k, 11 + 2.5 * k)], fill=SHD)
+            d.line([(11 + 2.5 * k, 1 + 2.5 * k), (1 + 2.5 * k, 11 + 2.5 * k)], fill=SHD)
+        if n == 25:
+            for x, y in ((11, 1), (22, 11), (11, 22), (1, 11)):
+                d.rectangle([x - 1, y - 1, x + 1, y + 1], fill=OUT)
+    elif n == 26:  # Bones: red bones, blue joints
+        d.line([(4, 18), (11, 9)], fill=RED, width=2)
+        d.line([(11, 9), (19, 13)], fill=RED, width=2)
+        for x, y in ((4, 18), (11, 9), (19, 13)):
+            d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=(90, 110, 220), outline=OUT)
+    elif n == 27:  # Damper
+        d.line([(3, 3), (8, 8)], fill=DARK, width=2)
+        d.polygon([(8, 6), (12, 10), (19, 17), (15, 21), (8, 14), (6, 10)], fill=GREY, outline=OUT)
+        d.polygon([(8, 6), (11, 9), (7, 13), (6, 10)], fill=WHITE)
+        d.line([(18, 19), (21, 22)], fill=DARK, width=2)
+    elif n == 28:  # Spring: a coil
+        for y in range(5, 20, 4):
+            d.arc([4, y - 3, 19, y + 3], 180, 360, fill=GREY, width=2)
+            d.arc([4, y - 3, 19, y + 3], 0, 180, fill=OUT, width=2)
+
+
+OBJ_COUNT = 29  # must equal the icon count in ObjectsToolbarSpec
+oimg = Image.new("RGB", (S * OBJ_COUNT, S), KEY)
+for n in range(OBJ_COUNT):
+    cell = Image.new("RGB", (S, S), KEY)
+    object_icon(ImageDraw.Draw(cell), n)
+    oimg.paste(cell, (n * S, 0))
+oout = os.path.join(os.path.dirname(__file__), "..", "res", "objects_icons.bmp")
+oimg.save(oout)
+print("wrote", os.path.normpath(oout), oimg.size)

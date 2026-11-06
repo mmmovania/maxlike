@@ -29,7 +29,9 @@ bool Toolbar::Create(HWND parent, toolbar::Config config) {
         checked_[i] = items_[i].checked;
 
     // LR_CREATEDIBSECTION keeps the exact colours (no conversion to the display format).
-    const int bitmapId = config_.icons == toolbar::IconStrip::Main ? IDB_TOOLBAR_ICONS : IDB_STATUS_ICONS;
+    const int bitmapId = config_.icons == toolbar::IconStrip::Main    ? IDB_TOOLBAR_ICONS
+                       : config_.icons == toolbar::IconStrip::Objects ? IDB_OBJECTS_ICONS
+                                                                      : IDB_STATUS_ICONS;
     icons_ = static_cast<HBITMAP>(LoadImageW(win::App::Instance(), MAKEINTRESOURCEW(bitmapId),
                                              IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
     CreateParams p;

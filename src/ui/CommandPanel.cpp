@@ -271,8 +271,10 @@ void CommandPanel::PaintNameAndColor(HDC dc, int titleTop) {
     } else {
         // Enabled (measured, Box01): white inside, the name in black.
         px(f.left + 2, f.top + 2, f.right - 2, f.bottom - 2, hi);
-        RECT text{Scale(f.left + 5), Scale(f.top + 2), Scale(f.right - 2), Scale(f.bottom - 1)};
-        DrawTextW(dc, objectName_.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        if (!(typing_ && typingRow_ == kNameRow)) {
+            RECT text{Scale(f.left + 5), Scale(f.top + 2), Scale(f.right - 2), Scale(f.bottom - 1)};
+            DrawTextW(dc, objectName_.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        }
     }
 
     const Box w = SwatchBox(titleTop);
@@ -466,13 +468,36 @@ void CommandPanel::BeginTyping(int row) {
     SetFocus(typing_);
 }
 
+// Renaming: an EDIT over the name field's white area (only while it is enabled).
+void CommandPanel::BeginNameTyping() {
+    EndTyping(true);
+    const int titleTop = TitleTopOf(kRollNameColor);
+    if (titleTop < 0 || objectName_.empty()) return;
+    const Box f = NameFieldBox(titleTop);
+    typing_ = CreateWindowExW(0, L"EDIT", objectName_.c_str(), WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL,
+                              Scale(f.left + 4), Scale(f.top + 3), Scale(f.right - f.left - 7), Scale(f.bottom - f.top - 5),
+                              Hwnd(), nullptr, win::App::Instance(), nullptr);
+    if (!typing_) return;
+    typingRow_ = kNameRow;
+    if (font_) SendMessageW(typing_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), FALSE);
+    SetWindowLongPtrW(typing_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    editOldProc_ = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(typing_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&CommandPanel::EditProc)));
+    SendMessageW(typing_, EM_SETSEL, 0, -1);
+    SetFocus(typing_);
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
 void CommandPanel::EndTyping(bool commit) {
     if (!typing_) return;
     HWND edit = typing_;
     const int row = typingRow_;
     typing_ = nullptr;                    // first: destroying the edit sends WM_KILLFOCUS
     typingRow_ = -1;
-    if (commit && row >= 0) {
+    if (commit && row == kNameRow) {
+        wchar_t buf[256] = {};
+        GetWindowTextW(edit, buf, 256);
+        if (onNameChanged && *buf && objectName_ != buf) onNameChanged(buf);   // an empty name is ignored
+    } else if (commit && row >= 0) {
         wchar_t buf[64] = {};
         GetWindowTextW(edit, buf, 64);
         const params::Row& r = RowAt(row);
@@ -492,6 +517,23 @@ LRESULT CALLBACK CommandPanel::EditProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) 
         if (msg == WM_KILLFOCUS) { const LRESULT r = CallWindowProcW(old, h, msg, wp, lp); self->EndTyping(true); return r; }
     }
     return CallWindowProcW(old, h, msg, wp, lp);
+}
+
+void CommandPanel::SetCreateType(int type) {
+    if (type >= 0) {
+        if (selected_ != kCreate) SelectTab(kCreate);
+        if (category_ != kGeometry) SelectCategory(kGeometry);
+        if (dropdown_ && SendMessageW(dropdown_, CB_GETCURSEL, 0, 0) != 0) SendMessageW(dropdown_, CB_SETCURSEL, 0, 0);
+    }
+    EndTyping(true);
+    createType_ = type;
+    spec_ = params::ParametersFor(createType_);
+    keyboard_ = params::KeyboardEntryFor(createType_);
+    keValues_.assign(keyboard_.fields.rows.size(), 0.0);   // NOTE: R3's defaults unverified
+    method_ = params::CreationMethodsFor(createType_).selected;
+    scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+    if (onCreateTypeChanged) onCreateTypeChanged(createType_);
 }
 
 void CommandPanel::SetObjectColor(unsigned rgb) {
@@ -668,23 +710,18 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             InvalidateRect(Hwnd(), nullptr, FALSE);
             return 0;
         }
-        // The colour swatch opens the colour picker.
+        // The colour swatch opens the colour picker; the name field (when enabled) takes typing.
         const int nameTop = TitleTopOf(kRollNameColor);
         if (nameTop >= 0) {
             const Box w = SwatchBox(nameTop);
             if (x >= w.left && x <= w.right && y >= w.top && y <= w.bottom) { PickObjectColor(); return 0; }
+            const Box f = NameFieldBox(nameTop);
+            if (x >= f.left && x <= f.right && y >= f.top && y <= f.bottom) { BeginNameTyping(); return 0; }
         }
         // A primitive button checks (or unchecks) its type.
         const int type = TypeButtonAt(x, y);
         if (type >= 0) {
-            createType_ = (type == createType_) ? -1 : type;
-            spec_ = params::ParametersFor(createType_);
-            keyboard_ = params::KeyboardEntryFor(createType_);
-            keValues_.assign(keyboard_.fields.rows.size(), 0.0);   // NOTE: R3's defaults unverified
-            method_ = params::CreationMethodsFor(createType_).selected;
-            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
-            InvalidateRect(Hwnd(), nullptr, FALSE);
-            if (onCreateTypeChanged) onCreateTypeChanged(createType_);
+            SetCreateType(type == createType_ ? -1 : type);
             return 0;
         }
         // Creation Method radios.

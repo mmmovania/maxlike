@@ -17,8 +17,9 @@ OpenGL 3.3 (GLAD) viewports, CMake + MSVC. Icons are drawn from scratch.
 | 3 Scene core (nodes, primitives, modifiers, shading, undo) | ✔ counts match R3.1 | 0.3.0 |
 | 4 Command panel (tabs, categories, rollouts, Object Type, Name and Color) | ✔ pixel-checked | 0.4.0 |
 | 5 Interactive creation (all primitives, live Parameters, Keyboard Entry, undo) | ✔ panel pixel-checked | 0.5.0 |
-| 6 Selection and transforms | next | |
-| 7–8 Modify panel, `.max` import | planned | |
+| 6 Selection and transforms (Objects strip, selection, Name and Color, Move/Rotate/Scale, X/Y/Z) | ✔ strip pixel-checked, gizmo measured | 0.6.0 |
+| 7 Modify panel | next | |
+| 8 `.max` import | planned | |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 
@@ -29,7 +30,7 @@ Requires Visual Studio 2019+ (Desktop development with C++) and CMake 3.20+.
 ```sh
 cmake -S . -B build
 cmake --build build --config Debug
-ctest --test-dir build -C Debug      # 21 unit-test programs
+ctest --test-dir build -C Debug      # 24 unit-test programs
 build\Debug\maxlike.exe
 ```
 

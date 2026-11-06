@@ -145,8 +145,10 @@ Code: `Viewport::DrawScene`, `Viewport::DrawShaded`, `src/gl/MeshRenderer.*`.
 - Wireframe: visible edges only (a quad's diagonal is hidden), all of them (no
   hidden-line removal), in the node's wire colour. Ortho views map points through the
   grid's pixel formula, so edges on grid lines land on the grid's pixels.
-- Selected objects: R3.1 draws them white (screenshots `r3.1-*-selected-zoomed.png`);
-  not implemented yet (Phase 6).
+- Selected objects (step 6.2): white wireframes (R3.1 screenshots); in shaded views
+  white brackets at the bounding-box corners, a quarter of each edge long (measured
+  roughly from `r3.1-box-created.png`). Status line: "None Selected", "1 Object
+  Selected" (verified), "N Objects Selected" (assumed).
 - Shading modes (label menu): Smooth + Highlights, Wireframe, Other → Smooth, Facets +
   Highlights, Facets, Lit Wireframes (drawn as wireframe for now), Bounding Box.
 - Lighting (unverified): ambient 25 %, diffuse 75 % in the object colour, white Blinn-Phong
@@ -201,6 +203,31 @@ Render type combo (`View`), Render last.
 ## Tab panel
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
+
+## Transform display at the selection's pivot (measured, step 6.4a)
+Screenshots `r3.1-box-created.png`, `r3.1-create-tripod-z.png`, `r3.1-move-selected.png`.
+- Axis tripod (Select, creation): the object's own axes; lines from the pivot to 84 px,
+  open arrowheads (two 8-px strokes), letters (viewport tripod glyphs, 9 rows above the
+  tip); `#C82323` for axes in the active constraint, `#666666` otherwise; an axis at the
+  viewer shows only its letter at the pivot.
+- Move gizmo (Select and Move): world axes; shaft O + round(17·d) … O + round(60·d)
+  (yellow `#FFFF00` when constrained, else the axis colour); filled head to 84.5 px
+  (triangle fitted: base 62 px, half-width 3.75 px; X `#FF0000`, Y `#00FF00`, Z
+  `#0000FF`); letter at O + round(84.5·d) (yellow when constrained); plane corners at
+  O + round(84·(dₐ + d_b)), arms 17 px (yellow for the active plane, else each arm in the
+  colour of the axis it runs beside); axes at the viewer not drawn.
+- Rotate and Scale show the same figure as Move (R3.1, confirmed by the project owner).
+- Prompt with Move: "Click and drag to select and move objects" (verified).
+
+## Tab panel: Objects strip (measured, step 6.1)
+Screenshot `r3.1-objects-tab.png`. The strip replaces the main toolbar with the same
+geometry: 32-px buttons from x 4 (icons 24 × 24, 4 px in, rows 26–49 of the client area),
+6-px separators with their etched line at +3/+4. 29 buttons: Box, Sphere, Cylinder,
+Torus, Teapot, Cone, GeoSphere, Tube, Pyramid, Plane, Hedra, ChamferBox, OilTank,
+ChamferCyl, Spindle, Gengon, RingWave, Torus Knot, Capsule, L-Ext, C-Ext, Prism | Quad
+Patch, Tri Patch | Point Surface, CV Surface | Bones | Damper, Spring (names after the
+first ten read from the icons, unverified). Tab row with Objects selected and the strip:
+0 differing pixels of 81,384.
 
 ## Command panel (Phase 4)
 The reference shows the Create panel: six tabs (Create, Modify, Hierarchy, Motion,

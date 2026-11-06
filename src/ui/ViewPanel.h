@@ -19,12 +19,20 @@ public:
     std::function<bool()> creationActive;
     std::function<bool(scene::Creator::Event, int, const scene::ConstructionPlane&, double, double, int, double)> onCreateEvent;
     std::function<bool()> onCreateCancel;
+    std::function<void(const std::vector<scene::Node::Id>&, bool, bool, bool)> onSelect;
+    std::function<void()> onDeleteKey;
+    std::function<void()> onMoveBegin;
+    std::function<void(const math::Vec3&, int)> onMoveDrag;
+    std::function<void(bool)> onMoveEnd;
+    std::function<void(bool, const math::Vec3&)> onCursorWorld;
 
     bool Create(HWND parent);
     NavMode Mode() const { return mode_; }
     void SetNavMode(NavMode mode);          // None leaves the current mode
     void ZoomExtents(bool allViews);        // empty scene: back to the default framing
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
+    void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
+    void SetTransformTool(bool on) { for (auto& v : views_) v.SetTransformTool(on); }
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     int  Active() const { return active_; }

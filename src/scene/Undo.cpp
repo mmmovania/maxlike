@@ -129,6 +129,20 @@ void WireColorCommand::Undo(Scene& scene) {
     if (Node* n = scene.FindById(id_)) n->SetWireColor(before_);
 }
 
+void DeleteSelectionCommand::Do(Scene& scene) {
+    selected_ = scene.Selection();
+    parts_.clear();
+    for (Node::Id id : selected_) {
+        parts_.push_back(std::make_unique<DeleteNodeCommand>(id));
+        parts_.back()->Do(scene);
+    }
+}
+
+void DeleteSelectionCommand::Undo(Scene& scene) {
+    for (auto it = parts_.rbegin(); it != parts_.rend(); ++it) (*it)->Undo(scene);
+    scene.SetSelection(selected_);
+}
+
 void MacroCommand::Do(Scene& scene) {
     for (auto& c : parts_) c->Do(scene);
 }

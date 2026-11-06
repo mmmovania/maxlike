@@ -160,6 +160,31 @@ private:
     uint32_t before_ = 0, after_;
 };
 
+// Change the selection (R3 lists it in Edit > Undo as "Select").
+class SelectCommand : public Command {
+public:
+    explicit SelectCommand(std::vector<Node::Id> after) : after_(std::move(after)) {}
+    std::string Name() const override { return "Select"; }
+    void Do(Scene& scene) override { before_ = scene.Selection(); scene.SetSelection(after_); }
+    void Undo(Scene& scene) override { scene.SetSelection(before_); }
+
+private:
+    std::vector<Node::Id> before_, after_;
+};
+
+// Delete every selected node as one step (Edit > Delete, the Delete key); undo brings
+// them back, selected.
+class DeleteSelectionCommand : public Command {
+public:
+    std::string Name() const override { return "Delete"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    std::vector<Node::Id> selected_;
+    std::vector<std::unique_ptr<DeleteNodeCommand>> parts_;
+};
+
 // Several commands as one undo step (e.g. creating an object, then adjusting it while
 // dragging). Undone in reverse order.
 class MacroCommand : public Command {

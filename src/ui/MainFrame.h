@@ -4,6 +4,7 @@
 #include "scene/Scene.h"
 #include "scene/Undo.h"
 #include "scene/CreationTool.h"
+#include "scene/MoveMath.h"
 #include "ui/CommandPanel.h"
 #include "ui/StatusBar.h"
 #include "ui/TabPanel.h"
@@ -39,7 +40,7 @@ private:
     void UpdateEditMenu(HMENU menu);   // "Undo <name>" / "Redo <name>", greyed when empty
     void ShowFrame(int frame);
 
-    std::array<win::Window*, 7> Regions();
+    std::array<win::Window*, 8> Regions();
 
     HFONT uiFont_ = nullptr;
     CommandTable commands_;
@@ -51,11 +52,29 @@ private:
     bool paramDragging_ = false;                    // a spinner drag in progress...
     double paramDragStart_ = 0;                     // ...and the value it started from
     void UpdateCreatePanel();                       // Parameters, name, colour from the creation tool
+    void UpdateSelectionStatus();                   // "None Selected" / "1 Object Selected" / ...
+    // The toolbar's transform tool and axis constraint (R3's defaults: Select, XY).
+    enum class Tool { Select, Move, Rotate, Scale };
+    Tool tool_ = Tool::Select;
+    scene::move::ScaleMode scaleMode_ = scene::move::ScaleMode::Uniform;
+    bool constraint_[3] = {true, true, false};
+    void UpdateTransformDisplay();
+    void ShowCoordinates(const math::Vec3& v);       // the status bar's X/Y/Z, three decimals
+    // A move in progress: each moved node's starting transform, world position and
+    // parent matrix (children of moved nodes move with them, not twice).
+    struct Moving {
+        scene::Node::Id id; scene::PRS start; math::Vec3 startWorld;
+        bool hasParent; math::Mat4 parentWorld; math::Quat parentRotation;
+    };
+    std::vector<Moving> moving_;
+    void DeleteSelection();
+    scene::Node* NameColorTarget() const;          // whose name and colour the panel shows
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;
     Toolbar     mainToolbar_;
+    Toolbar     objectsToolbar_;    // the tab panel's Objects strip, in the toolbar's place
     ViewPanel   viewports_;
     TimeSlider  timeSlider_;
     TrackBar    trackBar_;

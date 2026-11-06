@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "scene/MoveMath.h"
 #include "gl/GLContext.h"
 #include "gl/LineRenderer.h"
 #include "gl/MeshRenderer.h"
@@ -50,6 +51,7 @@ void Viewport::Render(HDC dc) {
             DrawOrthoGrid(rc.right, rc.bottom);
     }
     DrawScene(rc.right, rc.bottom);
+    DrawTransformAxes(rc.right, rc.bottom);
     DrawLabelAndTripod(rc.right, rc.bottom);
     if (regionVisible_) DrawRegionRectangle(rc.right, rc.bottom);
 
@@ -314,9 +316,203 @@ void Viewport::DrawScene(int w, int h) {
             const float ex = len > 0 ? 0.5f * dx / len : 0.5f, ey = len > 0 ? 0.5f * dy / len : 0.0f;
             lines.push_back({x0, y0, 0, x1 + ex, y1 + ey, 0});
         }
-        const uint32_t c = node->WireColor();
+        // Selected objects are white (measured, R3.1 screenshots).
+        const uint32_t c = scene_->IsSelected(node->GetId()) ? 0xFFFFFF : node->WireColor();
         lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
     }
+}
+
+// The axes at the selection's pivot (one object: its pivot; several: the average of
+// their pivots; NOTE: R3's choice for several objects is unverified). The Move gizmo
+// shows the world axes, the tripod the object's own axes (measured, step 6.4a).
+void Viewport::DrawTransformAxes(int w, int h) {
+    if (!scene_ || scene_->Selection().empty()) return;
+    math::Vec3 pivot{0, 0, 0};
+    const scene::Node* first = nullptr;
+    int count = 0;
+    for (scene::Node::Id id : scene_->Selection())
+        if (const scene::Node* n = scene_->FindById(id)) {
+            pivot = pivot + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
+            if (!first) first = n;
+            ++count;
+        }
+    if (!count) return;
+    pivot = pivot * (1.0 / count);
+    double px = 0, py = 0, depth = 0;
+    if (!WorldToWindow(pivot, px, py, depth)) return;
+
+    // Screen directions: world axes from the view; local axes through the object's rotation.
+    double axes[3][2];
+    ScreenAxes(axes);
+    if (axesStyle_ == view::AxesStyle::Tripod && count == 1) {
+        const math::Mat4 m = first->WorldMatrix();
+        double world[3][2];
+        ScreenAxes(world);
+        for (int a = 0; a < 3; ++a) {
+            const math::Vec3 d = math::Normalize({m.m[a][0], m.m[a][1], m.m[a][2]});
+            axes[a][0] = d.x * world[0][0] + d.y * world[1][0] + d.z * world[2][0];
+            axes[a][1] = d.x * world[0][1] + d.y * world[1][1] + d.z * world[2][1];
+        }
+    }
+    const auto pixels = view::TransformAxesPixels(axesStyle_, axes, static_cast<int>(std::floor(px)),
+                                                  static_cast<int>(std::floor(py)), axesActive_);
+    // Group by colour, in order, so later pixels still cover earlier ones.
+    std::vector<float> run;
+    uint32_t colour = pixels.empty() ? 0 : pixels.front().rgb;
+    const math::Mat4 toClip = math::PixelToClip(w, h);
+    auto flush = [&] {
+        if (!run.empty())
+            lines_->DrawPoints(run, toClip, ((colour >> 16) & 0xFF) / 255.0f, ((colour >> 8) & 0xFF) / 255.0f, (colour & 0xFF) / 255.0f);
+        run.clear();
+    };
+    for (const view::ColoredPixel& p : pixels) {
+        if (p.rgb != colour) { flush(); colour = p.rgb; }
+        run.insert(run.end(), {p.x + 0.5f, p.y + 0.5f, 0.0f});
+    }
+    flush();
+}
+
+math::Vec3 Viewport::SelectionPivot() const {
+    math::Vec3 sum{0, 0, 0};
+    int count = 0;
+    for (scene::Node::Id id : scene_->Selection())
+        if (const scene::Node* n = scene_->FindById(id)) { sum = sum + math::TransformPoint(n->WorldMatrix(), {0, 0, 0}); ++count; }
+    return count ? sum * (1.0 / count) : sum;
+}
+
+// The ray under a pixel: from the eye in perspective; in ortho views from the point on
+// the view plane, along the view direction.
+bool Viewport::MouseRay(int x, int y, math::Vec3& origin, math::Vec3& dir) const {
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    const int w = rc.right, h = rc.bottom;
+    if (w <= 0 || h <= 0) return false;
+    if (type_ != ViewType::Perspective) {
+        math::Vec3 right, up;
+        OrthoBasis(right, up);
+        const math::Vec3 toward = math::Cross(right, up);
+        origin = right * view::UOfColumn(x, w, h, ortho_) + up * view::VOfRow(y, w, h, ortho_) + toward * 1e5;
+        dir = toward * -1.0;
+        return true;
+    }
+    const math::Mat4 view = perspective_.ViewMatrix();
+    const math::Vec3 right{view.m[0][0], view.m[1][0], view.m[2][0]};
+    const math::Vec3 up{view.m[0][1], view.m[1][1], view.m[2][1]};
+    origin = perspective_.Eye();
+    const math::Vec3 forward = math::Normalize(perspective_.target - origin);
+    const double f = (w / 2.0) / std::tan(perspective_.fovDeg * 3.14159265358979323846 / 360.0);
+    dir = math::Normalize(forward * f + right * (x + 0.5 - w / 2.0) - up * (y + 0.5 - h / 2.0));
+    return true;
+}
+
+// Ortho: the mouse moves on the view plane; axes outside the constraint are dropped
+// (Front with XY moves along X only). Perspective: the mouse ray meets a plane through
+// the pivot (the constraint's plane, or for one axis the plane containing it that faces
+// the camera), and the movement is kept to the allowed axes.
+math::Vec3 Viewport::MoveDelta(int x, int y) const {
+    math::Vec3 o0, d0, o1, d1;
+    if (!MouseRay(moveStart_.x, moveStart_.y, o0, d0) || !MouseRay(x, y, o1, d1)) return {0, 0, 0};
+    if (type_ != ViewType::Perspective) return scene::move::Constrain(o1 - o0, axesActive_);
+    math::Vec3 n, h0, h1;
+    const math::Vec3 forward = math::Normalize(perspective_.target - perspective_.Eye());
+    if (!scene::move::DragPlaneNormal(axesActive_, forward, n)) n = forward;   // all axes: the view plane
+    if (!scene::move::RayPlane(o0, d0, movePivot_, n, h0) || !scene::move::RayPlane(o1, d1, movePivot_, n, h1))
+        return {0, 0, 0};
+    return scene::move::Constrain(h1 - h0, axesActive_);
+}
+
+bool Viewport::WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const {
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    const int w = rc.right, h = rc.bottom;
+    if (type_ == ViewType::Perspective) {
+        const math::Mat4 vp = perspective_.ProjectionMatrix(w, h) * perspective_.ViewMatrix();
+        const math::Vec4 c = vp * math::Vec4{p.x, p.y, p.z, 1.0};
+        if (c.w <= 1e-9) return false;
+        depth = c.w;
+        return math::ProjectToPixel(vp, p, w, h, x, y);
+    }
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    x = view::ColumnF(math::Dot(p, right), w, h, ortho_);
+    y = view::RowF(math::Dot(p, up), w, h, ortho_);
+    depth = -math::Dot(p, math::Cross(right, up));
+    return true;
+}
+
+void Viewport::CollectPickData(std::vector<scene::Node::Id>& ids, std::vector<std::vector<view::Segment2>>& outlines,
+                               std::vector<std::vector<view::Triangle2>>* surfaces) const {
+    if (!scene_) return;
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->GetObject()) continue;
+        const scene::Mesh mesh = node->GetObject()->Evaluate();
+        const math::Mat4 m = node->ObjectMatrix();
+        std::vector<double> X(mesh.verts.size()), Y(mesh.verts.size()), D(mesh.verts.size());
+        std::vector<bool> ok(mesh.verts.size());
+        for (size_t i = 0; i < mesh.verts.size(); ++i)
+            ok[i] = WorldToWindow(math::TransformPoint(m, mesh.verts[i]), X[i], Y[i], D[i]);
+        ids.push_back(node->GetId());
+        outlines.emplace_back();
+        for (const auto& [a, b] : mesh.VisibleEdges())
+            if (ok[a] && ok[b]) outlines.back().push_back({X[a], Y[a], X[b], Y[b]});
+        if (surfaces) {
+            surfaces->emplace_back();
+            for (const scene::Face& f : mesh.faces)
+                if (ok[f.v[0]] && ok[f.v[1]] && ok[f.v[2]])
+                    surfaces->back().push_back({{X[f.v[0]], X[f.v[1]], X[f.v[2]]}, {Y[f.v[0]], Y[f.v[1]], Y[f.v[2]]},
+                                                (D[f.v[0]] + D[f.v[1]] + D[f.v[2]]) / 3});
+        }
+    }
+}
+
+// In shaded views clicks pick surfaces; in wireframe views, edges within 4 px.
+scene::Node::Id Viewport::PickAt(int x, int y) const {
+    const bool shaded = shading_ != Shading::Wireframe && shading_ != Shading::LitWireframe &&
+                        shading_ != Shading::BoundingBox;
+    std::vector<scene::Node::Id> ids;
+    std::vector<std::vector<view::Segment2>> outlines;
+    std::vector<std::vector<view::Triangle2>> surfaces;
+    CollectPickData(ids, outlines, shaded ? &surfaces : nullptr);
+    int hit = shaded ? view::PickSurface(surfaces, x + 0.5, y + 0.5) : -1;
+    if (hit < 0) hit = view::PickNearest(outlines, x + 0.5, y + 0.5, 4.0);
+    return hit >= 0 ? ids[static_cast<size_t>(hit)] : 0;
+}
+
+std::vector<scene::Node::Id> Viewport::PickRect(int x0, int y0, int x1, int y1) const {
+    std::vector<scene::Node::Id> ids;
+    std::vector<std::vector<view::Segment2>> outlines;
+    CollectPickData(ids, outlines, nullptr);
+    std::vector<scene::Node::Id> out;
+    for (int i : view::PickRegion(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5)) out.push_back(ids[static_cast<size_t>(i)]);
+    return out;
+}
+
+// Selected objects in shaded views: white brackets at the corners of the object's
+// bounding box, each a quarter of the box's edge (measured roughly from R3.1's Box
+// screenshot). Drawn over the shaded objects.
+void Viewport::DrawBrackets(int /*w*/, int /*h*/, const math::Mat4& worldToClip) {
+    using Line = gl::LineRenderer::Line;
+    std::vector<Line> lines;
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->GetObject() || !scene_->IsSelected(node->GetId())) continue;
+        const scene::Bounds b = node->GetObject()->Evaluate().GetBounds();
+        if (b.Empty()) continue;
+        const math::Mat4 m = node->ObjectMatrix();
+        const double lo[3] = {b.min.x, b.min.y, b.min.z}, hi[3] = {b.max.x, b.max.y, b.max.z};
+        for (int corner = 0; corner < 8; ++corner) {
+            double c[3];
+            for (int k = 0; k < 3; ++k) c[k] = (corner >> k) & 1 ? hi[k] : lo[k];
+            const math::Vec3 from = math::TransformPoint(m, {c[0], c[1], c[2]});
+            for (int k = 0; k < 3; ++k) {
+                double e[3] = {c[0], c[1], c[2]};
+                e[k] += ((corner >> k) & 1 ? -1 : 1) * 0.25 * (hi[k] - lo[k]);
+                const math::Vec3 to = math::TransformPoint(m, {e[0], e[1], e[2]});
+                lines.push_back({static_cast<float>(from.x), static_cast<float>(from.y), static_cast<float>(from.z),
+                                 static_cast<float>(to.x), static_cast<float>(to.y), static_cast<float>(to.z)});
+            }
+        }
+    }
+    if (!lines.empty()) lines_->Draw(lines, worldToClip, 1.0f, 1.0f, 1.0f);
 }
 
 // Lit triangles with the depth test on, so nearer surfaces hide farther ones. Normals
@@ -373,6 +569,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
         meshes_->Draw(v, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, light);
     }
     glDisable(GL_DEPTH_TEST);
+    DrawBrackets(w, h, toClip);
 }
 
 void Viewport::SetShowGrid(bool show) {
@@ -562,6 +759,22 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (onSelect && transformTool_ && PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) != 0) {
+            // Select and Move / Rotate / Scale on an object: select it if needed, then drag
+            // the selection.
+            const scene::Node::Id id = PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+            if (!scene_->IsSelected(id)) onSelect({id}, false, (wp & MK_CONTROL) != 0, false);
+            moving_ = true;
+            moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            movePivot_ = SelectionPivot();
+            SetCapture(Hwnd());
+            if (onMoveBegin) onMoveBegin();
+        } else if (onSelect) {
+            // Selecting: a click, or a region once the mouse moves.
+            selecting_ = true;
+            dragStart_ = dragLast_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            regionVisible_ = false;
+            SetCapture(Hwnd());
         }
         return 0;
     }
@@ -576,6 +789,30 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MOUSEMOVE:
+        if (moving_) {
+            if (onMoveDrag) onMoveDrag(MoveDelta(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)), moveStart_.y - GET_Y_LPARAM(lp));
+            return 0;
+        }
+        if (selecting_) {
+            dragLast_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            const bool moved = std::abs(dragLast_.x - dragStart_.x) > 2 || std::abs(dragLast_.y - dragStart_.y) > 2;
+            if (moved || regionVisible_) { regionVisible_ = true; InvalidateRect(Hwnd(), nullptr, FALSE); }
+            return 0;
+        }
+        // The status bar's X/Y/Z follow the cursor when nothing is being dragged.
+        if (onCursorWorld && drag_ == NavMode::None && !selecting_ && !creatingDrag_) {
+            scene::ConstructionPlane plane;
+            double u = 0, v = 0, upp = 1;
+            // Only positions inside this view count: windows can receive mouse messages
+            // for points outside them (at startup, or while another view has captured
+            // the mouse), and those must not show coordinates.
+            RECT rc;
+            GetClientRect(Hwnd(), &rc);
+            const int mx = GET_X_LPARAM(lp), my = GET_Y_LPARAM(lp);
+            const bool inside = mx >= 0 && my >= 0 && mx < rc.right && my < rc.bottom;
+            const bool ok = inside && PointOnPlane(mx, my, plane, u, v, upp);
+            onCursorWorld(ok, ok ? plane.ToWorld(u, v) : math::Vec3{0, 0, 0});
+        }
         // Creation follows the mouse with or without the button (the height steps).
         if (drag_ == NavMode::None && creationActive && creationActive()) CreateEvent(scene::Creator::Event::Move, lp);
         if (drag_ != NavMode::None) {
@@ -599,6 +836,28 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_LBUTTONUP:
+        if (moving_) {
+            moving_ = false;
+            ReleaseCapture();
+            if (onMoveEnd) onMoveEnd(true);
+            return 0;
+        }
+        if (selecting_) {
+            selecting_ = false;
+            const bool region = regionVisible_;
+            regionVisible_ = false;
+            ReleaseCapture();
+            const bool ctrl = (wp & MK_CONTROL) != 0, alt = GetKeyState(VK_MENU) < 0;
+            std::vector<scene::Node::Id> ids;
+            if (region) {
+                ids = PickRect(dragStart_.x, dragStart_.y, dragLast_.x, dragLast_.y);
+            } else if (const scene::Node::Id id = PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp))) {
+                ids.push_back(id);
+            }
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+            if (onSelect) onSelect(ids, region, ctrl, alt);
+            return 0;
+        }
         if (creatingDrag_) {
             creatingDrag_ = false;
             ReleaseCapture();
@@ -613,9 +872,14 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_CAPTURECHANGED:
+        if (moving_) { moving_ = false; if (onMoveEnd) onMoveEnd(true); }
         creatingDrag_ = false;
+        if (selecting_) { selecting_ = false; regionVisible_ = false; InvalidateRect(Hwnd(), nullptr, FALSE); }
         if (drag_ != NavMode::None) EndDrag(false);
         return 0;
+    case WM_KEYDOWN:
+        if (wp == VK_DELETE && onDeleteKey) { onDeleteKey(); return 0; }
+        break;
     case WM_MOUSEWHEEL:
         // One notch = 120 units of wheel delta.
         Zoom(view::ZoomFactorForWheel(GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA));
@@ -632,6 +896,13 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (onActivate) onActivate();
         return 0;
     case WM_RBUTTONUP:
+        // While moving, right-click cancels the move.
+        if (moving_) {
+            moving_ = false;
+            if (onMoveEnd) onMoveEnd(false);
+            ReleaseCapture();
+            return 0;
+        }
         // While building an object, right-click cancels it.
         if (onCreateCancel && onCreateCancel()) return 0;
         // In a navigation mode, right-click leaves the mode (as in R3).

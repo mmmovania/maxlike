@@ -6,6 +6,9 @@
 #include "view/PerspectiveView.h"
 #include "view/Navigation.h"
 #include "scene/Creation.h"
+#include "scene/Node.h"
+#include "view/Picking.h"
+#include "view/TransformAxes.h"
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
@@ -33,6 +36,19 @@ public:
     std::function<bool(scene::Creator::Event, int owner, const scene::ConstructionPlane&,
                        double u, double v, int screenY, double unitsPerPixel)> onCreateEvent;
     std::function<bool()> onCreateCancel;        // right-click while building
+    // Selection (Phase 6): a click (one id or none) or a region (any number), with the
+    // Ctrl / Alt keys; and the Delete key.
+    std::function<void(const std::vector<scene::Node::Id>& ids, bool region, bool ctrl, bool alt)> onSelect;
+    std::function<void()> onDeleteKey;
+    // Moving (Select and Move): begin, a world-space movement since the start (preview),
+    // end (true: keep, as one undo step; false: cancelled).
+    std::function<void()> onMoveBegin;
+    // delta: world movement (Move); upPixels: vertical mouse movement (Rotate, Scale).
+    std::function<void(const math::Vec3& delta, int upPixels)> onMoveDrag;
+    std::function<void(bool commit)> onMoveEnd;
+    // The world point under the mouse (view plane in ortho views, the ground in
+    // perspective); ok = false when there is none (above the horizon).
+    std::function<void(bool ok, const math::Vec3& world)> onCursorWorld;
     void SetIndex(int index) { index_ = index; }
 
     // `lines` and `meshes` are the panel's shared renderers (created on first paint).
@@ -57,6 +73,21 @@ public:
                       double& unitsPerPixel) const;
     // This view's construction plane (ortho: its right and up; perspective: the ground).
     scene::ConstructionPlane CreationPlane() const;
+
+    // What to draw at the selection's pivot (set by the panel from the toolbar's tool and
+    // constraint buttons).
+    // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
+    void SetTransformTool(bool on) { transformTool_ = on; }
+    void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
+        axesStyle_ = style;
+        for (int i = 0; i < 3; ++i) axesActive_[i] = active[i];
+        InvalidateRect(Hwnd(), nullptr, FALSE);
+    }
+
+    // Picking (window pixels): the object under the point, 0 if none; the objects a
+    // rectangle touches.
+    scene::Node::Id PickAt(int x, int y) const;
+    std::vector<scene::Node::Id> PickRect(int x0, int y0, int x1, int y1) const;
 
     void SetScene(const scene::Scene* scene) { scene_ = scene; InvalidateRect(Hwnd(), nullptr, FALSE); }
 
@@ -102,6 +133,23 @@ private:
     POINT dragLast_{}, dragStart_{};
     bool regionVisible_ = false;
     bool creatingDrag_ = false;          // left button held during creation
+    bool selecting_ = false;             // left button held for a selection click or region
+    bool moving_ = false;                // dragging the selection with a transform tool
+    bool transformTool_ = false;
+    POINT moveStart_{};
+    math::Vec3 movePivot_{};
+    math::Vec3 SelectionPivot() const;
+    bool MouseRay(int x, int y, math::Vec3& origin, math::Vec3& dir) const;
+    math::Vec3 MoveDelta(int x, int y) const;   // world movement from moveStart_ to (x, y)
+    // World point -> window pixels (and depth, smaller = nearer) in this view; false if
+    // behind the camera.
+    bool WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const;
+    void CollectPickData(std::vector<scene::Node::Id>& ids, std::vector<std::vector<view::Segment2>>& outlines,
+                         std::vector<std::vector<view::Triangle2>>* surfaces) const;
+    void DrawBrackets(int width, int height, const math::Mat4& worldToClip);
+    void DrawTransformAxes(int width, int height);
+    view::AxesStyle axesStyle_ = view::AxesStyle::Tripod;
+    bool axesActive_[3] = {true, true, false};   // R3's default constraint: XY
     int index_ = 0;                      // which viewport this is (creation owner)
     bool CreateEvent(scene::Creator::Event e, LPARAM lp);
     UINT labelDpi_ = 0;                  // DPI the label was rendered for

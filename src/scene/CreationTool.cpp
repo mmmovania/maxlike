@@ -37,13 +37,18 @@ uint32_t CreationTool::NextRandomColor(uint32_t previous) {
 
 std::shared_ptr<Object> CreationTool::TargetObject() const {
     if (creator_) return object_;
-    const Node* n = lastName_.empty() ? nullptr : scene_.Find(lastName_);
+    const Node* n = scene_.FindById(lastId_);
     return n ? n->GetObject() : nullptr;
 }
 
 std::string CreationTool::TargetName() const {
     if (creator_) return name_;
-    return (!lastName_.empty() && scene_.Find(lastName_)) ? lastName_ : std::string();
+    return LastCreatedName();
+}
+
+std::string CreationTool::LastCreatedName() const {
+    const Node* n = scene_.FindById(lastId_);
+    return n ? n->Name() : std::string();
 }
 
 void CreationTool::SetType(int type) {
@@ -77,8 +82,11 @@ void CreationTool::Finish() {
     const Node* live = scene_.FindById(liveId_);
     const PRS transform = live ? live->Transform() : PRS{};
     RemoveLive();
-    undo_.Execute(std::make_unique<CreateNodeCommand>(name_, object_, color_, transform), scene_);
-    lastName_ = name_;
+    auto command = std::make_unique<CreateNodeCommand>(name_, object_, color_, transform);
+    CreateNodeCommand* created = command.get();
+    undo_.Execute(std::move(command), scene_);
+    scene_.SetSelection({created->CreatedId()});   // R3: a new object is selected
+    lastId_ = created->CreatedId();
     creator_.reset();
     object_.reset();
     owner_ = -1;
@@ -120,8 +128,11 @@ std::string CreationTool::CreateDirect(const std::vector<std::pair<size_t, doubl
     const std::string name = scene_.UniqueName(PrimitiveBaseName(type_));
     if (!colorPending_) color_ = NextRandomColor(color_);
     colorPending_ = false;
-    undo_.Execute(std::make_unique<CreateNodeCommand>(name, object, color_, transform), scene_);
-    lastName_ = name;
+    auto command = std::make_unique<CreateNodeCommand>(name, object, color_, transform);
+    CreateNodeCommand* created = command.get();
+    undo_.Execute(std::move(command), scene_);
+    scene_.SetSelection({created->CreatedId()});
+    lastId_ = created->CreatedId();
     return name;
 }
 

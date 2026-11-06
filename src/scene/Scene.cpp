@@ -100,9 +100,21 @@ void Scene::DeleteNode(Node* node) {
     const std::vector<Node*> kids = node->children_;
     for (Node* c : kids) Link(c, node->parent_);
     Link(node, nullptr);
+    const Node::Id id = node->GetId();
+    selection_.erase(std::remove(selection_.begin(), selection_.end(), id), selection_.end());
     nodes_.erase(std::remove_if(nodes_.begin(), nodes_.end(),
                                 [node](const std::unique_ptr<Node>& p) { return p.get() == node; }),
                  nodes_.end());
+}
+
+void Scene::SetSelection(std::vector<Node::Id> ids) {
+    selection_.clear();
+    for (Node::Id id : ids)
+        if (FindById(id) && !IsSelected(id)) selection_.push_back(id);
+}
+
+bool Scene::IsSelected(Node::Id id) const {
+    return std::find(selection_.begin(), selection_.end(), id) != selection_.end();
 }
 
 } // namespace scene

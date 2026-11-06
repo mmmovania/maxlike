@@ -24,7 +24,13 @@ public:
     bool Link(Node* child, Node* parent);
 
     // Delete a node; its children move to the node's parent, keeping their world placement.
-    void DeleteNode(Node* node);
+    void DeleteNode(Node* node);                 // also drops it from the selection
+
+    // The selection, by node id, in the order nodes were selected. Changes that should
+    // be undoable go through SelectCommand (scene/Undo.h).
+    const std::vector<Node::Id>& Selection() const { return selection_; }
+    void SetSelection(std::vector<Node::Id> ids); // unknown ids and duplicates are dropped
+    bool IsSelected(Node::Id id) const;
 
     Node* Find(const std::string& name) const;
     Node* FindById(Node::Id id) const;
@@ -37,6 +43,7 @@ public:
 private:
     std::vector<std::unique_ptr<Node>> nodes_;
     Node::Id nextId_ = 1;
+    std::vector<Node::Id> selection_;
 };
 
 } // namespace scene
