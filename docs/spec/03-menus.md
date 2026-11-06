@@ -33,5 +33,10 @@ letters still need checking: press Alt in R3.1 and compare.
 
 ## Behaviour so far
 - `file.exit` posts `WM_CLOSE` (same path as the close button).
-- `help.about` shows an About box.
-- Every other command shows its name in the status-area placeholder.
+- `help.about` shows an About box with the version.
+- `edit.undo` / `edit.redo` undo and redo scene changes (Phase 3). Before the Edit menu
+  opens, their text becomes "Undo <name>" / "Redo <name>", greyed when there is nothing
+  to undo or redo (R3's exact wording unverified). Nothing in the UI creates undoable
+  changes until Phase 5.
+- Every other command shows "<command>  (not implemented yet)" on the status area's
+  second prompt line.

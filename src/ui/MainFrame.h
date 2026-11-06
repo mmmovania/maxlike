@@ -3,7 +3,6 @@
 #include "ui/CommandTable.h"
 #include "scene/Scene.h"
 #include "scene/Undo.h"
-#include "ui/Placeholder.h"
 #include "ui/CommandPanel.h"
 #include "ui/StatusBar.h"
 #include "ui/TabPanel.h"
@@ -47,8 +46,7 @@ private:
     scene::UndoStack undo_;         // every scene change goes through here (Phase 5 on)
     std::wstring docName_ = L"Untitled";
 
-    // Regions, in the order of FrameLayout. Placeholders are replaced by
-    // their real controls step by step.
+    // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;
     Toolbar     mainToolbar_;
     ViewPanel   viewports_;

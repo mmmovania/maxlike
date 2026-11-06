@@ -202,6 +202,15 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
+## Command panel (Phase 4)
+The reference shows the Create panel: six tabs (Create, Modify, Hierarchy, Motion,
+Display, Utilities); the Geometry category pressed among Geometry, Shapes, Lights,
+Cameras, Helpers, Space Warps, Systems; the dropdown on `Standard Primitives`; the
+Object Type rollout (disabled AutoGrid, buttons Box/Cone, Sphere/GeoSphere,
+Cylinder/Tube, Torus/Pyramid, Teapot/Plane) and the Name and Color rollout. Every part is
+measured below; the whole panel matches the reference (0 differing pixels of 143,519,
+text and icons masked).
+
 ## Command panel: tab row (measured, step 4.1)
 Code: `src/ui/CommandPanelLayout.*`, `src/ui/CommandPanel.*`. Coordinates relative to the
 panel (184 px wide, client x 1736 at the reference size); outer frame: `Edge::CommandPanel`.
@@ -266,13 +275,8 @@ Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
   interior masked).
 - Unverified: a checked button's look, the collapsed "+", spacing after a collapsed
   rollout, scrolling (hand drag, wheel step 30 px), when other categories show rollouts.
-- Tabs: Create, Modify, Hierarchy, Motion, Display, Utilities.
-- Create categories: Geometry, Shapes, Lights, Cameras, Helpers, Space Warps, Systems.
-- Subcategory combo: `Standard Primitives`.
-- Rollout `Object Type`: AutoGrid (disabled checkbox), two-column buttons
-  Box/Cone, Sphere/GeoSphere, Cylinder/Tube, Torus/Pyramid, Teapot/Plane.
-- Rollout `Name and Color`: edit box + colour swatch. With an object selected (R3.1
-  screenshots) it shows the object's name, e.g. `Cylinder01`, and its colour.
+- With an object selected (R3.1 screenshots), Name and Color shows the object's name
+  (e.g. `Cylinder01`) and its colour (Phase 6).
 
 ## Status area
 MAXScript mini-listener (pink), prompt line 1 (`None Selected`), prompt line 2
@@ -281,10 +285,11 @@ MAXScript mini-listener (pink), prompt line 1 (`None Selected`), prompt line 2
 2×4 viewport navigation buttons.
 
 ## Custom controls
-| Control | Behaviour |
-|---|---|
-| Rollout | Bevelled title bar with `-`/`+`, collapses; stacked in a rollup that scrolls by hand-drag |
-| Spinner | Edit + tiny up/down arrows; drag to change, Ctrl accelerates, right-click resets |
-| Colour swatch | Bevelled fill; click opens picker |
-| Check button | Looks pressed when on |
-| Flyout button | Corner triangle; hold to open strip of alternatives |
+| Control | Behaviour | State |
+|---|---|---|
+| Rollout | Bevelled title bar with `-`/`+`, collapses; stacked in a rollup that scrolls by hand-drag | ✔ Phase 4 (`Rollup.*`; "+" and scrolling details unverified) |
+| Spinner | Edit + tiny up/down arrows; drag to change, Ctrl accelerates, right-click resets (from memory) | Phase 5, to be measured |
+| Colour swatch | Sunken fill; click opens picker | ✔ Phase 4 (Windows' colour dialog stands in for R3's) |
+| Check button | Looks pressed when on | ✔ Phase 4 (Object Type buttons; checked look unverified) |
+| Flyout button | Corner triangle; hold to open strip of alternatives | ✔ Phase 1 (toolbar, status area) |
+| Dropdown | Classic combo box | ✔ Phase 4 (real `COMBOBOX`) |

@@ -37,8 +37,6 @@ add_executable(maxlike WIN32
     src/ui/CommandPanelLayout.h
     src/ui/Rollup.cpp
     src/ui/Rollup.h
-    src/ui/Placeholder.cpp
-    src/ui/Placeholder.h
     src/ui/CommandTable.cpp
     src/ui/CommandTable.h
     src/ui/MenuSpec.cpp
