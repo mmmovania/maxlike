@@ -77,7 +77,10 @@ void CreationTool::Finish() {
     const Node* live = scene_.FindById(liveId_);
     const PRS transform = live ? live->Transform() : PRS{};
     RemoveLive();
-    undo_.Execute(std::make_unique<CreateNodeCommand>(name_, object_, color_, transform), scene_);
+    auto command = std::make_unique<CreateNodeCommand>(name_, object_, color_, transform);
+    CreateNodeCommand* created = command.get();
+    undo_.Execute(std::move(command), scene_);
+    scene_.SetSelection({created->CreatedId()});   // R3: a new object is selected
     lastName_ = name_;
     creator_.reset();
     object_.reset();
@@ -120,7 +123,10 @@ std::string CreationTool::CreateDirect(const std::vector<std::pair<size_t, doubl
     const std::string name = scene_.UniqueName(PrimitiveBaseName(type_));
     if (!colorPending_) color_ = NextRandomColor(color_);
     colorPending_ = false;
-    undo_.Execute(std::make_unique<CreateNodeCommand>(name, object, color_, transform), scene_);
+    auto command = std::make_unique<CreateNodeCommand>(name, object, color_, transform);
+    CreateNodeCommand* created = command.get();
+    undo_.Execute(std::move(command), scene_);
+    scene_.SetSelection({created->CreatedId()});
     lastName_ = name;
     return name;
 }

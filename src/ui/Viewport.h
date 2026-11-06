@@ -6,6 +6,8 @@
 #include "view/PerspectiveView.h"
 #include "view/Navigation.h"
 #include "scene/Creation.h"
+#include "scene/Node.h"
+#include "view/Picking.h"
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
@@ -33,6 +35,10 @@ public:
     std::function<bool(scene::Creator::Event, int owner, const scene::ConstructionPlane&,
                        double u, double v, int screenY, double unitsPerPixel)> onCreateEvent;
     std::function<bool()> onCreateCancel;        // right-click while building
+    // Selection (Phase 6): a click (one id or none) or a region (any number), with the
+    // Ctrl / Alt keys; and the Delete key.
+    std::function<void(const std::vector<scene::Node::Id>& ids, bool region, bool ctrl, bool alt)> onSelect;
+    std::function<void()> onDeleteKey;
     void SetIndex(int index) { index_ = index; }
 
     // `lines` and `meshes` are the panel's shared renderers (created on first paint).
@@ -57,6 +63,11 @@ public:
                       double& unitsPerPixel) const;
     // This view's construction plane (ortho: its right and up; perspective: the ground).
     scene::ConstructionPlane CreationPlane() const;
+
+    // Picking (window pixels): the object under the point, 0 if none; the objects a
+    // rectangle touches.
+    scene::Node::Id PickAt(int x, int y) const;
+    std::vector<scene::Node::Id> PickRect(int x0, int y0, int x1, int y1) const;
 
     void SetScene(const scene::Scene* scene) { scene_ = scene; InvalidateRect(Hwnd(), nullptr, FALSE); }
 
@@ -102,6 +113,13 @@ private:
     POINT dragLast_{}, dragStart_{};
     bool regionVisible_ = false;
     bool creatingDrag_ = false;          // left button held during creation
+    bool selecting_ = false;             // left button held for a selection click or region
+    // World point -> window pixels (and depth, smaller = nearer) in this view; false if
+    // behind the camera.
+    bool WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const;
+    void CollectPickData(std::vector<scene::Node::Id>& ids, std::vector<std::vector<view::Segment2>>& outlines,
+                         std::vector<std::vector<view::Triangle2>>* surfaces) const;
+    void DrawBrackets(int width, int height, const math::Mat4& worldToClip);
     int index_ = 0;                      // which viewport this is (creation owner)
     bool CreateEvent(scene::Creator::Event e, LPARAM lp);
     UINT labelDpi_ = 0;                  // DPI the label was rendered for

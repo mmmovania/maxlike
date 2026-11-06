@@ -79,9 +79,10 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 ## Phase 6 — Selection and transforms (`phase/6-select-transform`)
 - [x] Objects tab strip (moved from Phase 5): 29 buttons in the main toolbar's geometry;
       the ten Standard Primitives start creation; pixel check 0 differing of 81,384.
-- [ ] Click and region selection (Ctrl adds, Alt removes), selection filter; selected
-      objects drawn white, brackets in shaded views; "N Objects Selected"; undoable.
-- [ ] Delete the selection (one undo step).
+- [x] Click and region selection (Ctrl adds, Alt removes); selected objects drawn white,
+      brackets in shaded views; "N Objects Selected"; undoable (step 6.2).
+- [ ] Selection filter (the toolbar's "All" combo).
+- [x] Delete the selection (one undo step).
 - [ ] Name and Color for the selection: rename, recolour (undoable).
 - [ ] Move/Rotate/Scale with tripod, axis constraints, reference coord systems.
 - [ ] Status bar X/Y/Z type-in.

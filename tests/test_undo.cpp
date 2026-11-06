@@ -134,7 +134,35 @@ static void StackRules() {
     CHECK(!c.IsClean() && c.Undo(s) && !c.IsClean());
 }
 
+static void SelectionAndDelete() {
+    Scene s;
+    UndoStack u;
+    Node* a = s.CreateNode("A");
+    Node* b = s.CreateNode("B");
+    Node* c = s.CreateNode("C");
+    s.Link(c, b);                                          // C is B's child
+    const Node::Id ia = a->GetId(), ib = b->GetId(), ic = c->GetId();
+    s.SetSelection({ia, 999, ia});                         // unknown ids and duplicates dropped
+    CHECK(s.Selection().size() == 1 && s.IsSelected(ia));
+    // Selecting is an undo step.
+    u.Execute(std::make_unique<SelectCommand>(std::vector<Node::Id>{ia, ib}), s);
+    CHECK(u.UndoName() == "Select" && s.Selection().size() == 2);
+    CHECK(u.Undo(s) && s.Selection().size() == 1 && s.IsSelected(ia));
+    CHECK(u.Redo(s) && s.IsSelected(ib));
+    // Deleting the selection: one step; C (B's child) survives, re-linked to the root.
+    u.Execute(std::make_unique<DeleteSelectionCommand>(), s);
+    CHECK(u.UndoName() == "Delete" && s.Nodes().size() == 1 && s.FindById(ic) && s.Selection().empty());
+    CHECK(s.FindById(ic)->Parent() == nullptr);
+    // Undo brings both back, selected, with C under B again.
+    CHECK(u.Undo(s) && s.Nodes().size() == 3 && s.IsSelected(ia) && s.IsSelected(ib));
+    CHECK(s.FindById(ic)->Parent() == s.FindById(ib));
+    // Deleting a node directly drops it from the selection.
+    s.DeleteNode(s.FindById(ia));
+    CHECK(!s.IsSelected(ia) && s.Selection().size() == 1);
+}
+
 int main() {
+    SelectionAndDelete();
     CreateUndoRedo();
     DeleteRestoresHierarchyExactly();
     TransformParamLinkRenameColor();

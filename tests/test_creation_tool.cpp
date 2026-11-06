@@ -39,6 +39,7 @@ static void CreateUndoRedo() {
     CHECK(!t.Busy() && s.Nodes().size() == 1 && u.UndoCount() == 1 && u.UndoName() == "Create");
     const Node* box = s.Find("Box01");
     CHECK(box && Near(box->GetObject()->Params().Float(BoxObject::kHeight), 20) && box->WireColor() == firstColor);
+    CHECK(s.Selection().size() == 1 && s.IsSelected(box->GetId()));       // a new object is selected
     // R3: the swatch keeps showing the new object's colour; the panel edits that object.
     CHECK(t.Color() == firstColor && t.LastCreatedName() == "Box01" && t.TargetName() == "Box01");
     CHECK(t.TargetObject() == box->GetObject());

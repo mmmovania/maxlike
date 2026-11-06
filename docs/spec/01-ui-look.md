@@ -145,8 +145,10 @@ Code: `Viewport::DrawScene`, `Viewport::DrawShaded`, `src/gl/MeshRenderer.*`.
 - Wireframe: visible edges only (a quad's diagonal is hidden), all of them (no
   hidden-line removal), in the node's wire colour. Ortho views map points through the
   grid's pixel formula, so edges on grid lines land on the grid's pixels.
-- Selected objects: R3.1 draws them white (screenshots `r3.1-*-selected-zoomed.png`);
-  not implemented yet (Phase 6).
+- Selected objects (step 6.2): white wireframes (R3.1 screenshots); in shaded views
+  white brackets at the bounding-box corners, a quarter of each edge long (measured
+  roughly from `r3.1-box-created.png`). Status line: "None Selected", "1 Object
+  Selected" (verified), "N Objects Selected" (assumed).
 - Shading modes (label menu): Smooth + Highlights, Wireframe, Other → Smooth, Facets +
   Highlights, Facets, Lit Wireframes (drawn as wireframe for now), Bounding Box.
 - Lighting (unverified): ambient 25 %, diffuse 75 % in the object colour, white Blinn-Phong

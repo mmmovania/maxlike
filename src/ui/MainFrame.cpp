@@ -34,6 +34,24 @@ bool MainFrame::Create() {
 // The Create panel follows the creation tool: the object being built or just created
 // (else a template with the defaults), its name, and its colour (R3: the swatch shows
 // the new object's colour until the next one is started).
+// Verified wording: "None Selected" (reference) and "1 Object Selected" (Box screenshot);
+// the plural form is assumed.
+void MainFrame::UpdateSelectionStatus() {
+    const size_t n = scene_.Selection().size();
+    std::wstring text = n == 0 ? L"None Selected"
+                      : n == 1 ? L"1 Object Selected"
+                               : std::to_wstring(n) + L" Objects Selected";
+    statusArea_.SetPrompt(0, text);
+}
+
+void MainFrame::DeleteSelection() {
+    if (scene_.Selection().empty()) return;
+    undo_.Execute(std::make_unique<scene::DeleteSelectionCommand>(), scene_);
+    UpdateSelectionStatus();
+    UpdateCreatePanel();
+    viewports_.Redraw();
+}
+
 void MainFrame::UpdateCreatePanel() {
     panelObject_ = creation_.TargetObject();
     if (!panelObject_) panelObject_ = template_;
@@ -99,6 +117,7 @@ bool MainFrame::CreateRegions() {
         for (const auto& [index, value] : sizes) params.push_back({static_cast<size_t>(index), value});
         if (creation_.CreateDirect(params, viewports_.ActivePlane(), {x, y, z}).empty()) return;
         UpdateCreatePanel();
+        UpdateSelectionStatus();
         viewports_.Redraw();
     };
     commandPanel_.onCreationMethodChanged = [this](int method) {
@@ -129,6 +148,7 @@ bool MainFrame::CreateRegions() {
                                       double u, double v, int y, double upp) {
         if (!creation_.Feed(e, owner, p, u, v, y, upp)) return false;
         UpdateCreatePanel();
+        UpdateSelectionStatus();
         viewports_.Redraw();
         return true;
     };
@@ -138,6 +158,26 @@ bool MainFrame::CreateRegions() {
         viewports_.Redraw();
         return true;
     };
+
+    // Selection: a click replaces the selection (Ctrl adds, Alt removes; empty space
+    // clears); a region does the same with everything it touches. Each change is one
+    // undoable "Select". NOTE: R3's exact modifier rules are from memory.
+    viewports_.onSelect = [this](const std::vector<scene::Node::Id>& ids, bool, bool ctrl, bool alt) {
+        std::vector<scene::Node::Id> next = scene_.Selection();
+        if (ctrl) {
+            for (auto id : ids) if (!scene_.IsSelected(id)) next.push_back(id);
+        } else if (alt) {
+            next.erase(std::remove_if(next.begin(), next.end(), [&](scene::Node::Id id) {
+                return std::find(ids.begin(), ids.end(), id) != ids.end(); }), next.end());
+        } else {
+            next = ids;
+        }
+        if (next == scene_.Selection()) return;
+        undo_.Execute(std::make_unique<scene::SelectCommand>(next), scene_);
+        UpdateSelectionStatus();
+        viewports_.Redraw();
+    };
+    viewports_.onDeleteKey = [this] { DeleteSelection(); };
 
     tabPanel_.onTabChanged = [this](int index) {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];
@@ -259,7 +299,12 @@ void MainFrame::OnCommand(const std::string& command) {
 
     if (command == "edit.undo" || command == "edit.redo") {
         const bool ok = command == "edit.undo" ? undo_.Undo(scene_) : undo_.Redo(scene_);
-        if (ok) { viewports_.Redraw(); UpdateCreatePanel(); }
+        if (ok) { viewports_.Redraw(); UpdateCreatePanel(); UpdateSelectionStatus(); }
+        return;
+    }
+
+    if (command == "edit.delete") {
+        DeleteSelection();
         return;
     }
 

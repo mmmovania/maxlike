@@ -19,6 +19,8 @@ public:
     std::function<bool()> creationActive;
     std::function<bool(scene::Creator::Event, int, const scene::ConstructionPlane&, double, double, int, double)> onCreateEvent;
     std::function<bool()> onCreateCancel;
+    std::function<void(const std::vector<scene::Node::Id>&, bool, bool, bool)> onSelect;
+    std::function<void()> onDeleteKey;
 
     bool Create(HWND parent);
     NavMode Mode() const { return mode_; }

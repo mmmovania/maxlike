@@ -314,9 +314,104 @@ void Viewport::DrawScene(int w, int h) {
             const float ex = len > 0 ? 0.5f * dx / len : 0.5f, ey = len > 0 ? 0.5f * dy / len : 0.0f;
             lines.push_back({x0, y0, 0, x1 + ex, y1 + ey, 0});
         }
-        const uint32_t c = node->WireColor();
+        // Selected objects are white (measured, R3.1 screenshots).
+        const uint32_t c = scene_->IsSelected(node->GetId()) ? 0xFFFFFF : node->WireColor();
         lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
     }
+}
+
+bool Viewport::WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const {
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    const int w = rc.right, h = rc.bottom;
+    if (type_ == ViewType::Perspective) {
+        const math::Mat4 vp = perspective_.ProjectionMatrix(w, h) * perspective_.ViewMatrix();
+        const math::Vec4 c = vp * math::Vec4{p.x, p.y, p.z, 1.0};
+        if (c.w <= 1e-9) return false;
+        depth = c.w;
+        return math::ProjectToPixel(vp, p, w, h, x, y);
+    }
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    x = view::ColumnF(math::Dot(p, right), w, h, ortho_);
+    y = view::RowF(math::Dot(p, up), w, h, ortho_);
+    depth = -math::Dot(p, math::Cross(right, up));
+    return true;
+}
+
+void Viewport::CollectPickData(std::vector<scene::Node::Id>& ids, std::vector<std::vector<view::Segment2>>& outlines,
+                               std::vector<std::vector<view::Triangle2>>* surfaces) const {
+    if (!scene_) return;
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->GetObject()) continue;
+        const scene::Mesh mesh = node->GetObject()->Evaluate();
+        const math::Mat4 m = node->ObjectMatrix();
+        std::vector<double> X(mesh.verts.size()), Y(mesh.verts.size()), D(mesh.verts.size());
+        std::vector<bool> ok(mesh.verts.size());
+        for (size_t i = 0; i < mesh.verts.size(); ++i)
+            ok[i] = WorldToWindow(math::TransformPoint(m, mesh.verts[i]), X[i], Y[i], D[i]);
+        ids.push_back(node->GetId());
+        outlines.emplace_back();
+        for (const auto& [a, b] : mesh.VisibleEdges())
+            if (ok[a] && ok[b]) outlines.back().push_back({X[a], Y[a], X[b], Y[b]});
+        if (surfaces) {
+            surfaces->emplace_back();
+            for (const scene::Face& f : mesh.faces)
+                if (ok[f.v[0]] && ok[f.v[1]] && ok[f.v[2]])
+                    surfaces->back().push_back({{X[f.v[0]], X[f.v[1]], X[f.v[2]]}, {Y[f.v[0]], Y[f.v[1]], Y[f.v[2]]},
+                                                (D[f.v[0]] + D[f.v[1]] + D[f.v[2]]) / 3});
+        }
+    }
+}
+
+// In shaded views clicks pick surfaces; in wireframe views, edges within 4 px.
+scene::Node::Id Viewport::PickAt(int x, int y) const {
+    const bool shaded = shading_ != Shading::Wireframe && shading_ != Shading::LitWireframe &&
+                        shading_ != Shading::BoundingBox;
+    std::vector<scene::Node::Id> ids;
+    std::vector<std::vector<view::Segment2>> outlines;
+    std::vector<std::vector<view::Triangle2>> surfaces;
+    CollectPickData(ids, outlines, shaded ? &surfaces : nullptr);
+    int hit = shaded ? view::PickSurface(surfaces, x + 0.5, y + 0.5) : -1;
+    if (hit < 0) hit = view::PickNearest(outlines, x + 0.5, y + 0.5, 4.0);
+    return hit >= 0 ? ids[static_cast<size_t>(hit)] : 0;
+}
+
+std::vector<scene::Node::Id> Viewport::PickRect(int x0, int y0, int x1, int y1) const {
+    std::vector<scene::Node::Id> ids;
+    std::vector<std::vector<view::Segment2>> outlines;
+    CollectPickData(ids, outlines, nullptr);
+    std::vector<scene::Node::Id> out;
+    for (int i : view::PickRegion(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5)) out.push_back(ids[static_cast<size_t>(i)]);
+    return out;
+}
+
+// Selected objects in shaded views: white brackets at the corners of the object's
+// bounding box, each a quarter of the box's edge (measured roughly from R3.1's Box
+// screenshot). Drawn over the shaded objects.
+void Viewport::DrawBrackets(int /*w*/, int /*h*/, const math::Mat4& worldToClip) {
+    using Line = gl::LineRenderer::Line;
+    std::vector<Line> lines;
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->GetObject() || !scene_->IsSelected(node->GetId())) continue;
+        const scene::Bounds b = node->GetObject()->Evaluate().GetBounds();
+        if (b.Empty()) continue;
+        const math::Mat4 m = node->ObjectMatrix();
+        const double lo[3] = {b.min.x, b.min.y, b.min.z}, hi[3] = {b.max.x, b.max.y, b.max.z};
+        for (int corner = 0; corner < 8; ++corner) {
+            double c[3];
+            for (int k = 0; k < 3; ++k) c[k] = (corner >> k) & 1 ? hi[k] : lo[k];
+            const math::Vec3 from = math::TransformPoint(m, {c[0], c[1], c[2]});
+            for (int k = 0; k < 3; ++k) {
+                double e[3] = {c[0], c[1], c[2]};
+                e[k] += ((corner >> k) & 1 ? -1 : 1) * 0.25 * (hi[k] - lo[k]);
+                const math::Vec3 to = math::TransformPoint(m, {e[0], e[1], e[2]});
+                lines.push_back({static_cast<float>(from.x), static_cast<float>(from.y), static_cast<float>(from.z),
+                                 static_cast<float>(to.x), static_cast<float>(to.y), static_cast<float>(to.z)});
+            }
+        }
+    }
+    if (!lines.empty()) lines_->Draw(lines, worldToClip, 1.0f, 1.0f, 1.0f);
 }
 
 // Lit triangles with the depth test on, so nearer surfaces hide farther ones. Normals
@@ -373,6 +468,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
         meshes_->Draw(v, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, light);
     }
     glDisable(GL_DEPTH_TEST);
+    DrawBrackets(w, h, toClip);
 }
 
 void Viewport::SetShowGrid(bool show) {
@@ -562,6 +658,12 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (onSelect) {
+            // Selecting: a click, or a region once the mouse moves.
+            selecting_ = true;
+            dragStart_ = dragLast_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            regionVisible_ = false;
+            SetCapture(Hwnd());
         }
         return 0;
     }
@@ -576,6 +678,12 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MOUSEMOVE:
+        if (selecting_) {
+            dragLast_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            const bool moved = std::abs(dragLast_.x - dragStart_.x) > 2 || std::abs(dragLast_.y - dragStart_.y) > 2;
+            if (moved || regionVisible_) { regionVisible_ = true; InvalidateRect(Hwnd(), nullptr, FALSE); }
+            return 0;
+        }
         // Creation follows the mouse with or without the button (the height steps).
         if (drag_ == NavMode::None && creationActive && creationActive()) CreateEvent(scene::Creator::Event::Move, lp);
         if (drag_ != NavMode::None) {
@@ -599,6 +707,22 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_LBUTTONUP:
+        if (selecting_) {
+            selecting_ = false;
+            const bool region = regionVisible_;
+            regionVisible_ = false;
+            ReleaseCapture();
+            const bool ctrl = (wp & MK_CONTROL) != 0, alt = GetKeyState(VK_MENU) < 0;
+            std::vector<scene::Node::Id> ids;
+            if (region) {
+                ids = PickRect(dragStart_.x, dragStart_.y, dragLast_.x, dragLast_.y);
+            } else if (const scene::Node::Id id = PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp))) {
+                ids.push_back(id);
+            }
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+            if (onSelect) onSelect(ids, region, ctrl, alt);
+            return 0;
+        }
         if (creatingDrag_) {
             creatingDrag_ = false;
             ReleaseCapture();
@@ -614,8 +738,12 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_CAPTURECHANGED:
         creatingDrag_ = false;
+        if (selecting_) { selecting_ = false; regionVisible_ = false; InvalidateRect(Hwnd(), nullptr, FALSE); }
         if (drag_ != NavMode::None) EndDrag(false);
         return 0;
+    case WM_KEYDOWN:
+        if (wp == VK_DELETE && onDeleteKey) { onDeleteKey(); return 0; }
+        break;
     case WM_MOUSEWHEEL:
         // One notch = 120 units of wheel delta.
         Zoom(view::ZoomFactorForWheel(GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA));

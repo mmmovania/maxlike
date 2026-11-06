@@ -51,6 +51,8 @@ private:
     bool paramDragging_ = false;                    // a spinner drag in progress...
     double paramDragStart_ = 0;                     // ...and the value it started from
     void UpdateCreatePanel();                       // Parameters, name, colour from the creation tool
+    void UpdateSelectionStatus();                   // "None Selected" / "1 Object Selected" / ...
+    void DeleteSelection();
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout.
