@@ -5,6 +5,7 @@
 #include "view/OrthoGrid.h"
 #include "view/PerspectiveView.h"
 #include "view/Navigation.h"
+#include "scene/Creation.h"
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
@@ -26,6 +27,13 @@ public:
     std::function<NavMode()> navMode;            // the panel's current navigation mode
     std::function<void()> onExitMode;            // right-click while a mode is active
     std::function<void(double)> onZoomAll;       // Zoom All: zoom the other views too
+    // Creation (Phase 5): whether a primitive button is checked, and where mouse events
+    // go, already converted to this view's construction plane. Return true to redraw.
+    std::function<bool()> creationActive;
+    std::function<bool(scene::Creator::Event, int owner, const scene::ConstructionPlane&,
+                       double u, double v, int screenY, double unitsPerPixel)> onCreateEvent;
+    std::function<bool()> onCreateCancel;        // right-click while building
+    void SetIndex(int index) { index_ = index; }
 
     // `lines` and `meshes` are the panel's shared renderers (created on first paint).
     bool Create(HWND parent, gl::GLContext& context, gl::LineRenderer& lines,
@@ -42,6 +50,13 @@ public:
     void Orbit(int dx, int dy);
     void ZoomRegion(int x0, int y0, int x1, int y1);
     void ResetView();   // Zoom Extents with an empty scene: back to the default framing
+
+    // The mouse at window pixel (x, y) on this view's construction plane. False if it
+    // misses the plane (perspective view, above the horizon).
+    bool PointOnPlane(int x, int y, scene::ConstructionPlane& plane, double& u, double& v,
+                      double& unitsPerPixel) const;
+    // This view's construction plane (ortho: its right and up; perspective: the ground).
+    scene::ConstructionPlane CreationPlane() const;
 
     void SetScene(const scene::Scene* scene) { scene_ = scene; InvalidateRect(Hwnd(), nullptr, FALSE); }
 
@@ -86,6 +101,9 @@ private:
     NavMode drag_ = NavMode::None;
     POINT dragLast_{}, dragStart_{};
     bool regionVisible_ = false;
+    bool creatingDrag_ = false;          // left button held during creation
+    int index_ = 0;                      // which viewport this is (creation owner)
+    bool CreateEvent(scene::Creator::Event e, LPARAM lp);
     UINT labelDpi_ = 0;                  // DPI the label was rendered for
 };
 

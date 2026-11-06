@@ -15,12 +15,17 @@ namespace ui {
 class ViewPanel : public win::Window {
 public:
     std::function<void(NavMode)> onNavModeChanged;
+    // Creation hooks, passed to every viewport (see Viewport).
+    std::function<bool()> creationActive;
+    std::function<bool(scene::Creator::Event, int, const scene::ConstructionPlane&, double, double, int, double)> onCreateEvent;
+    std::function<bool()> onCreateCancel;
 
     bool Create(HWND parent);
     NavMode Mode() const { return mode_; }
     void SetNavMode(NavMode mode);          // None leaves the current mode
     void ZoomExtents(bool allViews);        // empty scene: back to the default framing
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
+    scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     int  Active() const { return active_; }
     void SetActive(int index);

@@ -7,6 +7,8 @@
 - `screenshots/r3.1-cylinder-selected-zoomed.png`, `r3.1-cone-selected-zoomed.png` —
   wireframes in R3.1 (views zoomed, so not pixel-comparable): cap spokes hidden, rings
   start at +X, selected objects drawn white.
+- `screenshots/r3.1-box-created.png` — R3.1 right after creating Box01 (Box still active):
+  the creation rollouts, spinners, checked button, enabled name field; source of step 5.3b.
 - `max-reader-handoff.md` — status of the JS `.max` reader. Its regression table's
   triangle counts for parametric primitives other than Box and Pyramid come from three.js
   generators, not from Max (e.g. cone 264, teapot 992; R3.1 says 288 and 1024).
@@ -17,10 +19,12 @@
   match Max's sizes and triangle counts but not necessarily Max's vertex order.
 
 Still to add:
-- **For Phase 5** (most needed): R3.1 right after clicking Box, before dragging (the
-  checked button and the Creation Method, Keyboard Entry and Parameters rollouts with
-  their spinners); one screenshot mid-creation (base dragged, setting the height); a
-  rollout collapsed.
+- Keyboard Entry opened (Box clicked) to measure its contents; the **Objects** tab of the
+  tab panel (above the main toolbar) clicked, for its button strip; one screenshot
+  mid-creation.
+- **For Phase 6**: an object selected in each view (white wireframe, the Perspective
+  view's corner brackets, the transform axes) at the default zoom, with Select and Move
+  active.
 - For later steps: R3's Object Color dialog (click the swatch); the Geometry dropdown
   open; the name field with an object selected.
 - The sample `.max` files (in `docs/reference/samples/`; `.max` is marked binary in

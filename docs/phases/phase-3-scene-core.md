@@ -41,7 +41,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       order; linking and deleting keep world placement (also under a mirrored parent);
       object offset; R3 naming (Box01, Box02, reuse of freed numbers); instances share
       one object; mesh bounds, winding and hidden edges; parameter blocks
-- [ ] On Windows: `ctest` passes (no visible change in the app yet)
+- [x] On Windows: `ctest` passes (no visible change in the app yet)
 
 ## Step 3.2 verification
 - [x] Builds warning-free; thirteen test programs pass (MinGW + Wine)
@@ -52,7 +52,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] Under Wine: without a scene the views are still identical to the reference; the demo
       box's outline in Top is exactly the predicted rectangle (columns 367–496, rows
       146–275, 516 pixels)
-- [ ] On Windows: `--demo-scene box`, `plane`, `pyramid`, `all` look right
+- [x] On Windows: `--demo-scene box`, `plane`, `pyramid`, `all` look right
 - [ ] Pixel comparison with R3.1 wireframe screenshots of box.max, plane.max, pyramid.max
       (all four views in Wireframe, default zoom); this also settles where the samples
       put their objects
@@ -65,7 +65,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       faces, wound oppositely) and faces outwards; counts by formula; tube.max (10 / 6.185,
       h 10, 18 sides, 5 height segs, 1 cap seg) gives 432 triangles; the cone's tip and a
       negative height are handled
-- [ ] On Windows: `--demo-scene cylinder|cone|tube|torus|all` look right
+- [x] On Windows: `--demo-scene cylinder|cone|tube|torus|all` look right
 - [x] Max's true counts (R3.1 File > Summary Info): the cone differed (now fixed, step 3.4a)
 - [x] Cap spokes hidden and rings starting at +X (R3.1 screenshots, step 3.4a)
 - [ ] Vertex order within the meshes; torus rotation/twist units
@@ -75,7 +75,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] `test_primitives` holds R3.1's Summary Info counts (vertices / faces): Cylinder
       110 / 216, Cone 146 / 288, Tube 216 / 432, Torus 288 / 576, Sphere 482 / 960,
       GeoSphere 162 / 320; all watertight and outward-facing; the cylinder shows no cap spokes
-- [ ] On Windows: `--demo-scene sphere|geosphere|all`
+- [x] On Windows: `--demo-scene sphere|geosphere|all`
 - [ ] R3.1 Summary Info still wanted for: Box, Plane, Pyramid (Teapot received: step 3.4b)
 
 ## Step 3.5 verification
@@ -85,7 +85,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       edited under the modifier; a changed vertex count skips the Edit Mesh; stack order and
       disabling; smoothing: box sides flat, sphere radial, the twisted sides smooth across
       their diagonals, group 0 flat
-- [ ] On Windows: `--demo-scene instances`
+- [x] On Windows: `--demo-scene instances`
 - [ ] Unverified: how Max weights faces when averaging normals (equal weights for now)
 
 ## Step 3.6 verification
@@ -94,7 +94,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] Under Wine: the empty scene is still identical to the reference; the demo scenes
       shade correctly (sphere highlight, flat cylinder caps, the tube's inner wall, the
       twisted boxes smooth across their diagonals)
-- [ ] On Windows: shading modes from the viewport label menu in every view
+- [x] On Windows: shading modes from the viewport label menu in every view
 - [ ] Unverified: R3's viewport lighting (light direction, ambient, highlight size) —
       an R3.1 screenshot of a shaded object would let us tune it; Lit Wireframes is drawn
       as plain wireframe for now
@@ -107,7 +107,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
       link, rename, colour each undo and redo; a macro is one step; 3 levels forget the
       oldest steps; a new command clears redo; the saved state is tracked through undo,
       redo, and lost when a new branch replaces it
-- [ ] On Windows: Edit > Undo / Redo are greyed (nothing in the UI creates commands until
+- [x] On Windows: Edit > Undo / Redo are greyed (nothing in the UI creates commands until
       Phase 5); `ctest` passes
 - [ ] Unverified: R3's undo levels default (20 assumed) and menu wording ("Undo Create")
 
@@ -119,7 +119,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] Why 530 and not 529: merging all points gives 529 because the handle's end touches
       the body at one grid point; merging per part (Body = rim + body + bottom, Handle,
       Spout, Lid) keeps it separate: 530
-- [ ] On Windows: `--demo-scene teapot`
+- [x] On Windows: `--demo-scene teapot`
 - [ ] Optional check in R3.1 (Segments 4, one part ticked): predicted Body 257 / 512,
       Handle 72 / 128, Spout 72 / 128, Lid 129 / 256; and all parts at Segments 1, 2, 3:
       38 / 64, 138 / 256, 302 / 576
@@ -128,7 +128,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 3.
 - [x] Clean rebuild: 0 warnings; fifteen test programs pass (MinGW + Wine)
 - [x] Empty scene at 1920 × 998 still identical to the R3.1 reference: frames, Top, Front,
       Left 0 differing pixels of 1,119,462 (labels masked)
-- [ ] On Windows: `ctest`, and `--demo-scene all`, `teapot`, `instances` look right
+- [x] On Windows: `ctest`, and `--demo-scene all`, `teapot`, `instances` look right
 
 ## Notes
 - Rotations are standard right-handed quaternions inside maxlike; `.max` files store the

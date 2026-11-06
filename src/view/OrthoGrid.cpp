@@ -26,6 +26,16 @@ double RowF(double vv, int w, int h, const OrthoView& v) {
     return (h - 1) / 2.0 + kOffsetY - (vv - v.centerV) * ScaleY(w, h, v);
 }
 
+double UOfColumn(int x, int w, int h, const OrthoView& v) {
+    const double a = ColumnF(0, w, h, v), b = ColumnF(1, w, h, v) - a;   // ColumnF = a + b u
+    return (x + 0.5 - a) / b;
+}
+
+double VOfRow(int y, int w, int h, const OrthoView& v) {
+    const double a = RowF(0, w, h, v), b = RowF(1, w, h, v) - a;         // RowF = a + b v
+    return (y + 0.5 - a) / b;
+}
+
 int ColumnOf(double u, int w, int h, const OrthoView& v) { return static_cast<int>(std::floor(ColumnF(u, w, h, v))); }
 int RowOf(double vv, int w, int h, const OrthoView& v) { return static_cast<int>(std::floor(RowF(vv, w, h, v))); }
 

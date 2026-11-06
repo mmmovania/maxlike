@@ -73,7 +73,18 @@ static void WorldToClipMatchesPixels() {
     if (!(nearP.z < farP.z)) { ++failures; std::printf("FAIL depth order\n"); }
 }
 
+static void PixelToWorldRoundTrip() {
+    // The world point under a pixel's centre maps back to that pixel.
+    view::OrthoView v;
+    v.centerU = 17; v.centerV = -9; v.width = 250;
+    for (int x : {0, 100, 431, 862})
+        if (view::ColumnOf(view::UOfColumn(x, 863, 423, v), 863, 423, v) != x) { ++failures; std::printf("FAIL column %d\n", x); }
+    for (int y : {0, 50, 211, 422})
+        if (view::RowOf(view::VOfRow(y, 863, 423, v), 863, 423, v) != y) { ++failures; std::printf("FAIL row %d\n", y); }
+}
+
 int main() {
+    PixelToWorldRoundTrip();
     WorldToClipMatchesPixels();
     { // Top
         const Expect cols[] = {{0,M},{22,m},{43,m},{65,m},{86,m},{108,m},{129,m},{151,m},{172,m},{194,m},{216,M},{237,m},{259,m},{280,m},{302,m},{323,m},{345,m},{367,m},{388,m},{410,m},{431,A},{453,m},{474,m},{496,m},{517,m},{539,m},{561,m},{582,m},{604,m},{625,m},{647,M},{668,m},{690,m},{712,m},{733,m},{755,m},{776,m},{798,m},{819,m},{841,m},{862,M}};

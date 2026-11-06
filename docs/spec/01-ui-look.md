@@ -269,10 +269,25 @@ Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
   - Colour swatch x 150–166, same rows: 1-px sunken edge filled with the colour; the
     reference shows `#8D073A` (R3 picks the next object's colour at random). Clicking it
     opens Windows' colour dialog for now (R3's own "Object Color" dialog: later).
-- Spinners: none visible in the reference; measured in Phase 5 from a screenshot of the
-  Parameters rollout.
+- While a primitive is active (measured, `r3.1-box-created.png`): the checked button has
+  the pressed outline around light green `#C0FFC0`; AutoGrid is enabled; the name field
+  is enabled (white, the new object's name); the swatch shows the new object's colour.
+  Rollouts added: Creation Method (title row 306: two classic radio buttons at x 34 and
+  102, title + 22), Keyboard Entry (collapsed: its frame title + 4 … + 13, "+" = a 6-px
+  bar at x 17–22 on title + 8 and a 2-px upright x 19–20, title + 5 … + 11), Parameters
+  (title 376). The container's top and bottom edges then stop at x 173 (a 4-px gutter).
+- Spinner (measured): label right-aligned to x 87; field x 90–143 × 16 rows (sunken
+  edge, black inner top/left, face inner right/bottom, white inside), value with three
+  decimals; arrows x 146–157, up half rows 0–7 and down half rows 8–14 (highlight top and
+  left, shadow right and bottom, dark right column and bottom row), 5-px triangles.
+  Parameters rows: title + 24, + 45, + 66, gap, + 94, + 115, + 136, checkbox + 162; the
+  frame ends 21 rows below the last row. Classic radio buttons are drawn from their
+  measured pattern (Wine draws them differently).
+- Keyboard Entry opened (NOTE: unverified, laid out by the Parameters rule): X, Y, Z at
+  title + 24, + 45, + 66; the primitive's sizes from + 94; a Create button (69 × 18 at
+  x 57) 5 rows below the last size row.
 - Verified: whole panel 0 differing pixels of 143,519 (text, icons and the dropdown's
-  interior masked).
+  interior masked); while creating a Box, 0 of 122,771 against R3.1's screenshot.
 - Unverified: a checked button's look, the collapsed "+", spacing after a collapsed
   rollout, scrolling (hand drag, wheel step 30 px), when other categories show rollouts.
 - With an object selected (R3.1 screenshots), Name and Color shows the object's name
@@ -288,7 +303,7 @@ MAXScript mini-listener (pink), prompt line 1 (`None Selected`), prompt line 2
 | Control | Behaviour | State |
 |---|---|---|
 | Rollout | Bevelled title bar with `-`/`+`, collapses; stacked in a rollup that scrolls by hand-drag | ✔ Phase 4 (`Rollup.*`; "+" and scrolling details unverified) |
-| Spinner | Edit + tiny up/down arrows; drag to change, Ctrl accelerates, right-click resets (from memory) | Phase 5, to be measured |
+| Spinner | Edit + tiny up/down arrows; drag to change, Ctrl accelerates, Alt slows, right-click resets (from memory) | ✔ Phase 5 (look measured; behaviour `SpinnerModel`) |
 | Colour swatch | Sunken fill; click opens picker | ✔ Phase 4 (Windows' colour dialog stands in for R3's) |
 | Check button | Looks pressed when on | ✔ Phase 4 (Object Type buttons; checked look unverified) |
 | Flyout button | Corner triangle; hold to open strip of alternatives | ✔ Phase 1 (toolbar, status area) |
