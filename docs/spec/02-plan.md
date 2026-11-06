@@ -66,16 +66,15 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       143,519 (text and icons masked). The selected-object screenshots are zoomed and
       show the same panel; the enabled name field is checked in Phase 6.
 
-## Phase 5 — Interactive creation (`phase/5-creation`)
-Needs R3.1 screenshots (see `docs/reference/README.md`): the Create panel right after
-clicking Box (checked button, Creation Method, Keyboard Entry, Parameters with
-spinners), and one mid-creation.
-
-- [ ] Creation state machines for all ten Standard Primitives, through the undo system
-      (one undo step per created object).
-- [ ] Spinner control (measured from an R3.1 screenshot of the Parameters rollout).
-- [ ] Parameters rollout updates live while dragging.
-- [ ] Objects tab strip of the tab panel.
+## Phase 5 — Interactive creation (`phase/5-creation`) ✔ v0.5.0
+- [x] Creation state machines for all ten Standard Primitives, through the undo system
+      (one undo step per created object); construction planes per view.
+- [x] Spinner control (measured from R3.1's screenshot `r3.1-box-created.png`).
+- [x] Parameters rollout updates live while dragging; edits afterwards are undo steps.
+- [x] Creation Method and Keyboard Entry rollouts (Keyboard Entry creates typed objects).
+- [x] Pixel check: the panel while creating a Box, 0 differing pixels of 122,771.
+- [ ] Objects tab strip of the tab panel: deferred until an R3.1 screenshot of the
+      Objects tab exists (strips are built from measurements, decision B).
 
 ## Phase 6 — Selection and transforms (`phase/6-select-transform`)
 - [ ] Click and region selection, selection filter; selected objects drawn white.

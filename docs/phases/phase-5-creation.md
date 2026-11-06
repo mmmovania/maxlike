@@ -22,7 +22,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [x] **5.4 Keyboard Entry**: X, Y, Z, the primitive's sizes and a Create button
       (`params::KeyboardEntryFor`), laid out by the Parameters rule; Create makes the typed
       object at the typed position, oriented by the active viewport, as one undo step
-- [ ] 5.5 Wrap-up: checks, `docs/tech/phase5-tech-docs.md`, version 0.5.0
+- [x] **5.5 Wrap-up**: checks, `docs/tech/phase5-tech-docs.md`, version 0.5.0
+- [ ] Objects tab strip: deferred (needs an R3.1 screenshot of the Objects tab)
 
 ## Step 5.1 verification
 - [x] Builds warning-free; eighteen test programs pass (MinGW + Wine)
@@ -87,6 +88,13 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [ ] On Windows: open Keyboard Entry, type values, Create; undo
 - [ ] Unverified: Keyboard Entry's layout, labels and default values (no R3.1 screenshot
       of it opened yet)
+
+## Step 5.5 verification
+- [x] Clean rebuild: 0 warnings; twenty-one test programs pass (MinGW + Wine)
+- [x] With nothing created, the window is identical to the end of Phase 4 (whole window:
+      7 differing pixels of 1,423,793 against the R3.1 reference, all icon art)
+- [x] While creating a Box, the command panel matches R3.1 exactly (0 of 122,771)
+- [ ] On Windows: `ctest`; create, edit and undo objects of every type
 
 ## Notes
 - Steps are from memory of R3; the defaults (Creation Method: Box not Cube, Sphere from
