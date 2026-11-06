@@ -60,6 +60,32 @@ bool MainFrame::CreateRegions() {
 
     viewports_.SetScene(&scene_);
 
+    // Creation: the checked Object Type button picks the primitive; viewports feed the
+    // mouse; the swatch gives the colour, and shows the next one after each object.
+    // NOTE: R3's prompt wording is unverified.
+    creation_.SetColor(commandPanel_.ObjectColor());
+    commandPanel_.onObjectColorChanged = [this](unsigned rgb) { creation_.SetColor(rgb); };
+    commandPanel_.onCreateTypeChanged = [this](int type) {
+        if (creation_.Cancel()) viewports_.Redraw();
+        creation_.SetType(type);
+        statusArea_.SetPrompt(1, type >= 0 ? L"Click and drag to begin creation process"
+                                           : L"Click or click-and-drag to select objects");
+    };
+    viewports_.creationActive = [this] { return creation_.Type() >= 0; };
+    viewports_.onCreateEvent = [this](scene::Creator::Event e, int owner, const scene::ConstructionPlane& p,
+                                      double u, double v, int y, double upp) {
+        if (!creation_.Feed(e, owner, p, u, v, y, upp)) return false;
+        if (!creation_.Busy() && creation_.Color() != commandPanel_.ObjectColor())
+            commandPanel_.SetObjectColor(creation_.Color());   // an object was finished
+        viewports_.Redraw();
+        return true;
+    };
+    viewports_.onCreateCancel = [this] {
+        if (!creation_.Cancel()) return false;
+        viewports_.Redraw();
+        return true;
+    };
+
     tabPanel_.onTabChanged = [this](int index) {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];
         mainToolbar_.ShowStrip(index, tab.label);

@@ -15,6 +15,10 @@ namespace ui {
 class ViewPanel : public win::Window {
 public:
     std::function<void(NavMode)> onNavModeChanged;
+    // Creation hooks, passed to every viewport (see Viewport).
+    std::function<bool()> creationActive;
+    std::function<bool(scene::Creator::Event, int, const scene::ConstructionPlane&, double, double, int, double)> onCreateEvent;
+    std::function<bool()> onCreateCancel;
 
     bool Create(HWND parent);
     NavMode Mode() const { return mode_; }

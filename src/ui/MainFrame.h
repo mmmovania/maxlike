@@ -3,6 +3,7 @@
 #include "ui/CommandTable.h"
 #include "scene/Scene.h"
 #include "scene/Undo.h"
+#include "scene/CreationTool.h"
 #include "ui/CommandPanel.h"
 #include "ui/StatusBar.h"
 #include "ui/TabPanel.h"
@@ -44,6 +45,7 @@ private:
     CommandTable commands_;
     scene::Scene scene_;            // the document; declared before the views that show it
     scene::UndoStack undo_;         // every scene change goes through here (Phase 5 on)
+    scene::CreationTool creation_{scene_, undo_};   // builds objects from viewport mouse events
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout.

@@ -41,6 +41,13 @@ bool ViewPanel::Create(HWND parent) {
     for (int i = 0; i < viewports::kCount; ++i) {
         Viewport& v = views_[static_cast<size_t>(i)];
         v.onActivate = [this, i] { SetActive(i); };
+        v.SetIndex(i);
+        v.creationActive = [this] { return creationActive && creationActive(); };
+        v.onCreateEvent = [this](scene::Creator::Event e, int owner, const scene::ConstructionPlane& p,
+                                 double u, double vv, int y, double upp) {
+            return onCreateEvent && onCreateEvent(e, owner, p, u, vv, y, upp);
+        };
+        v.onCreateCancel = [this] { return onCreateCancel && onCreateCancel(); };
         v.navMode = [this] { return mode_; };
         v.onExitMode = [this] { SetNavMode(NavMode::None); };
         v.onZoomAll = [this, i](double factor) {

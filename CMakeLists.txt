@@ -107,6 +107,8 @@ add_executable(maxlike WIN32
     src/scene/Undo.h
     src/scene/Creation.cpp
     src/scene/Creation.h
+    src/scene/CreationTool.cpp
+    src/scene/CreationTool.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
     res/resource.h
@@ -172,3 +174,4 @@ maxlike_add_test(test_undo tests/test_undo.cpp src/scene/Undo.cpp src/scene/Prim
 maxlike_add_test(test_command_panel_layout tests/test_command_panel_layout.cpp src/ui/CommandPanelLayout.cpp)
 maxlike_add_test(test_rollup tests/test_rollup.cpp src/ui/Rollup.cpp)
 maxlike_add_test(test_creation tests/test_creation.cpp src/scene/Creation.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_creation_tool tests/test_creation_tool.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)

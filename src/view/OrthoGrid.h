@@ -34,6 +34,12 @@ int RowOf(double v, int width, int height, const OrthoView& view);
 double ColumnF(double u, int width, int height, const OrthoView& view);
 double RowF(double v, int width, int height, const OrthoView& view);
 
+// The inverse: the world coordinates (along the view's right and up) at the centre of
+// pixel column `x` / row `y`. Used to turn mouse positions into points on the
+// construction plane.
+double UOfColumn(int x, int width, int height, const OrthoView& view);
+double VOfRow(int y, int width, int height, const OrthoView& view);
+
 // World -> clip space for an ortho view, consistent with ColumnF/RowF: a world point
 // lands at window x = ColumnF(u), y = RowF(v) (top-down), where u = point . right and
 // v = point . up. Depth: points nearer the viewer (larger point . (right x up)) get

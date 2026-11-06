@@ -142,6 +142,49 @@ void Viewport::ZoomRegion(int x0, int y0, int x1, int y1) {
     InvalidateRect(Hwnd(), nullptr, FALSE);
 }
 
+bool Viewport::PointOnPlane(int x, int y, scene::ConstructionPlane& plane, double& u, double& v,
+                            double& unitsPerPixel) const {
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    const int w = rc.right, h = rc.bottom;
+    if (w <= 0 || h <= 0) return false;
+    if (type_ != ViewType::Perspective) {
+        // Ortho: the plane is the view's own (right, up); the grid formula, reversed.
+        math::Vec3 right, up;
+        OrthoBasis(right, up);
+        plane = {right, up, math::Cross(right, up)};
+        u = view::UOfColumn(x, w, h, ortho_);
+        v = view::VOfRow(y, w, h, ortho_);
+        unitsPerPixel = view::OrthoUnitsPerPixel(ortho_, w);
+        return true;
+    }
+    // Perspective: a ray from the eye through the pixel, hitting the ground (z = 0).
+    const math::Mat4 view = perspective_.ViewMatrix();
+    const math::Vec3 right{view.m[0][0], view.m[1][0], view.m[2][0]};
+    const math::Vec3 up{view.m[0][1], view.m[1][1], view.m[2][1]};
+    const math::Vec3 eye = perspective_.Eye();
+    const math::Vec3 forward = math::Normalize(perspective_.target - eye);
+    const double f = (w / 2.0) / std::tan(perspective_.fovDeg * 3.14159265358979323846 / 360.0);
+    const math::Vec3 dir = forward * f + right * (x + 0.5 - w / 2.0) - up * (y + 0.5 - h / 2.0);
+    if (std::fabs(dir.z) < 1e-12) return false;
+    const double t = -eye.z / dir.z;
+    if (t <= 0) return false;                              // the ground is behind the ray
+    const math::Vec3 hit = eye + dir * t;
+    plane = scene::TopPlane();
+    u = hit.x;
+    v = hit.y;
+    unitsPerPixel = 2.0 * perspective_.distance * std::tan(perspective_.fovDeg * 3.14159265358979323846 / 360.0) / w;
+    return true;
+}
+
+bool Viewport::CreateEvent(scene::Creator::Event e, LPARAM lp) {
+    if (!onCreateEvent) return false;
+    scene::ConstructionPlane plane;
+    double u = 0, v = 0, upp = 1;
+    if (!PointOnPlane(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), plane, u, v, upp)) return false;
+    return onCreateEvent(e, index_, plane, u, v, GET_Y_LPARAM(lp), upp);
+}
+
 void Viewport::ResetView() {
     ortho_ = view::OrthoView{};
     perspective_ = view::PerspectiveView{};
@@ -508,6 +551,11 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         SetFocus(Hwnd()); // so the mouse wheel comes here
         const NavMode mode = navMode ? navMode() : NavMode::None;
         if (mode != NavMode::None) BeginDrag(mode, GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+        else if (creationActive && creationActive()) {
+            creatingDrag_ = true;
+            SetCapture(Hwnd());
+            CreateEvent(scene::Creator::Event::Press, lp);
+        }
         return 0;
     }
     case WM_MBUTTONDOWN: {
@@ -521,6 +569,8 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MOUSEMOVE:
+        // Creation follows the mouse with or without the button (the height steps).
+        if (drag_ == NavMode::None && creationActive && creationActive()) CreateEvent(scene::Creator::Event::Move, lp);
         if (drag_ != NavMode::None) {
             const int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp);
             const int dx = x - dragLast_.x, dy = y - dragLast_.y;
@@ -542,6 +592,13 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_LBUTTONUP:
+        if (creatingDrag_) {
+            creatingDrag_ = false;
+            ReleaseCapture();
+            CreateEvent(scene::Creator::Event::Release, lp);
+            return 0;
+        }
+        [[fallthrough]];
     case WM_MBUTTONUP:
         if (drag_ != NavMode::None) {
             EndDrag(true);
@@ -549,6 +606,7 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_CAPTURECHANGED:
+        creatingDrag_ = false;
         if (drag_ != NavMode::None) EndDrag(false);
         return 0;
     case WM_MOUSEWHEEL:
@@ -559,12 +617,16 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (LOWORD(lp) == HTCLIENT) {
             const NavMode mode = drag_ != NavMode::None ? drag_ : (navMode ? navMode() : NavMode::None);
             if (mode != NavMode::None) { SetCursor(CursorFor(mode)); return TRUE; }
+            // Creating: a cross-hair (NOTE: R3's creation cursor is unverified).
+            if (creationActive && creationActive()) { SetCursor(LoadCursorW(nullptr, IDC_CROSS)); return TRUE; }
         }
         break;
     case WM_RBUTTONDOWN:
         if (onActivate) onActivate();
         return 0;
     case WM_RBUTTONUP:
+        // While building an object, right-click cancels it.
+        if (onCreateCancel && onCreateCancel()) return 0;
         // In a navigation mode, right-click leaves the mode (as in R3).
         if (navMode && navMode() != NavMode::None) {
             if (onExitMode) onExitMode();
