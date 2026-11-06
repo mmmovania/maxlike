@@ -1,4 +1,5 @@
 #include "scene/MoveMath.h"
+#include <algorithm>
 #include <cmath>
 
 namespace scene::move {
@@ -46,6 +47,36 @@ bool InverseTransformPoint(const math::Mat4& m, const math::Vec3& world, math::V
     local = {math::Dot(p, math::Cross(c1, c2)) / det, math::Dot(c0, math::Cross(p, c2)) / det,
              math::Dot(c0, math::Cross(c1, p)) / det};
     return true;
+}
+
+int RotationAxis(const bool active[3]) {
+    const int count = int(active[0]) + int(active[1]) + int(active[2]);
+    for (int a = 0; a < 3; ++a) {
+        if (count == 1 && active[a]) return a;
+        if (count == 2 && !active[a]) return a;
+    }
+    return -1;
+}
+
+math::Quat DragRotation(int axis, int upPixels) {
+    if (axis < 0) return {0, 0, 0, 1};
+    const math::Vec3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    return math::Quat::FromAxisAngle(axes[axis], upPixels * 0.5 * 3.14159265358979323846 / 180.0);
+}
+
+math::Quat RotateInParent(const math::Quat& parentWorld, const math::Quat& worldDelta, const math::Quat& start) {
+    // Express the world rotation in the parent's frame, then apply it after the start.
+    return (parentWorld.Conjugate() * worldDelta * parentWorld * start).Normalized();
+}
+
+math::Vec3 DragScale(ScaleMode mode, const bool active[3], int upPixels) {
+    const double f = std::max(0.01, 1.0 + upPixels * 0.01);
+    if (mode == ScaleMode::Uniform) return {f, f, f};
+    double s[3];
+    const int n = int(active[0]) + int(active[1]) + int(active[2]);
+    const double other = (mode == ScaleMode::Squash && n > 0 && n < 3) ? std::pow(f, -double(n) / (3 - n)) : 1.0;
+    for (int a = 0; a < 3; ++a) s[a] = active[a] ? f : other;
+    return {s[0], s[1], s[2]};
 }
 
 } // namespace scene::move

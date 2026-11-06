@@ -759,9 +759,9 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
-        } else if (onSelect && axesStyle_ == view::AxesStyle::MoveGizmo &&
-                   PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) != 0) {
-            // Select and Move on an object: select it if needed, then drag the selection.
+        } else if (onSelect && transformTool_ && PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) != 0) {
+            // Select and Move / Rotate / Scale on an object: select it if needed, then drag
+            // the selection.
             const scene::Node::Id id = PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
             if (!scene_->IsSelected(id)) onSelect({id}, false, (wp & MK_CONTROL) != 0, false);
             moving_ = true;
@@ -790,7 +790,7 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_MOUSEMOVE:
         if (moving_) {
-            if (onMoveDrag) onMoveDrag(MoveDelta(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+            if (onMoveDrag) onMoveDrag(MoveDelta(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)), moveStart_.y - GET_Y_LPARAM(lp));
             return 0;
         }
         if (selecting_) {

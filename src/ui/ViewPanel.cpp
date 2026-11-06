@@ -53,7 +53,7 @@ bool ViewPanel::Create(HWND parent) {
         };
         v.onDeleteKey = [this] { if (onDeleteKey) onDeleteKey(); };
         v.onMoveBegin = [this] { if (onMoveBegin) onMoveBegin(); };
-        v.onMoveDrag = [this](const math::Vec3& d) { if (onMoveDrag) onMoveDrag(d); };
+        v.onMoveDrag = [this](const math::Vec3& d, int up) { if (onMoveDrag) onMoveDrag(d, up); };
         v.onMoveEnd = [this](bool commit) { if (onMoveEnd) onMoveEnd(commit); };
         v.navMode = [this] { return mode_; };
         v.onExitMode = [this] { SetNavMode(NavMode::None); };

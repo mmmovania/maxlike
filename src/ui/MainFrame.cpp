@@ -47,10 +47,11 @@ void MainFrame::UpdateSelectionStatus() {
 
 // The figure at the selection's pivot and the prompt follow the tool and constraint.
 // Prompts: Select and Move verified (r3.1-move-selected.png); Rotate and Scale follow
-// the same pattern (NOTE: unverified). Rotate and Scale show the tripod until their own
-// look is measured.
+// the same pattern (NOTE: unverified). Move, Rotate and Scale all show the Move gizmo
+// (R3.1, confirmed by the project owner); Select and creation show the tripod.
 void MainFrame::UpdateTransformDisplay() {
-    viewports_.SetAxesDisplay(tool_ == Tool::Move ? view::AxesStyle::MoveGizmo : view::AxesStyle::Tripod, constraint_);
+    viewports_.SetAxesDisplay(tool_ != Tool::Select ? view::AxesStyle::MoveGizmo : view::AxesStyle::Tripod, constraint_);
+    viewports_.SetTransformTool(tool_ != Tool::Select);
     if (commandPanel_.CreateType() >= 0) return;   // creation keeps its own prompt
     const wchar_t* prompt = L"Click or click-and-drag to select objects";
     if (tool_ == Tool::Move) prompt = L"Click and drag to select and move objects";
@@ -257,32 +258,49 @@ bool MainFrame::CreateRegions() {
             for (const scene::Node* p = n->Parent(); p && !ancestorSelected; p = p->Parent())
                 ancestorSelected = scene_.IsSelected(p->GetId());
             if (ancestorSelected) continue;
-            Moving m{id, n->Transform(), math::TransformPoint(n->WorldMatrix(), {0, 0, 0}), n->Parent() != nullptr, {}};
+            Moving m{id, n->Transform(), math::TransformPoint(n->WorldMatrix(), {0, 0, 0}), n->Parent() != nullptr, {}, {}};
             if (n->Parent()) m.parentWorld = n->Parent()->WorldMatrix();
+            for (const scene::Node* p = n->Parent(); p; p = p->Parent())     // the parents' combined rotation
+                m.parentRotation = p->Transform().rotation * m.parentRotation;
             moving_.push_back(m);
         }
     };
-    viewports_.onMoveDrag = [this](const math::Vec3& delta) {
+    // Move follows the mouse in the world; Rotate and Scale follow its vertical movement,
+    // each object about its own pivot (NOTE: R3's pivot options are not implemented yet).
+    viewports_.onMoveDrag = [this](const math::Vec3& delta, int up) {
+        const math::Quat turn = scene::move::DragRotation(scene::move::RotationAxis(constraint_), up);
+        const math::Vec3 factors = scene::move::DragScale(scaleMode_, constraint_, up);
         for (const Moving& m : moving_) {
             scene::Node* n = scene_.FindById(m.id);
             if (!n) continue;
-            const math::Vec3 world = m.startWorld + delta;
-            math::Vec3 local = world;
-            if (m.hasParent && !scene::move::InverseTransformPoint(m.parentWorld, world, local)) continue;
-            n->Transform().position = local;
+            if (tool_ == Tool::Move) {
+                const math::Vec3 world = m.startWorld + delta;
+                math::Vec3 local = world;
+                if (m.hasParent && !scene::move::InverseTransformPoint(m.parentWorld, world, local)) continue;
+                n->Transform().position = local;
+            } else if (tool_ == Tool::Rotate) {
+                n->Transform().rotation = scene::move::RotateInParent(m.parentRotation, turn, m.start.rotation);
+            } else if (tool_ == Tool::Scale) {
+                n->Transform().scale = {m.start.scale.x * factors.x, m.start.scale.y * factors.y, m.start.scale.z * factors.z};
+            }
         }
         viewports_.Redraw();
     };
     viewports_.onMoveEnd = [this](bool commit) {
-        auto macro = std::make_unique<scene::MacroCommand>("Move");
+        const char* name = tool_ == Tool::Rotate ? "Rotate" : tool_ == Tool::Scale ? "Scale" : "Move";
+        auto macro = std::make_unique<scene::MacroCommand>(name);
         bool changed = false;
         for (const Moving& m : moving_) {
             scene::Node* n = scene_.FindById(m.id);
             if (!n) continue;
             const scene::PRS after = n->Transform();
             n->Transform() = m.start;                   // so the command records the real "before"
-            if (commit && math::Length(after.position - m.start.position) > 1e-12) {
-                macro->Add(std::make_unique<scene::TransformCommand>(m.id, m.start, after));
+            const bool same = math::Length(after.position - m.start.position) < 1e-12 &&
+                              math::Length(after.scale - m.start.scale) < 1e-12 &&
+                              std::fabs(after.rotation.x - m.start.rotation.x) + std::fabs(after.rotation.y - m.start.rotation.y) +
+                                  std::fabs(after.rotation.z - m.start.rotation.z) + std::fabs(after.rotation.w - m.start.rotation.w) < 1e-12;
+            if (commit && !same) {
+                macro->Add(std::make_unique<scene::TransformCommand>(m.id, m.start, after, name));
                 changed = true;
             }
         }
@@ -422,7 +440,14 @@ void MainFrame::OnCommand(const std::string& command) {
                                    {"tool.scale_uniform", Tool::Scale}, {"tool.scale_nonuniform", Tool::Scale},
                                    {"tool.scale_squash", Tool::Scale}};
         for (const T& t : kTools)
-            if (command == t.cmd) { tool_ = t.tool; UpdateTransformDisplay(); return; }
+            if (command == t.cmd) {
+                tool_ = t.tool;
+                if (command == "tool.scale_uniform") scaleMode_ = scene::move::ScaleMode::Uniform;
+                if (command == "tool.scale_nonuniform") scaleMode_ = scene::move::ScaleMode::NonUniform;
+                if (command == "tool.scale_squash") scaleMode_ = scene::move::ScaleMode::Squash;
+                UpdateTransformDisplay();
+                return;
+            }
         struct C { const char* cmd; bool x, y, z; };
         static const C kAxes[] = {{"constraint.x", 1, 0, 0}, {"constraint.y", 0, 1, 0}, {"constraint.z", 0, 0, 1},
                                   {"constraint.xy", 1, 1, 0}, {"constraint.yz", 0, 1, 1}, {"constraint.zx", 1, 0, 1}};

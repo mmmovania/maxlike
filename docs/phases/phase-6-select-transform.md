@@ -21,7 +21,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] **6.4b Move**: with Select and Move, pressing on an object selects it if needed and
       drags the selection (`scene::move`: constrained movement, drag planes in
       Perspective, parent space); one "Move" undo step; right-click cancels
-- [ ] 6.4c Rotate and Scale
+- [x] **6.4c Rotate and Scale**: each object about its own pivot; Rotate about the
+      constrained axis (a plane: its normal), Scale uniform / non-uniform / squash
+      (volume kept); one undo step each; right-click cancels
 - [ ] 6.5 Wrap-up
 
 ## Step 6.1 verification
@@ -73,7 +75,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] With nothing selected, the window is unchanged
 - [ ] On Windows: select objects with Select / Move; switch constraints; check each view
 - [ ] Unverified: arrowhead edges (fitted triangle, about 10 % of edge pixels differ);
-      Rotate and Scale looks (the tripod shows for now); several objects selected (one
+      several objects selected (one
       figure at the average pivot); the tripod in Perspective
 
 ## Step 6.4b verification
@@ -88,6 +90,21 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [ ] Unverified: R3's cursor while moving; whether R3 shows the movement in the status
       bar's X/Y/Z fields while dragging (Phase 6 type-in item); several objects about
       their own pivots or a common centre (the same movement is applied to each)
+
+## Step 6.4c verification
+- [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
+- [x] `test_move_math`: rotation axes, 90° for 180 px, rotation under a rotated parent
+      (world result checked), uniform / non-uniform / squash factors (volume kept), the
+      1 % floor
+- [x] Under Wine: a 60 × 20 box rotated 180 px up turns from 129 × 43 px to 43 × 129 px
+      about its centre; a uniform scale 100 px up doubles it (86 × 259); two Undos restore
+      each step
+- [ ] On Windows: rotate and scale with each constraint, in every view; undo; cancel
+- [ ] Unverified: R3's drag directions and speeds (0.5°/px, 1 %/px); the axis for a plane
+      constraint; non-uniform and squash axes (local axes here); transform centres
+      other than each pivot
+- [x] Rotate and Scale show the same figure as Move (R3.1; confirmed by the project
+      owner), so all three transform tools draw the Move gizmo
 
 ## Notes
 - The strip is a second `Toolbar` (`ObjectsToolbarConfig`) shown in the main toolbar's

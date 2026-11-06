@@ -22,7 +22,7 @@ public:
     std::function<void(const std::vector<scene::Node::Id>&, bool, bool, bool)> onSelect;
     std::function<void()> onDeleteKey;
     std::function<void()> onMoveBegin;
-    std::function<void(const math::Vec3&)> onMoveDrag;
+    std::function<void(const math::Vec3&, int)> onMoveDrag;
     std::function<void(bool)> onMoveEnd;
 
     bool Create(HWND parent);
@@ -31,6 +31,7 @@ public:
     void ZoomExtents(bool allViews);        // empty scene: back to the default framing
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
+    void SetTransformTool(bool on) { for (auto& v : views_) v.SetTransformTool(on); }
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     int  Active() const { return active_; }

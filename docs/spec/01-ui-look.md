@@ -216,6 +216,7 @@ Screenshots `r3.1-box-created.png`, `r3.1-create-tripod-z.png`, `r3.1-move-selec
   `#0000FF`); letter at O + round(84.5·d) (yellow when constrained); plane corners at
   O + round(84·(dₐ + d_b)), arms 17 px (yellow for the active plane, else each arm in the
   colour of the axis it runs beside); axes at the viewer not drawn.
+- Rotate and Scale show the same figure as Move (R3.1, confirmed by the project owner).
 - Prompt with Move: "Click and drag to select and move objects" (verified).
 
 ## Tab panel: Objects strip (measured, step 6.1)

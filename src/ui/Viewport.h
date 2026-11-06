@@ -43,7 +43,8 @@ public:
     // Moving (Select and Move): begin, a world-space movement since the start (preview),
     // end (true: keep, as one undo step; false: cancelled).
     std::function<void()> onMoveBegin;
-    std::function<void(const math::Vec3& delta)> onMoveDrag;
+    // delta: world movement (Move); upPixels: vertical mouse movement (Rotate, Scale).
+    std::function<void(const math::Vec3& delta, int upPixels)> onMoveDrag;
     std::function<void(bool commit)> onMoveEnd;
     void SetIndex(int index) { index_ = index; }
 
@@ -72,6 +73,8 @@ public:
 
     // What to draw at the selection's pivot (set by the panel from the toolbar's tool and
     // constraint buttons).
+    // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
+    void SetTransformTool(bool on) { transformTool_ = on; }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
         axesStyle_ = style;
         for (int i = 0; i < 3; ++i) axesActive_[i] = active[i];
@@ -128,7 +131,8 @@ private:
     bool regionVisible_ = false;
     bool creatingDrag_ = false;          // left button held during creation
     bool selecting_ = false;             // left button held for a selection click or region
-    bool moving_ = false;                // dragging the selection with Select and Move
+    bool moving_ = false;                // dragging the selection with a transform tool
+    bool transformTool_ = false;
     POINT moveStart_{};
     math::Vec3 movePivot_{};
     math::Vec3 SelectionPivot() const;

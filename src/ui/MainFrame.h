@@ -4,6 +4,7 @@
 #include "scene/Scene.h"
 #include "scene/Undo.h"
 #include "scene/CreationTool.h"
+#include "scene/MoveMath.h"
 #include "ui/CommandPanel.h"
 #include "ui/StatusBar.h"
 #include "ui/TabPanel.h"
@@ -55,11 +56,15 @@ private:
     // The toolbar's transform tool and axis constraint (R3's defaults: Select, XY).
     enum class Tool { Select, Move, Rotate, Scale };
     Tool tool_ = Tool::Select;
+    scene::move::ScaleMode scaleMode_ = scene::move::ScaleMode::Uniform;
     bool constraint_[3] = {true, true, false};
     void UpdateTransformDisplay();
     // A move in progress: each moved node's starting transform, world position and
     // parent matrix (children of moved nodes move with them, not twice).
-    struct Moving { scene::Node::Id id; scene::PRS start; math::Vec3 startWorld; bool hasParent; math::Mat4 parentWorld; };
+    struct Moving {
+        scene::Node::Id id; scene::PRS start; math::Vec3 startWorld;
+        bool hasParent; math::Mat4 parentWorld; math::Quat parentRotation;
+    };
     std::vector<Moving> moving_;
     void DeleteSelection();
     scene::Node* NameColorTarget() const;          // whose name and colour the panel shows

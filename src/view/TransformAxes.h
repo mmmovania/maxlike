@@ -10,7 +10,9 @@
 //   open arrowheads (two 8-px strokes); colour #C82323 for axes of the active
 //   constraint, #666666 for the others. An axis pointing at the viewer shows only its
 //   letter at the pivot.
-//   Move gizmo (Select and Move; r3.1-move-selected.png): the world axes; a shaft from 17
+//   Move gizmo (Select and Move, measured from r3.1-move-selected.png; also Rotate and
+//   Scale, which look the same in R3.1, confirmed by the project owner): the world axes;
+//   a shaft from 17
 //   to 60 px (yellow when in the active constraint, else the axis colour), a filled
 //   arrowhead from 62 to 84.5 px in the axis colour (X red, Y green, Z blue), the letter
 //   (yellow when active); and for each pair of visible axes an L-shaped plane corner at

@@ -43,6 +43,30 @@ int main() {
     math::Vec3 local;
     CHECK(InverseTransformPoint(pm, math::TransformPoint(pm, {1, 2, 3}), local) && Near(local, {1, 2, 3}));
     CHECK(InverseTransformPoint(pm, {10, 2, 0}, local) && Near(local, {1, 0, 0}));  // world +2 along Y = local +1 along X
+    // Rotation axis: one axis -> it; a plane -> its normal (XY -> Z); all -> none.
+    const bool zx[3] = {true, false, true};
+    CHECK(RotationAxis(x) == 0 && RotationAxis(xy) == 2 && RotationAxis(zx) == 1 && RotationAxis(all) == -1);
+    // 180 px up = 90 degrees counter-clockwise about Z: X turns into Y.
+    CHECK(Near(DragRotation(2, 180).Rotate({1, 0, 0}), {0, 1, 0}));
+    CHECK(Near(DragRotation(-1, 180).Rotate({1, 0, 0}), {1, 0, 0}));
+    // Under a parent turned 90 degrees about Z, a world turn about X is a local turn about
+    // -Y: the node's world orientation must end up exactly world-delta * old.
+    {
+        const math::Quat parentRot = math::Quat::FromAxisAngle({0, 0, 1}, 3.14159265358979323846 / 2);
+        const math::Quat start = math::Quat::FromAxisAngle({1, 0, 0}, 0.3);
+        const math::Quat delta = DragRotation(0, 60);
+        const math::Quat local = RotateInParent(parentRot, delta, start);
+        const math::Vec3 v{0.2, 0.5, 0.7};
+        CHECK(Near((parentRot * local).Rotate(v), (delta * parentRot * start).Rotate(v)));
+    }
+    // Scale: uniform; non-uniform (constrained axes only); squash keeps the volume.
+    CHECK(Near(DragScale(ScaleMode::Uniform, xy, 50), {1.5, 1.5, 1.5}));
+    CHECK(Near(DragScale(ScaleMode::NonUniform, xy, 50), {1.5, 1.5, 1}));
+    {
+        const math::Vec3 s = DragScale(ScaleMode::Squash, z, 100);       // Z doubles
+        CHECK(std::fabs(s.z - 2) < 1e-12 && std::fabs(s.x * s.y * s.z - 1) < 1e-12 && std::fabs(s.x - s.y) < 1e-12);
+    }
+    CHECK(Near(DragScale(ScaleMode::Uniform, xy, -500), {0.01, 0.01, 0.01}));  // never below 1 %
     if (failures == 0) std::printf("move math: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }
