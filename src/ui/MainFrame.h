@@ -4,6 +4,7 @@
 #include "scene/Scene.h"
 #include "scene/Undo.h"
 #include "ui/Placeholder.h"
+#include "ui/CommandPanel.h"
 #include "ui/StatusBar.h"
 #include "ui/TabPanel.h"
 #include "ui/TimeSlider.h"
@@ -53,7 +54,7 @@ private:
     ViewPanel   viewports_;
     TimeSlider  timeSlider_;
     TrackBar    trackBar_;
-    Placeholder commandPanel_{L"Command panel", Edge::CommandPanel};
+    CommandPanel commandPanel_;
     StatusBar   statusArea_;
 };
 

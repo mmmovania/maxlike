@@ -202,7 +202,70 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
-## Command panel (Phase 4: to be measured)
+## Command panel: tab row (measured, step 4.1)
+Code: `src/ui/CommandPanelLayout.*`, `src/ui/CommandPanel.*`. Coordinates relative to the
+panel (184 px wide, client x 1736 at the reference size); outer frame: `Edge::CommandPanel`.
+
+- Six tabs, 29 px wide, side by side from x = 2: Create 2–30, Modify 31–59, Hierarchy
+  60–88, Motion 89–117, Display 118–146, Utilities 147–175.
+- Unselected tab (L, R its edges): row 3 highlight L+2..R−2; row 4 highlight at L+1,
+  light L+2..R−2, dark shadow at R−1; rows 5–27 highlight L, light L+1, face, shadow R−1,
+  dark shadow R (2-px chamfered top corners).
+- Selected tab: the same shape 2 px wider on each side, starting at row 1, drawn over
+  its neighbours, its sides continuing to row 28; rows 28–29 between its sides are
+  `#C0C0C0`, joining it to the body. (Only Create selected is in the reference; the look
+  of other selected tabs follows the same rule, unverified.)
+- Body: from row 28; top edge highlight (row 28) and light (row 29).
+- Icons: 22 × 20 at (tab left + 3, 6), not moving when selected; original art in
+  `res/panel_tab_icons.bmp` (`tools/make_icons.py`).
+- Verified: frame + tabs 0 differing pixels of 7,722 (icons masked).
+
+## Create panel: category row and dropdown (measured, step 4.2)
+Code: `cmdpanel::CategoryBox`, `CommandPanel::PaintCategories`.
+
+- Seven category buttons, 24 × 23, side by side from x = 9 (rows 37–59): Geometry,
+  Shapes, Lights, Cameras, Helpers, Space Warps, Systems. Icons 16 × 16 at (button
+  left + 4, 40); original art in `res/panel_category_icons.bmp`.
+- Pressed button (the active category): 1-px shadow top and left, 2-px highlight right
+  and bottom, a face-coloured inner line along its top and left, `#E1E1E1` inside; its
+  icon 1 px down and right. Unpressed buttons: icon only (hover look unverified).
+- Dropdown: a classic `COMBOBOX` (drop-down list), sunken frame x 21–163, rows 66–86
+  (143 × 21); with classic controls Windows draws exactly R3's frame, 17 × 17 button and
+  arrow. Lists per category: only "Standard Primitives" is in the reference, the rest
+  from memory (unverified).
+- Verified: panel rows 0–93, 0 differing pixels of 10,270 (icons and the dropdown's
+  interior masked).
+- Only on the Create tab.
+
+## Command panel: rollup and rollouts (measured, step 4.3)
+Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
+
+- Rollup container: 1-px sunken edge (shadow top and left, highlight right and bottom),
+  x 4–178, rows 94–885; the shadow runs down to the bottom row.
+- Rollouts stack from row 99 (container top + 5): each a **title button** x 11–168,
+  16 rows tall (2-px highlight top and left, 2-px shadow bottom and right; "–" 4 px
+  wide at x 17–20, 8 rows below the title's top; title text centred), over an **etched
+  frame** x 7–172 from 8 rows below the title's top to the end of its contents. The
+  frame is a shadow rectangle with a highlight rectangle 1 px down and right drawn over
+  it, and its top edge stops 1 px short of the title button on each side.
+- Next rollout: 7 rows below the previous frame's bottom (241 → 248).
+- Object Type (Standard Primitives): disabled AutoGrid checkbox (13 × 13 at x 115,
+  title + 19, classic look, text embossed, ending at x 103); ten buttons 69 × 18 in two
+  columns at x 17 and 95, every 21 rows from title + 36 (1-px highlight top and left,
+  black right and bottom with a shadow line inside). Content height 127.
+- Name and Color: title rows 248–263, frame to row 299 (content height 36).
+  - Name field x 15–146, rows 271–290 (title + 23 … + 42): 1-px sunken edge; inside it
+    black top and left, face right and bottom; then white (one row on top, two columns
+    each side); face inside while disabled (nothing selected). Enabled look: Phase 6.
+  - Colour swatch x 150–166, same rows: 1-px sunken edge filled with the colour; the
+    reference shows `#8D073A` (R3 picks the next object's colour at random). Clicking it
+    opens Windows' colour dialog for now (R3's own "Object Color" dialog: later).
+- Spinners: none visible in the reference; measured in Phase 5 from a screenshot of the
+  Parameters rollout.
+- Verified: whole panel 0 differing pixels of 143,519 (text, icons and the dropdown's
+  interior masked).
+- Unverified: a checked button's look, the collapsed "+", spacing after a collapsed
+  rollout, scrolling (hand drag, wheel step 30 px), when other categories show rollouts.
 - Tabs: Create, Modify, Hierarchy, Motion, Display, Utilities.
 - Create categories: Geometry, Shapes, Lights, Cameras, Helpers, Space Warps, Systems.
 - Subcategory combo: `Standard Primitives`.

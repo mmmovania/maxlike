@@ -9,7 +9,9 @@
 // screenshot. Used for pixel comparisons; returns false if the option is absent.
 static bool ParseClientSize(const wchar_t* cmdLine, int& w, int& h) {
     const wchar_t* p = cmdLine ? std::wcsstr(cmdLine, L"--client-size ") : nullptr;
-    return p && std::swscanf(p + 14, L"%dx%d", &w, &h) == 2 && w > 0 && h > 0;
+    // swscanf_s: the checked version MSVC asks for (C4996). For %d it takes the same
+    // arguments; only %s, %c and %[ need an extra buffer-size argument.
+    return p && swscanf_s(p + 14, L"%dx%d", &w, &h) == 2 && w > 0 && h > 0;
 }
 
 // Development option: `--demo-scene <name>|all` opens with objects from the

@@ -58,15 +58,18 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 - [x] Unit tests hold the loader's verified results and R3.1's own counts (the JS
       loader's counts for most primitives turned out to be three.js's, not Max's).
 
-## Phase 4 — Command panel (`phase/4-command-panel`)
-- [ ] Rollout, rollup, spinner, colour swatch, check button, flyout controls.
-- [ ] Six tabs, category row, Standard Primitives combo, Object Type, Name and Color.
-- [ ] Pixel check of the Create panel against the reference (default state) and the
-      R3.1 screenshots with an object selected.
+## Phase 4 — Command panel (`phase/4-command-panel`) ✔ v0.4.0
+- [x] Rollout, rollup, colour swatch, check buttons (spinners move to Phase 5: no
+      spinner is visible in the reference; flyouts already exist in the toolbar).
+- [x] Six tabs, category row, Standard Primitives combo, Object Type, Name and Color.
+- [x] Pixel check of the Create panel against the reference: 0 differing pixels of
+      143,519 (text and icons masked). The selected-object screenshots are zoomed and
+      show the same panel; the enabled name field is checked in Phase 6.
 
 ## Phase 5 — Interactive creation (`phase/5-creation`)
 - [ ] Creation state machines for all ten Standard Primitives, through the undo system
       (one undo step per created object).
+- [ ] Spinner control (measured from an R3.1 screenshot of the Parameters rollout).
 - [ ] Parameters rollout updates live while dragging.
 - [ ] Objects tab strip of the tab panel.
 
