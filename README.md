@@ -17,7 +17,7 @@ OpenGL 3.3 (GLAD) viewports, CMake + MSVC. Icons are drawn from scratch.
 | 3 Scene core (nodes, primitives, modifiers, shading, undo) | ✔ counts match R3.1 | 0.3.0 |
 | 4 Command panel (tabs, categories, rollouts, Object Type, Name and Color) | ✔ pixel-checked | 0.4.0 |
 | 5 Interactive creation (all primitives, live Parameters, Keyboard Entry, undo) | ✔ panel pixel-checked | 0.5.0 |
-| 6 Selection and transforms | next | |
+| 6 Selection and transforms (6.1 Objects tab strip ✔ pixel-checked) | in progress | |
 | 7–8 Modify panel, `.max` import | planned | |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.

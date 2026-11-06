@@ -27,7 +27,7 @@ The other tab-panel strips are built together with the features they belong to, 
 arrives working rather than as empty buttons. Each needs a screenshot of that tab in R3.1.
 | Tab | Built with |
 |---|---|
-| Objects | Phase 5 (creating primitives) |
+| Objects | ✔ Phase 6, step 6.1 (planned for Phase 5; built when R3.1's screenshot of the tab arrived). Standard Primitives work; the other buttons wait for their features |
 | Shapes, Compounds, Particles | when splines / compounds / particles exist (after Phase 8) |
 | Lights & Cameras, Helpers, SpaceWarps | when those object types exist (after Phase 8) |
 | Modifiers, Modeling | Phase 7 (modify panel) |
@@ -73,10 +73,16 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 - [x] Parameters rollout updates live while dragging; edits afterwards are undo steps.
 - [x] Creation Method and Keyboard Entry rollouts (Keyboard Entry creates typed objects).
 - [x] Pixel check: the panel while creating a Box, 0 differing pixels of 122,771.
-- [x] Objects tab strip of the tab panel: built in step 6.1 once R3.1's screenshot arrived.
+- Objects tab strip of the tab panel → moved to Phase 6 (step 6.1): no screenshot of the
+  tab existed during Phase 5.
 
 ## Phase 6 — Selection and transforms (`phase/6-select-transform`)
-- [ ] Click and region selection, selection filter; selected objects drawn white.
+- [x] Objects tab strip (moved from Phase 5): 29 buttons in the main toolbar's geometry;
+      the ten Standard Primitives start creation; pixel check 0 differing of 81,384.
+- [ ] Click and region selection (Ctrl adds, Alt removes), selection filter; selected
+      objects drawn white, brackets in shaded views; "N Objects Selected"; undoable.
+- [ ] Delete the selection (one undo step).
+- [ ] Name and Color for the selection: rename, recolour (undoable).
 - [ ] Move/Rotate/Scale with tripod, axis constraints, reference coord systems.
 - [ ] Status bar X/Y/Z type-in.
 

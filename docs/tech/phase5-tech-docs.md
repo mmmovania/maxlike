@@ -143,7 +143,8 @@ cannot drift apart.
 - Parameters and Creation Method lists other than Box's; non-default creation methods
   (not implemented); Keyboard Entry's layout and defaults.
 - Spinner speeds, a pressed arrow's look, the gutter's exact condition.
-- The Objects tab strip (needs an R3.1 screenshot of the Objects tab).
+- The Objects tab strip: resolved after Phase 5, built in Phase 6 (step 6.1) from R3.1's
+  screenshot of the tab.
 - R3's creation cursor, random colour palette, Object Color dialog.
 
 ---

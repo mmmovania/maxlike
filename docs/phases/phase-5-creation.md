@@ -23,7 +23,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
       (`params::KeyboardEntryFor`), laid out by the Parameters rule; Create makes the typed
       object at the typed position, oriented by the active viewport, as one undo step
 - [x] **5.5 Wrap-up**: checks, `docs/tech/phase5-tech-docs.md`, version 0.5.0
-- [ ] Objects tab strip: deferred (needs an R3.1 screenshot of the Objects tab)
+- Objects tab strip → moved to Phase 6 and built in step 6.1, once R3.1's screenshot of
+  the tab arrived (see `phase-6-select-transform.md`)
 
 ## Step 5.1 verification
 - [x] Builds warning-free; eighteen test programs pass (MinGW + Wine)
