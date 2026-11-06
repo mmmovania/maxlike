@@ -20,9 +20,17 @@ public:
     void SetType(int type);
     int  Type() const { return type_; }
 
-    // The colour of the next object (0xRRGGBB): Name and Color's swatch.
-    void SetColor(uint32_t rgb) { color_ = rgb; }
+    // Name and Color's swatch (0xRRGGBB). R3 (screenshot r3.1-box-created.png): after an
+    // object is created the swatch shows that object's colour; a new random colour is
+    // picked when the next object is started. A colour set here is used as-is by the
+    // next object.
+    void SetColor(uint32_t rgb) { color_ = rgb; colorPending_ = true; }
     uint32_t Color() const { return color_; }
+
+    // The object the Parameters rollout shows and edits: the one being built, else the
+    // last one created (if it still exists), else none. And its node's name.
+    std::shared_ptr<Object> TargetObject() const;
+    std::string TargetName() const;
 
     // Feed a mouse event on construction plane `plane` at (u, v), screen row `screenY`.
     // `owner` identifies the viewport; while an object is being built, events from other
@@ -56,6 +64,7 @@ private:
     UndoStack& undo_;
     int type_ = -1;
     uint32_t color_ = 0x8D073A;
+    bool colorPending_ = true;     // color_ not used by an object yet
     std::unique_ptr<Creator> creator_;
     std::shared_ptr<Object> object_;
     ConstructionPlane plane_;

@@ -39,13 +39,20 @@ static void CreateUndoRedo() {
     CHECK(!t.Busy() && s.Nodes().size() == 1 && u.UndoCount() == 1 && u.UndoName() == "Create");
     const Node* box = s.Find("Box01");
     CHECK(box && Near(box->GetObject()->Params().Float(BoxObject::kHeight), 20) && box->WireColor() == firstColor);
-    CHECK(t.Color() != firstColor && t.LastCreatedName() == "Box01");     // next object: new colour
-    // One undo removes it; redo brings it back.
-    CHECK(u.Undo(s) && s.Nodes().empty());
+    // R3: the swatch keeps showing the new object's colour; the panel edits that object.
+    CHECK(t.Color() == firstColor && t.LastCreatedName() == "Box01" && t.TargetName() == "Box01");
+    CHECK(t.TargetObject() == box->GetObject());
+    // One undo removes it (and the panel has nothing to edit); redo brings it back.
+    CHECK(u.Undo(s) && s.Nodes().empty() && t.TargetObject() == nullptr && t.TargetName().empty());
     CHECK(u.Redo(s) && s.Find("Box01") && Near(s.Find("Box01")->GetObject()->Params().Float(BoxObject::kHeight), 20));
-    // The next box is Box02.
+    // The next box is Box02, with a new colour picked when it was started.
     BuildBox(t, 0, TopPlane());
-    CHECK(s.Find("Box02") && u.UndoCount() == 2);
+    CHECK(s.Find("Box02") && u.UndoCount() == 2 && s.Find("Box02")->WireColor() != firstColor);
+    CHECK(t.Color() == s.Find("Box02")->WireColor());
+    // A colour chosen in the swatch is used as-is by the next object.
+    t.SetColor(0x123456);
+    BuildBox(t, 0, TopPlane());
+    CHECK(s.Find("Box03") && s.Find("Box03")->WireColor() == 0x123456);
 }
 
 static void CancelLeavesNothing() {
@@ -115,7 +122,7 @@ static void KeyboardEntry() {
     const std::string name = t.CreateDirect({{BoxObject::kLength, 30}, {BoxObject::kWidth, 20}, {BoxObject::kHeight, 10}},
                                             FrontPlane(), {5, 6, 7});
     const Node* n = s.Find(name);
-    CHECK(name == "Box01" && n && n->WireColor() == c && t.Color() != c);
+    CHECK(name == "Box01" && n && n->WireColor() == c && t.Color() == c);
     CHECK(Near(n->GetObject()->Params().Float(BoxObject::kHeight), 10));
     CHECK(Near(n->Transform().position.x, 5) && Near(n->Transform().position.y, 6) && Near(n->Transform().position.z, 7));
     CHECK(Near(n->Transform().rotation.Rotate({0, 0, 1}).y, -1));   // oriented like the Front view

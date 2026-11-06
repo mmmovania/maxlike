@@ -31,6 +31,19 @@ bool MainFrame::Create() {
     return false;
 }
 
+// The Create panel follows the creation tool: the object being built or just created
+// (else a template with the defaults), its name, and its colour (R3: the swatch shows
+// the new object's colour until the next one is started).
+void MainFrame::UpdateCreatePanel() {
+    panelObject_ = creation_.TargetObject();
+    if (!panelObject_) panelObject_ = template_;
+    commandPanel_.SetParameterSource(panelObject_ ? &panelObject_->Params() : nullptr);
+    const std::string name = creation_.TargetName();
+    commandPanel_.SetObjectName(std::wstring(name.begin(), name.end()));
+    commandPanel_.SetObjectColor(creation_.Color());
+    commandPanel_.Refresh();
+}
+
 bool MainFrame::LoadDemoScene(const std::string& which) {
     if (!scene::BuildDemoScene(scene_, which)) return false;
     undo_.Clear();      // like opening a file: nothing to undo
@@ -68,20 +81,46 @@ bool MainFrame::CreateRegions() {
     commandPanel_.onCreateTypeChanged = [this](int type) {
         if (creation_.Cancel()) viewports_.Redraw();
         creation_.SetType(type);
+        template_ = type >= 0 ? scene::MakePrimitive(type) : nullptr;
+        UpdateCreatePanel();
+        // Prompt verified against R3.1 (screenshot r3.1-box-created.png).
         statusArea_.SetPrompt(1, type >= 0 ? L"Click and drag to begin creation process"
                                            : L"Click or click-and-drag to select objects");
+    };
+    commandPanel_.onCreationMethodChanged = [this](int method) {
+        if (method != ui::params::CreationMethodsFor(commandPanel_.CreateType()).selected)
+            statusArea_.SetPrompt(1, L"This creation method is not implemented yet");
+    };
+    // Parameters: while building, changes go straight to the object; afterwards a spinner
+    // drag previews live and becomes one undo step when released.
+    commandPanel_.onParamChanged = [this](int index, double value, bool final) {
+        std::shared_ptr<scene::Object> obj = creation_.TargetObject();
+        const auto i = static_cast<size_t>(index);
+        if (!obj || creation_.Busy()) {
+            if (panelObject_) panelObject_->Params().Set(i, value);
+        } else if (!final) {
+            if (!paramDragging_) { paramDragging_ = true; paramDragStart_ = obj->Params().Float(i); }
+            obj->Params().Set(i, value);
+        } else {
+            if (paramDragging_) obj->Params().Set(i, paramDragStart_);   // so undo returns here
+            paramDragging_ = false;
+            if (obj->Params().Float(i) != value)
+                undo_.Execute(std::make_unique<scene::SetParamCommand>(obj, i, value), scene_);
+        }
+        viewports_.Redraw();
+        commandPanel_.Refresh();
     };
     viewports_.creationActive = [this] { return creation_.Type() >= 0; };
     viewports_.onCreateEvent = [this](scene::Creator::Event e, int owner, const scene::ConstructionPlane& p,
                                       double u, double v, int y, double upp) {
         if (!creation_.Feed(e, owner, p, u, v, y, upp)) return false;
-        if (!creation_.Busy() && creation_.Color() != commandPanel_.ObjectColor())
-            commandPanel_.SetObjectColor(creation_.Color());   // an object was finished
+        UpdateCreatePanel();
         viewports_.Redraw();
         return true;
     };
     viewports_.onCreateCancel = [this] {
         if (!creation_.Cancel()) return false;
+        UpdateCreatePanel();
         viewports_.Redraw();
         return true;
     };
@@ -191,7 +230,7 @@ void MainFrame::OnCommand(const std::string& command) {
 
     if (command == "edit.undo" || command == "edit.redo") {
         const bool ok = command == "edit.undo" ? undo_.Undo(scene_) : undo_.Redo(scene_);
-        if (ok) viewports_.Redraw();
+        if (ok) { viewports_.Redraw(); UpdateCreatePanel(); }
         return;
     }
 

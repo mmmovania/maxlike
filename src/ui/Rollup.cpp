@@ -11,10 +11,9 @@ std::vector<Placed> Layout(const std::vector<Item>& items, int scroll) {
         p.open = it.open;
         p.titleTop = top;
         p.titleBottom = top + kTitleHeight - 1;
-        p.frameTop = top + kFrameTopOffset;
-        p.frameBottom = it.open ? p.titleBottom + it.contentHeight : p.titleBottom;
+        p.frameTop = top + (it.open ? kFrameTopOffset : kClosedFrameTop);
+        p.frameBottom = it.open ? p.titleBottom + it.contentHeight : top + kClosedFrameBottom;
         out.push_back(p);
-        // NOTE: the spacing after a collapsed rollout is not measured; the same gap is used.
         top = p.frameBottom + kGap;
     }
     return out;

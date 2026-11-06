@@ -46,6 +46,11 @@ private:
     scene::Scene scene_;            // the document; declared before the views that show it
     scene::UndoStack undo_;         // every scene change goes through here (Phase 5 on)
     scene::CreationTool creation_{scene_, undo_};   // builds objects from viewport mouse events
+    std::shared_ptr<scene::Object> panelObject_;    // what Parameters shows (keeps it alive)
+    std::shared_ptr<scene::Object> template_;       // defaults before anything is created
+    bool paramDragging_ = false;                    // a spinner drag in progress...
+    double paramDragStart_ = 0;                     // ...and the value it started from
+    void UpdateCreatePanel();                       // Parameters, name, colour from the creation tool
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout.

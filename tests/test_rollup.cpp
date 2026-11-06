@@ -20,7 +20,13 @@ int main() {
     std::vector<Item> c = create;
     c[0].open = false;
     const auto q = Layout(c, 0);
-    CHECK(q[0].frameBottom == q[0].titleBottom && q[1].titleTop == 114 + kGap);
+    // Measured (Keyboard Entry collapsed at row 356): its small frame is rows 360..369 and
+    // the next rollout's title is at 376.
+    CHECK(q[0].frameTop == 99 + 4 && q[0].frameBottom == 99 + 13 && q[1].titleTop == 99 + 13 + kGap);
+    std::vector<Item> five = {{127, true}, {36, true}, {28, true}, {0, false}, {168, true}};
+    const auto f = Layout(five, 0);
+    CHECK(f[2].titleTop == 306 && f[3].titleTop == 356 && f[3].frameTop == 360 && f[3].frameBottom == 369);
+    CHECK(f[4].titleTop == 376 && f[4].frameBottom == 559);
     c[0].open = true;
     CHECK(Layout(c, 0)[1].titleTop == 248);
 

@@ -6,6 +6,7 @@
 #include <windowsx.h>
 #include <commdlg.h>
 #include <algorithm>
+#include <cstdlib>
 
 namespace ui {
 
@@ -57,16 +58,56 @@ bool CommandPanel::ShowsRollouts() const {
     return SendMessageW(dropdown_, CB_GETCURSEL, 0, 0) == 0;   // "Standard Primitives"
 }
 
+std::vector<int> CommandPanel::VisibleRollouts() const {
+    if (createType_ < 0) return {kRollObjectType, kRollNameColor};
+    return {kRollObjectType, kRollNameColor, kRollCreationMethod, kRollKeyboardEntry, kRollParameters};
+}
+
+std::vector<rollup::Item> CommandPanel::RolloutItems() const {
+    std::vector<rollup::Item> items;
+    for (int id : VisibleRollouts()) {
+        int content = 0;
+        switch (id) {
+        case kRollObjectType:     content = kObjectTypeContent; break;
+        case kRollNameColor:      content = kNameColorContent; break;
+        case kRollCreationMethod: content = params::kCreationMethodContent; break;
+        case kRollKeyboardEntry:  content = 40; break;   // NOTE: contents (and height) in step 5.4
+        case kRollParameters:     content = spec_.contentHeight; break;
+        }
+        items.push_back({content, open_[id]});
+    }
+    return items;
+}
+
+int CommandPanel::TitleTopOf(int id) const {
+    const std::vector<int> ids = VisibleRollouts();
+    const auto placed = rollup::Layout(RolloutItems(), scroll_);
+    for (size_t i = 0; i < ids.size(); ++i)
+        if (ids[i] == id) return placed[i].open ? placed[i].titleTop : -1;
+    return -1;
+}
+
+void CommandPanel::SetParameterSource(const scene::ParamBlock* block) {
+    source_ = block;
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+void CommandPanel::SetObjectName(const std::wstring& name) {
+    if (name == objectName_) return;
+    objectName_ = name;
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
 void CommandPanel::SetScroll(int scroll) {
-    scroll = std::clamp(scroll, 0, rollup::MaxScroll(rollouts_));
+    scroll = std::clamp(scroll, 0, rollup::MaxScroll(RolloutItems()));
     if (scroll == scroll_) return;
     scroll_ = scroll;
     InvalidateRect(Hwnd(), nullptr, FALSE);
 }
 
 int CommandPanel::TypeButtonAt(int x, int y) const {
-    if (!ShowsRollouts() || !rollouts_[0].open) return -1;
-    const int titleTop = rollup::Layout(rollouts_, scroll_)[0].titleTop;
+    const int titleTop = ShowsRollouts() ? TitleTopOf(kRollObjectType) : -1;
+    if (titleTop < 0) return -1;
     for (int i = 0; i < 10; ++i) {
         const Box b = TypeButtonBox(i, titleTop);
         if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom && y >= rollup::kContainer.top + 1 &&
@@ -86,10 +127,15 @@ void CommandPanel::PaintRollouts(HDC dc) {
     };
     const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref();
     const rollup::Box& k = rollup::kContainer;
-    px(k.left, k.top, k.right - 1, k.top, sh);          // sunken: shadow top and left,
+    // With the creation rollouts showing, R3 leaves a 4-px column inside the right edge
+    // (x 174..177): the container's top and bottom stop at x 173. Measured; NOTE: probably
+    // a gutter for a scroll indicator, the exact condition is unverified.
+    const int gutter = createType_ >= 0 ? 4 : 0;
+    px(k.left, k.top, k.right - 1 - gutter, k.top, sh);  // sunken: shadow top and left,
     px(k.left, k.top, k.left, k.bottom, sh);              // (down to the bottom row, measured)
     px(k.right, k.top, k.right, k.bottom, hi);          // highlight right and bottom
-    px(k.left + 1, k.bottom, k.right, k.bottom, hi);
+    px(k.left + 1, k.bottom, k.right - 1 - gutter, k.bottom, hi);
+    px(k.right, k.bottom, k.right, k.bottom, hi);
 
     // Everything else stays inside the container.
     const int saved = SaveDC(dc);
@@ -98,11 +144,14 @@ void CommandPanel::PaintRollouts(HDC dc) {
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(0, 0, 0));
 
-    static const wchar_t* kTitles[] = {L"Object Type", L"Name and Color"};
-    const auto placed = rollup::Layout(rollouts_, scroll_);
+    static const wchar_t* kTitles[kRollCount] = {L"Object Type", L"Name and Color", L"Creation Method",
+                                                 L"Keyboard Entry", L"Parameters"};
+    const std::vector<int> ids = VisibleRollouts();
+    const auto placed = rollup::Layout(RolloutItems(), scroll_);
     for (size_t i = 0; i < placed.size(); ++i) {
         const rollup::Placed& r = placed[i];
-        if (r.open) {
+        const int id = ids[i];
+        {
             // Etched frame, measured: a shadow rectangle, then a highlight rectangle 1 px
             // down and right drawn over it (so the highlight wins where they cross; not
             // quite DrawEdge's EDGE_ETCHED). Its top edge stops 1 px short of the title.
@@ -112,9 +161,15 @@ void CommandPanel::PaintRollouts(HDC dc) {
             };
             outline(fl, ft, fr - 1, fb - 1, sh);
             outline(fl + 1, ft + 1, fr, fb, hi);
-            px(rollup::kTitleLeft - 1, ft, rollup::kTitleRight + 1, ft + 1, theme::Face());
-            if (i == 0) PaintObjectType(dc, r.titleTop);
-            if (i == 1) PaintNameAndColor(dc, r.titleTop);
+            // The frame stops 1 px short of the title on each side, where they overlap
+            // (measured: open rollouts' top edge; a collapsed rollout's whole small frame).
+            px(rollup::kTitleLeft - 1, ft, rollup::kTitleRight + 1, std::min(fb, r.titleBottom), theme::Face());
+            if (r.open) {
+                if (id == kRollObjectType) PaintObjectType(dc, r.titleTop);
+                if (id == kRollNameColor) PaintNameAndColor(dc, r.titleTop);
+                if (id == kRollCreationMethod) PaintCreationMethod(dc, r.titleTop);
+                if (id == kRollParameters) PaintParameters(dc, r.titleTop);
+            }
         }
         // Title button over the frame's top edge.
         const int L = rollup::kTitleLeft, R = rollup::kTitleRight, T = r.titleTop, B = r.titleBottom;
@@ -123,10 +178,14 @@ void CommandPanel::PaintRollouts(HDC dc) {
         px(L, T, L, B, hi);      px(L + 1, T, L + 1, B - 1, hi);       // left, 2 px
         px(R, T, R, B, sh);      px(R - 1, T + 1, R - 1, B, sh);       // right, 2 px
         px(L + 1, B, R, B, sh);  px(L + 2, B - 1, R, B - 1, sh);       // bottom, 2 px
-        px(17, T + 8, 20, T + 8, RGB(0, 0, 0));                        // "-"
-        if (!r.open) px(18, T + 6, 19, T + 10, RGB(0, 0, 0));          // "+" (NOTE: unverified)
+        if (r.open) {
+            px(17, T + 8, 20, T + 8, RGB(0, 0, 0));                    // "-" (measured)
+        } else {
+            px(17, T + 8, 22, T + 8, RGB(0, 0, 0));                    // "+" (measured: Keyboard Entry)
+            px(19, T + 5, 20, T + 11, RGB(0, 0, 0));
+        }
         RECT text{Scale(L + 2), Scale(T + 2), Scale(R - 1), Scale(B - 1)};
-        DrawTextW(dc, kTitles[i], -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        DrawTextW(dc, kTitles[id], -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
     SelectObject(dc, oldFont);
     RestoreDC(dc, saved);
@@ -145,23 +204,29 @@ void CommandPanel::PaintObjectType(HDC dc, int titleTop) {
 
     // AutoGrid: a classic disabled checkbox, text on its left drawn embossed.
     RECT box{Scale(kAutoGridBoxLeft), Scale(titleTop + kAutoGridTop), Scale(kAutoGridBoxLeft + 13), Scale(titleTop + kAutoGridTop + 13)};
-    DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_INACTIVE);
+    // Enabled while a primitive is active (measured: R3.1 screenshot of a Box being created).
+    const bool autoGridOn = createType_ >= 0;
+    DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | (autoGridOn ? 0 : DFCS_INACTIVE));
     const wchar_t* autoGrid = L"AutoGrid";
     SIZE size{};
     GetTextExtentPoint32W(dc, autoGrid, 8, &size);
     DrawStateW(dc, nullptr, nullptr, reinterpret_cast<LPARAM>(autoGrid), 8,
                Scale(kAutoGridTextRight + 1) - size.cx, Scale(titleTop + kAutoGridTop + 13) - size.cy, 0, 0,
-               DST_TEXT | DSS_DISABLED);
+               DST_TEXT | (autoGridOn ? DSS_NORMAL : DSS_DISABLED));
 
     const auto names = StandardPrimitiveNames();
     for (int i = 0; i < static_cast<int>(names.size()); ++i) {
         const Box b = TypeButtonBox(i, titleTop);
         const int L = b.left, T = b.top, R = b.right, B = b.bottom;
         const bool checked = i == createType_;
-        px(L, T, R, B, checked ? RGB(0xE1, 0xE1, 0xE1) : theme::Face());
+        px(L, T, R, B, theme::Face());
         if (checked) {
-            px(L, T, R - 1, T, sh);  px(L, T, L, B, sh);
-            px(R, T, R, B, hi);      px(L + 1, B, R, B, hi);
+            // Measured: pressed outline (1-px shadow top and left, 2-px highlight right
+            // and bottom, a face-coloured inner line) around light green #C0FFC0.
+            px(L, T, R - 1, T, sh);          px(L, T, L, B, sh);
+            px(R, T, R, B, hi);              px(R - 1, T + 1, R - 1, B, hi);
+            px(L + 1, B, R, B, hi);          px(L + 2, B - 1, R, B - 1, hi);
+            px(L + 2, T + 2, R - 2, B - 2, RGB(0xC0, 0xFF, 0xC0));
         } else {
             px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);               // highlight top and left
             px(R, T, R, B, dk);      px(L + 1, B, R, B, dk);           // dark shadow right and bottom
@@ -200,12 +265,182 @@ void CommandPanel::PaintNameAndColor(HDC dc, int titleTop) {
     px(f.left + 2, f.top + 2, f.right - 2, f.top + 2, hi);                // white top row
     px(f.left + 2, f.top + 2, f.left + 3, f.bottom - 2, hi);              // white left, 2 px
     px(f.right - 3, f.top + 2, f.right - 2, f.bottom - 2, hi);            // white right, 2 px
-    px(f.left + 4, f.top + 3, f.right - 4, f.bottom - 2, face);           // disabled: face inside
+    if (objectName_.empty()) {
+        px(f.left + 4, f.top + 3, f.right - 4, f.bottom - 2, face);       // disabled: face inside
+    } else {
+        // Enabled (measured, Box01): white inside, the name in black.
+        px(f.left + 2, f.top + 2, f.right - 2, f.bottom - 2, hi);
+        RECT text{Scale(f.left + 5), Scale(f.top + 2), Scale(f.right - 2), Scale(f.bottom - 1)};
+        DrawTextW(dc, objectName_.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
 
     const Box w = SwatchBox(titleTop);
     sunken(w);
     const COLORREF c = RGB((objectColor_ >> 16) & 0xFF, (objectColor_ >> 8) & 0xFF, objectColor_ & 0xFF);
     px(w.left + 1, w.top + 1, w.right - 1, w.bottom - 1, c);
+}
+
+// Creation Method: two classic radio buttons (measured for Box at x 34 and 102, title + 22).
+void CommandPanel::PaintCreationMethod(HDC dc, int titleTop) {
+    const params::Methods m = params::CreationMethodsFor(createType_);
+    const std::wstring labels[2] = {m.first, m.second};
+    for (int i = 0; i < 2; ++i) {
+        const int x = params::kMethodRadioLeft[i], y = titleTop + params::kMethodTop;
+        // Drawn from the measured 12 x 12 pattern (Wine's DrawFrameControl draws a
+        // different circle; this is the classic Windows radio button, pixel for pixel).
+        static const char* const kRadio[12] = {
+            "....ssss....", "..ssddddss..", ".sddWWWWddW.", ".sdWWWWWWlW.", "sdWWWWWWWWlW", "sdWWWWWWWWlW",
+            "sdWWWWWWWWlW", "sdWWWWWWWWlW", ".sdWWWWWWlW.", ".sllWWWWllW.", "..WWllllWW..", "....WWWW...."};
+        static const char* const kDot[4] = {"..kk..", ".kkkk.", ".kkkk.", "..kk.."};   // rows 4..7, columns 3..8
+        for (int ry = 0; ry < 12; ++ry)
+            for (int rx = 0; rx < 12; ++rx) {
+                char ch = kRadio[ry][rx];
+                if (method_ == i && ry >= 4 && ry < 8 && rx >= 3 && rx < 9 && kDot[ry - 4][rx - 3] == 'k') ch = 'k';
+                COLORREF c;
+                switch (ch) {
+                case 's': c = theme::kButtonShadow.Ref(); break;
+                case 'd': c = theme::kDarkShadow.Ref(); break;
+                case 'W': c = theme::kButtonHighlight.Ref(); break;
+                case 'l': c = theme::kLight.Ref(); break;
+                case 'k': c = RGB(0, 0, 0); break;
+                default: continue;
+                }
+                FillSolid(dc, {Scale(x + rx), Scale(y + ry), Scale(x + rx + 1), Scale(y + ry + 1)}, c);
+            }
+        RECT text{Scale(x + params::kRadioSize + 4), Scale(y - 2), Scale(x + 66), Scale(y + params::kRadioSize + 2)};
+        DrawTextW(dc, labels[i].c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
+}
+
+double CommandPanel::ParamValue(const params::Row& r) const {
+    if (r.paramIndex < 0 || !source_) return 0;
+    return source_->Float(static_cast<size_t>(r.paramIndex));
+}
+
+// Parameters, measured (Box): labels right-aligned to x 87; the number field x 90..143
+// (1-px sunken edge, black inner top and left, face inner right and bottom, white
+// inside); the arrows x 146..157 split into up (rows 0..7) and down (8..15), each a
+// small raised button with a 5-px triangle; checkboxes: classic, 13 x 13 at x 18.
+void CommandPanel::PaintParameters(HDC dc, int titleTop) {
+    auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
+        if (x1 < x0 || y1 < y0) return;
+        FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
+    };
+    const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), face = theme::Face();
+    const COLORREF k = RGB(0, 0, 0);
+    for (size_t i = 0; i < spec_.rows.size(); ++i) {
+        const params::Row& row = spec_.rows[i];
+        const int T = titleTop + row.top;
+        const double value = (static_cast<int>(i) == spinRow_ && spinModel_) ? spinModel_->Value() : ParamValue(row);
+        if (row.kind == params::Kind::Check) {
+            RECT box{Scale(params::kCheckLeft), Scale(T), Scale(params::kCheckLeft + 13), Scale(T + 13)};
+            DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | (value != 0 ? DFCS_CHECKED : 0));
+            RECT text{Scale(params::kCheckTextLeft), Scale(T - 2), Scale(170), Scale(T + 15)};
+            DrawTextW(dc, row.label.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            continue;
+        }
+        RECT label{Scale(10), Scale(T), Scale(params::kLabelRight + 1), Scale(T + params::kSpinnerHeight)};
+        DrawTextW(dc, row.label.c_str(), -1, &label, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        // Field.
+        const int L = params::kFieldLeft, R = params::kFieldRight, B = T + params::kSpinnerHeight - 1;
+        px(L, T, R - 1, T, sh);        px(L, T, L, B, sh);
+        px(R, T, R, B, hi);            px(L + 1, B, R, B, hi);
+        px(L + 1, T + 1, R - 2, T + 1, k);   px(L + 1, T + 1, L + 1, B - 1, k);
+        px(R - 1, T + 1, R - 1, B - 1, face); px(L + 2, B - 1, R - 1, B - 1, face);
+        px(L + 2, T + 2, R - 2, B - 2, hi);
+        if (!(typing_ && typingRow_ == static_cast<int>(i))) {
+            SpinnerModel shown(value, row.min, row.max, row.step, row.kind == params::Kind::Int, params::kFloatDecimals);
+            const std::wstring text = shown.Text();
+            RECT tr{Scale(L + 4), Scale(T + 2), Scale(R - 1), Scale(B - 1)};
+            DrawTextW(dc, text.c_str(), -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        }
+        // Arrows.
+        const int A = params::kArrowsLeft, Z = params::kArrowsRight;
+        px(A, T, A, B, hi);
+        px(Z, T, Z, B, k);
+        // Up half: rows 0..7 (shadow on row 7). Down half: rows 8..14 (shadow on row 14),
+        // because the dark bottom line takes row 15.
+        for (int half = 0; half < 2; ++half) {
+            const int t = T + half * 8, last = half == 0 ? T + 7 : T + 14;
+            px(A + 1, t, Z - 1, t, hi);                  // top highlight
+            px(A + 1, t + 1, Z - 2, last - 1, face);
+            px(Z - 1, t + 1, Z - 1, last - 1, sh);       // right shadow
+            px(A + 1, last, A + 1, last, face);
+            px(A + 2, last, Z - 1, last, sh);            // bottom shadow
+        }
+        px(A + 1, B, Z, B, k);                           // bottom: dark
+        px(151, T + 3, 151, T + 3, k); px(150, T + 4, 152, T + 4, k); px(149, T + 5, 153, T + 5, k);     // up
+        px(149, T + 10, 153, T + 10, k); px(150, T + 11, 152, T + 11, k); px(151, T + 12, 151, T + 12, k); // down
+    }
+}
+
+CommandPanel::Part CommandPanel::ParamPartAt(int x, int y, int& row) const {
+    row = -1;
+    const int titleTop = ShowsRollouts() ? TitleTopOf(kRollParameters) : -1;
+    if (titleTop < 0) return Part::None;
+    for (size_t i = 0; i < spec_.rows.size(); ++i) {
+        const params::Row& r = spec_.rows[i];
+        const int T = titleTop + r.top;
+        if (r.kind == params::Kind::Check) {
+            if (y >= T && y < T + 13 && x >= params::kCheckLeft && x < 170) { row = static_cast<int>(i); return Part::Check; }
+            continue;
+        }
+        if (y < T || y >= T + params::kSpinnerHeight) continue;
+        row = static_cast<int>(i);
+        if (x >= params::kFieldLeft && x <= params::kFieldRight) return Part::Field;
+        if (x >= params::kArrowsLeft && x <= params::kArrowsRight) return y < T + 8 ? Part::Up : Part::Down;
+        row = -1;
+    }
+    return Part::None;
+}
+
+// Typing: a borderless EDIT over the field's white area; Enter or leaving it commits,
+// Esc cancels (NOTE: R3's typing behaviour details are unverified).
+void CommandPanel::BeginTyping(int row) {
+    EndTyping(true);
+    const int titleTop = TitleTopOf(kRollParameters);
+    if (titleTop < 0) return;
+    const params::Row& r = spec_.rows[static_cast<size_t>(row)];
+    const int T = titleTop + r.top;
+    SpinnerModel m(ParamValue(r), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+    typing_ = CreateWindowExW(0, L"EDIT", m.Text().c_str(), WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL,
+                              Scale(params::kFieldLeft + 2), Scale(T + 2), Scale(params::kFieldRight - params::kFieldLeft - 3),
+                              Scale(params::kSpinnerHeight - 4), Hwnd(), nullptr, win::App::Instance(), nullptr);
+    if (!typing_) return;
+    typingRow_ = row;
+    if (font_) SendMessageW(typing_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), FALSE);
+    SetWindowLongPtrW(typing_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    editOldProc_ = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(typing_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&CommandPanel::EditProc)));
+    SendMessageW(typing_, EM_SETSEL, 0, -1);
+    SetFocus(typing_);
+}
+
+void CommandPanel::EndTyping(bool commit) {
+    if (!typing_) return;
+    HWND edit = typing_;
+    const int row = typingRow_;
+    typing_ = nullptr;                    // first: destroying the edit sends WM_KILLFOCUS
+    typingRow_ = -1;
+    if (commit && row >= 0 && static_cast<size_t>(row) < spec_.rows.size()) {
+        wchar_t buf[64] = {};
+        GetWindowTextW(edit, buf, 64);
+        const params::Row& r = spec_.rows[static_cast<size_t>(row)];
+        SpinnerModel m(ParamValue(r), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+        if (m.SetText(buf) && onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, m.Value(), true);
+    }
+    DestroyWindow(edit);
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+LRESULT CALLBACK CommandPanel::EditProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* self = reinterpret_cast<CommandPanel*>(GetWindowLongPtrW(h, GWLP_USERDATA));
+    const WNDPROC old = self ? self->editOldProc_ : DefWindowProcW;
+    if (self && self->typing_ == h) {
+        if (msg == WM_KEYDOWN && (wp == VK_RETURN || wp == VK_ESCAPE)) { self->EndTyping(wp == VK_RETURN); return 0; }
+        if (msg == WM_CHAR && (wp == VK_RETURN || wp == VK_ESCAPE)) return 0;   // no beep
+        if (msg == WM_KILLFOCUS) { const LRESULT r = CallWindowProcW(old, h, msg, wp, lp); self->EndTyping(true); return r; }
+    }
+    return CallWindowProcW(old, h, msg, wp, lp);
 }
 
 void CommandPanel::SetObjectColor(unsigned rgb) {
@@ -370,29 +605,70 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             if (c >= 0) { SelectCategory(c); return 0; }
         }
         if (!ShowsRollouts()) return 0;
+        EndTyping(true);
+        const std::vector<int> ids = VisibleRollouts();
+        const std::vector<rollup::Item> items = RolloutItems();
         // A title opens or closes its rollout.
-        const int title = rollup::TitleAt(rollouts_, scroll_, x, y);
+        const int title = rollup::TitleAt(items, scroll_, x, y);
         if (title >= 0) {
-            rollouts_[static_cast<size_t>(title)].open = !rollouts_[static_cast<size_t>(title)].open;
-            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(rollouts_));
+            const int id = ids[static_cast<size_t>(title)];
+            open_[id] = !open_[id];
+            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
             InvalidateRect(Hwnd(), nullptr, FALSE);
             return 0;
         }
         // The colour swatch opens the colour picker.
-        if (rollouts_[1].open) {
-            const Box w = SwatchBox(rollup::Layout(rollouts_, scroll_)[1].titleTop);
+        const int nameTop = TitleTopOf(kRollNameColor);
+        if (nameTop >= 0) {
+            const Box w = SwatchBox(nameTop);
             if (x >= w.left && x <= w.right && y >= w.top && y <= w.bottom) { PickObjectColor(); return 0; }
         }
         // A primitive button checks (or unchecks) its type.
         const int type = TypeButtonAt(x, y);
         if (type >= 0) {
             createType_ = (type == createType_) ? -1 : type;
+            spec_ = params::ParametersFor(createType_);
+            method_ = params::CreationMethodsFor(createType_).selected;
+            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
             InvalidateRect(Hwnd(), nullptr, FALSE);
             if (onCreateTypeChanged) onCreateTypeChanged(createType_);
             return 0;
         }
+        // Creation Method radios.
+        const int methodTop = TitleTopOf(kRollCreationMethod);
+        if (methodTop >= 0 && y >= methodTop + params::kMethodTop - 2 && y <= methodTop + params::kMethodTop + 13) {
+            for (int i = 0; i < 2; ++i)
+                if (x >= params::kMethodRadioLeft[i] && x < params::kMethodRadioLeft[i] + 62 && method_ != i) {
+                    method_ = i;
+                    InvalidateRect(Hwnd(), nullptr, FALSE);
+                    if (onCreationMethodChanged) onCreationMethodChanged(i);
+                    return 0;
+                }
+        }
+        // Parameters: checkboxes toggle; arrows step (click) or drag; the field takes typing.
+        int row = -1;
+        const Part part = ParamPartAt(x, y, row);
+        if (part != Part::None) {
+            const params::Row& r = spec_.rows[static_cast<size_t>(row)];
+            if (part == Part::Check) {
+                if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, ParamValue(r) != 0 ? 0 : 1, true);
+                InvalidateRect(Hwnd(), nullptr, FALSE);
+            } else if (part == Part::Field) {
+                BeginTyping(row);
+            } else {
+                spinRow_ = row;
+                spinPart_ = part;
+                spinPressY_ = GET_Y_LPARAM(lp);
+                spinMoved_ = false;
+                spinModel_ = std::make_unique<SpinnerModel>(ParamValue(r), r.min, r.max, r.step,
+                                                            r.kind == params::Kind::Int, params::kFloatDecimals);
+                spinModel_->BeginDrag();
+                SetCapture(Hwnd());
+            }
+            return 0;
+        }
         // Anywhere else in the rollup: drag to scroll, if there is anything to scroll.
-        if (rollup::MaxScroll(rollouts_) > 0 && y > rollup::kContainer.top && y < rollup::kContainer.bottom) {
+        if (rollup::MaxScroll(items) > 0 && y > rollup::kContainer.top && y < rollup::kContainer.bottom) {
             dragging_ = true;
             dragStartY_ = GET_Y_LPARAM(lp);
             dragStartScroll_ = scroll_;
@@ -401,11 +677,63 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MOUSEMOVE:
+        if (spinModel_) {
+            // Dragging a spinner: vertical movement changes the value (preview).
+            const int up = (spinPressY_ - GET_Y_LPARAM(lp)) * 96 / static_cast<int>(Dpi());
+            if (!spinMoved_ && std::abs(up) < 2) return 0;
+            spinMoved_ = true;
+            spinModel_->DragTo(up, (wp & MK_CONTROL) != 0, GetKeyState(VK_MENU) < 0);
+            const params::Row& r = spec_.rows[static_cast<size_t>(spinRow_)];
+            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, spinModel_->Value(), false);
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+            return 0;
+        }
         if (dragging_) SetScroll(dragStartScroll_ - (GET_Y_LPARAM(lp) - dragStartY_) * 96 / static_cast<int>(Dpi()));
         return 0;
     case WM_LBUTTONUP:
+        if (spinModel_) {
+            const params::Row& r = spec_.rows[static_cast<size_t>(spinRow_)];
+            if (!spinMoved_) {                      // a click: one step
+                spinModel_->CancelDrag();
+                spinModel_->StepBy(spinPart_ == Part::Up ? 1 : -1);
+            } else {
+                spinModel_->EndDrag();
+            }
+            const double v = spinModel_->Value();
+            spinModel_.reset();
+            spinRow_ = -1;
+            ReleaseCapture();
+            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, v, true);
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+            return 0;
+        }
         if (dragging_) ReleaseCapture();
         return 0;
+    case WM_RBUTTONDOWN: {
+        const int x = GET_X_LPARAM(lp) * 96 / static_cast<int>(Dpi());
+        const int y = GET_Y_LPARAM(lp) * 96 / static_cast<int>(Dpi());
+        if (spinModel_) {                           // right-click while dragging: cancel
+            const params::Row& r = spec_.rows[static_cast<size_t>(spinRow_)];
+            spinModel_->CancelDrag();
+            const double v = spinModel_->Value();
+            spinModel_.reset();
+            spinRow_ = -1;
+            ReleaseCapture();
+            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, v, true);
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+            return 0;
+        }
+        int row = -1;
+        const Part part = ParamPartAt(x, y, row);
+        if (part == Part::Up || part == Part::Down) {   // right-click on the arrows: reset
+            const params::Row& r = spec_.rows[static_cast<size_t>(row)];
+            SpinnerModel m(ParamValue(r), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+            m.Reset();
+            if (onParamChanged && r.paramIndex >= 0) onParamChanged(r.paramIndex, m.Value(), true);
+            InvalidateRect(Hwnd(), nullptr, FALSE);
+        }
+        return 0;
+    }
     case WM_CAPTURECHANGED:
         dragging_ = false;
         return 0;
@@ -414,13 +742,15 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_SETCURSOR:
         // The hand shows where the rollup can be dragged (R3: over its empty space).
-        if (LOWORD(lp) == HTCLIENT && ShowsRollouts() && rollup::MaxScroll(rollouts_) > 0) {
+        if (LOWORD(lp) == HTCLIENT && ShowsRollouts() && rollup::MaxScroll(RolloutItems()) > 0) {
             POINT pt;
             GetCursorPos(&pt);
             ScreenToClient(Hwnd(), &pt);
             const int x = pt.x * 96 / static_cast<int>(Dpi()), y = pt.y * 96 / static_cast<int>(Dpi());
+            int row = -1;
             if (dragging_ || (y > rollup::kContainer.top && y < rollup::kContainer.bottom &&
-                              rollup::TitleAt(rollouts_, scroll_, x, y) < 0 && TypeButtonAt(x, y) < 0)) {
+                              rollup::TitleAt(RolloutItems(), scroll_, x, y) < 0 && TypeButtonAt(x, y) < 0 &&
+                              ParamPartAt(x, y, row) == Part::None)) {
                 SetCursor(LoadCursorW(nullptr, IDC_HAND));
                 return TRUE;
             }

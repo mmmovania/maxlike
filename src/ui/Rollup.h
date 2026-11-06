@@ -14,7 +14,10 @@ inline constexpr int kFirstTitleGap = 5;             // container top -> first t
 inline constexpr int kTitleLeft = 11, kTitleRight = 168, kTitleHeight = 16;
 inline constexpr int kFrameLeft = 7, kFrameRight = 172;   // etched edge, 2 px
 inline constexpr int kFrameTopOffset = 8;            // title top -> frame top (row 107)
-inline constexpr int kGap = 7;                       // frame bottom (or collapsed title bottom) -> next title
+// A collapsed rollout keeps a small frame behind its title (measured: Keyboard Entry
+// collapsed, title row 356, frame rows 360..369).
+inline constexpr int kClosedFrameTop = 4, kClosedFrameBottom = 13;
+inline constexpr int kGap = 7;                       // frame bottom -> next title (also when collapsed)
 inline constexpr int kBottomMargin = 5;              // space kept below the last rollout when scrolled to the end
 
 struct Item {
@@ -24,7 +27,7 @@ struct Item {
 
 struct Placed {
     int titleTop, titleBottom;     // inclusive
-    int frameTop, frameBottom;     // inclusive; meaningless when closed
+    int frameTop, frameBottom;     // inclusive (a collapsed rollout's small frame too)
     bool open;
 };
 

@@ -35,6 +35,17 @@ uint32_t CreationTool::NextRandomColor(uint32_t previous) {
     return (r << 16) | (g << 8) | b;
 }
 
+std::shared_ptr<Object> CreationTool::TargetObject() const {
+    if (creator_) return object_;
+    const Node* n = lastName_.empty() ? nullptr : scene_.Find(lastName_);
+    return n ? n->GetObject() : nullptr;
+}
+
+std::string CreationTool::TargetName() const {
+    if (creator_) return name_;
+    return (!lastName_.empty() && scene_.Find(lastName_)) ? lastName_ : std::string();
+}
+
 void CreationTool::SetType(int type) {
     if (type == type_) return;
     Cancel();
@@ -68,7 +79,6 @@ void CreationTool::Finish() {
     RemoveLive();
     undo_.Execute(std::make_unique<CreateNodeCommand>(name_, object_, color_, transform), scene_);
     lastName_ = name_;
-    color_ = NextRandomColor(color_);   // the next object gets a new colour, as in R3
     creator_.reset();
     object_.reset();
     owner_ = -1;
@@ -85,6 +95,8 @@ bool CreationTool::Feed(Creator::Event e, int owner, const ConstructionPlane& pl
         plane_ = plane;
         owner_ = owner;
         name_ = scene_.UniqueName(PrimitiveBaseName(type_));
+        if (!colorPending_) color_ = NextRandomColor(color_);   // a new object, a new colour
+        colorPending_ = false;
         Node* n = scene_.CreateNode(name_);
         n->SetObject(object_);
         n->SetWireColor(color_);
@@ -106,9 +118,10 @@ std::string CreationTool::CreateDirect(const std::vector<std::pair<size_t, doubl
     PRS transform = plane.NodeTransform(0, 0);
     transform.position = position;
     const std::string name = scene_.UniqueName(PrimitiveBaseName(type_));
+    if (!colorPending_) color_ = NextRandomColor(color_);
+    colorPending_ = false;
     undo_.Execute(std::make_unique<CreateNodeCommand>(name, object, color_, transform), scene_);
     lastName_ = name;
-    color_ = NextRandomColor(color_);
     return name;
 }
 

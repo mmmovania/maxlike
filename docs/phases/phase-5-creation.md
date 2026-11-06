@@ -15,9 +15,11 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [x] **5.3a Behaviour without the look**: `ui::SpinnerModel` (limits, arrow steps, drag
       with Ctrl/Alt, right-click reset and drag cancel, typed entry, display rounding);
       `CreationTool::CreateDirect` (Keyboard Entry's Create: typed values, one undo step)
-- [ ] 5.3b Spinner drawing and the Parameters rollout (needs the R3.1 screenshot after
-      clicking Box)
-- [ ] 5.4 Creation Method and Keyboard Entry rollouts (same screenshot)
+- [x] **5.3b Creation rollouts, measured** (R3.1 screenshot `r3.1-box-created.png`):
+      spinners, Parameters per primitive (`ui::params`), Creation Method radios, Keyboard
+      Entry collapsed, the green checked button, AutoGrid and the name field enabled, the
+      swatch showing the new object's colour; spinner edits become undo steps
+- [ ] 5.4 Keyboard Entry contents (X, Y, Z and sizes, Create button)
 - [ ] 5.5 Wrap-up: checks, `docs/tech/phase5-tech-docs.md`, version 0.5.0
 
 ## Step 5.1 verification
@@ -53,6 +55,25 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
       position, oriented like the Front view, as one undo step
 - [ ] On Windows: `ctest` passes (no visible change yet)
 - [ ] Unverified: all spinner conventions above (from memory of R3)
+
+## Step 5.3b verification
+- [x] Builds warning-free (clean rebuild); twenty-one test programs pass (MinGW + Wine)
+- [x] `test_rollup`: all five rollouts at the measured rows (titles 99, 248, 306, 356, 376;
+      Keyboard Entry's collapsed frame 360–369; Parameters' frame to 559)
+- [x] `test_parameters_spec`: Box's seven rows at the measured positions, content 168;
+      every primitive's rows refer to real parameters
+- [x] `test_creation_tool`: the swatch keeps the created object's colour; the next object
+      gets a new one when started; a chosen colour is used as-is; the panel's target object
+- [x] Under Wine, compared with R3.1's screenshot of the same state: the whole command
+      panel while creating a Box, 0 differing pixels of 122,771 (text, icons, dropdown
+      interior and the swatch's random colour masked); the default panel still 0 of 143,519
+- [x] A spinner drag (Length +4.0 for 40 px) is one undo step; the toolbar's Undo restores
+      both the box and the field
+- [ ] On Windows: create each primitive; edit its Parameters by click, drag (Ctrl/Alt),
+      right-click and typing; undo/redo
+- [ ] Unverified: other primitives' Parameters and Creation Method lists (from memory);
+      non-default creation methods (not implemented); the right-hand gutter's condition;
+      spinner speeds; a pressed arrow's look
 
 ## Notes
 - Steps are from memory of R3; the defaults (Creation Method: Box not Cube, Sphere from
