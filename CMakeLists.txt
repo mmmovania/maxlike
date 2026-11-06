@@ -37,6 +37,8 @@ add_executable(maxlike WIN32
     src/ui/CommandPanelLayout.h
     src/ui/Rollup.cpp
     src/ui/Rollup.h
+    src/ui/SpinnerModel.cpp
+    src/ui/SpinnerModel.h
     src/ui/CommandTable.cpp
     src/ui/CommandTable.h
     src/ui/MenuSpec.cpp
@@ -175,3 +177,4 @@ maxlike_add_test(test_command_panel_layout tests/test_command_panel_layout.cpp s
 maxlike_add_test(test_rollup tests/test_rollup.cpp src/ui/Rollup.cpp)
 maxlike_add_test(test_creation tests/test_creation.cpp src/scene/Creation.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_creation_tool tests/test_creation_tool.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_spinner tests/test_spinner.cpp src/ui/SpinnerModel.cpp)

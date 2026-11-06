@@ -12,7 +12,11 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
       formula reversed; perspective: a ray to the ground), `scene::CreationTool` (live
       node, one undo step "Create" per object, Box01/Box02 names, swatch colour then a new
       random one, right-click or a click without drag cancels)
-- [ ] 5.3 Spinner and the Parameters rollout (needs the R3.1 screenshot after clicking Box)
+- [x] **5.3a Behaviour without the look**: `ui::SpinnerModel` (limits, arrow steps, drag
+      with Ctrl/Alt, right-click reset and drag cancel, typed entry, display rounding);
+      `CreationTool::CreateDirect` (Keyboard Entry's Create: typed values, one undo step)
+- [ ] 5.3b Spinner drawing and the Parameters rollout (needs the R3.1 screenshot after
+      clicking Box)
 - [ ] 5.4 Creation Method and Keyboard Entry rollouts (same screenshot)
 - [ ] 5.5 Wrap-up: checks, `docs/tech/phase5-tech-docs.md`, version 0.5.0
 
@@ -38,6 +42,17 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [ ] On Windows: create each primitive in each view; undo/redo; right-click cancels
 - [ ] Unverified: R3's creation cursor and prompts; R3's random colour palette; whether
       R3 leaves creation mode after an object (here it stays, ready for the next)
+
+## Step 5.3a verification
+- [x] Builds warning-free; twenty test programs pass (MinGW + Wine)
+- [x] `test_spinner`: clamping, arrow steps, a drag as one change (total movement; Ctrl
+      ×10, Alt ×0.1), right-click cancel during a drag, reset to 0 or the nearest limit,
+      integer rounding, display ("3.25" shows "3.3", "-0.0" shows "0.0"), typed entry
+      (spaces allowed, junk rejected, clamped)
+- [x] `test_creation_tool`: Keyboard Entry creates Box01 with typed sizes at a typed
+      position, oriented like the Front view, as one undo step
+- [ ] On Windows: `ctest` passes (no visible change yet)
+- [ ] Unverified: all spinner conventions above (from memory of R3)
 
 ## Notes
 - Steps are from memory of R3; the defaults (Creation Method: Box not Cube, Sphere from

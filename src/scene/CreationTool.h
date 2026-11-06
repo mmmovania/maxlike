@@ -31,6 +31,13 @@ public:
               int screenY, double unitsPerPixel);
     bool Cancel();                                       // right-click / Esc; true if something was removed
 
+    // Keyboard Entry's Create button: the current type with typed parameters (Max
+    // indices), its pivot at world position `position`, oriented like the view's
+    // construction plane. One undo step, like a dragged object. Returns the new node's
+    // name ("" if no type is selected).
+    std::string CreateDirect(const std::vector<std::pair<size_t, double>>& params,
+                             const ConstructionPlane& plane, const math::Vec3& position);
+
     bool Busy() const { return creator_ != nullptr; }    // an object is being built
     int  Owner() const { return owner_; }
     int  Step() const { return creator_ ? creator_->Step() : 0; }

@@ -97,4 +97,19 @@ bool CreationTool::Feed(Creator::Event e, int owner, const ConstructionPlane& pl
     return true;
 }
 
+std::string CreationTool::CreateDirect(const std::vector<std::pair<size_t, double>>& params,
+                                       const ConstructionPlane& plane, const math::Vec3& position) {
+    if (type_ < 0) return "";
+    Cancel();
+    std::shared_ptr<Object> object = MakePrimitive(type_);
+    for (const auto& [index, value] : params) object->Params().Set(index, value);
+    PRS transform = plane.NodeTransform(0, 0);
+    transform.position = position;
+    const std::string name = scene_.UniqueName(PrimitiveBaseName(type_));
+    undo_.Execute(std::make_unique<CreateNodeCommand>(name, object, color_, transform), scene_);
+    lastName_ = name;
+    color_ = NextRandomColor(color_);
+    return name;
+}
+
 } // namespace scene

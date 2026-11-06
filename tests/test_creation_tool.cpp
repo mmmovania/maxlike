@@ -105,7 +105,25 @@ static void EveryTypeCreates() {
     }
 }
 
+static void KeyboardEntry() {
+    Scene s;
+    UndoStack u;
+    CreationTool t(s, u);
+    CHECK(t.CreateDirect({}, TopPlane(), {0, 0, 0}).empty());       // no type selected
+    t.SetType(0);                                                  // Box
+    const uint32_t c = t.Color();
+    const std::string name = t.CreateDirect({{BoxObject::kLength, 30}, {BoxObject::kWidth, 20}, {BoxObject::kHeight, 10}},
+                                            FrontPlane(), {5, 6, 7});
+    const Node* n = s.Find(name);
+    CHECK(name == "Box01" && n && n->WireColor() == c && t.Color() != c);
+    CHECK(Near(n->GetObject()->Params().Float(BoxObject::kHeight), 10));
+    CHECK(Near(n->Transform().position.x, 5) && Near(n->Transform().position.y, 6) && Near(n->Transform().position.z, 7));
+    CHECK(Near(n->Transform().rotation.Rotate({0, 0, 1}).y, -1));   // oriented like the Front view
+    CHECK(u.UndoCount() == 1 && u.Undo(s) && s.Nodes().empty());    // one undo step
+}
+
 int main() {
+    KeyboardEntry();
     CreateUndoRedo();
     CancelLeavesNothing();
     OwnerAndPlane();
