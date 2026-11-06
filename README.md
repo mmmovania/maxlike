@@ -2,12 +2,14 @@
 
 A Windows C++ application that recreates the look and workflow of 3D Studio MAX R3.1
 (four viewports, command panel, Standard Primitives, modifier stack), plus a native
-importer for R3-era `.max` files. "maxlike" is a working name; rename freely.
+importer for R3-era `.max` files. "maxlike" is a working name for now.
 
 Stack: C++17, Win32 + classic common controls behind a thin in-house wrapper,
 OpenGL 3.3 (GLAD) viewports, CMake + MSVC. Icons are drawn from scratch.
 
 ## Status
+This is how it looks so far
+<img width="1920" height="1040" alt="image" src="https://github.com/user-attachments/assets/6195c5bf-6522-4448-9273-99d49c85f3a0" />
 
 | Phase | State | Version |
 |---|---|---|
