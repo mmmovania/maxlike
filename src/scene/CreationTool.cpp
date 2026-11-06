@@ -37,13 +37,18 @@ uint32_t CreationTool::NextRandomColor(uint32_t previous) {
 
 std::shared_ptr<Object> CreationTool::TargetObject() const {
     if (creator_) return object_;
-    const Node* n = lastName_.empty() ? nullptr : scene_.Find(lastName_);
+    const Node* n = scene_.FindById(lastId_);
     return n ? n->GetObject() : nullptr;
 }
 
 std::string CreationTool::TargetName() const {
     if (creator_) return name_;
-    return (!lastName_.empty() && scene_.Find(lastName_)) ? lastName_ : std::string();
+    return LastCreatedName();
+}
+
+std::string CreationTool::LastCreatedName() const {
+    const Node* n = scene_.FindById(lastId_);
+    return n ? n->Name() : std::string();
 }
 
 void CreationTool::SetType(int type) {
@@ -81,7 +86,7 @@ void CreationTool::Finish() {
     CreateNodeCommand* created = command.get();
     undo_.Execute(std::move(command), scene_);
     scene_.SetSelection({created->CreatedId()});   // R3: a new object is selected
-    lastName_ = name_;
+    lastId_ = created->CreatedId();
     creator_.reset();
     object_.reset();
     owner_ = -1;
@@ -127,7 +132,7 @@ std::string CreationTool::CreateDirect(const std::vector<std::pair<size_t, doubl
     CreateNodeCommand* created = command.get();
     undo_.Execute(std::move(command), scene_);
     scene_.SetSelection({created->CreatedId()});
-    lastName_ = name;
+    lastId_ = created->CreatedId();
     return name;
 }
 

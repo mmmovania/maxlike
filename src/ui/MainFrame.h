@@ -53,6 +53,7 @@ private:
     void UpdateCreatePanel();                       // Parameters, name, colour from the creation tool
     void UpdateSelectionStatus();                   // "None Selected" / "1 Object Selected" / ...
     void DeleteSelection();
+    scene::Node* NameColorTarget() const;          // whose name and colour the panel shows
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout.

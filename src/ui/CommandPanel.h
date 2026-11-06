@@ -26,6 +26,8 @@ public:
     // true when a change is complete (one undo step later).
     std::function<void(int paramIndex, double value, bool final)> onParamChanged;
     std::function<void(int method)> onCreationMethodChanged;
+    // The name field was edited (Enter or leaving it); Esc cancels without a call.
+    std::function<void(const std::wstring& name)> onNameChanged;
     // Keyboard Entry's Create: world position and the typed sizes (Max indices).
     std::function<void(double x, double y, double z, const std::vector<std::pair<int, double>>& sizes)> onKeyboardCreate;
 
@@ -85,6 +87,8 @@ private:
     void RowChanged(int id, double value, bool final);
     bool OnCreateButton(int x, int y) const;
     void BeginTyping(int row);
+    void BeginNameTyping();
+    static constexpr int kNameRow = -2;       // typingRow_ while editing the name field
     void EndTyping(bool commit);
     static LRESULT CALLBACK EditProc(HWND, UINT, WPARAM, LPARAM);
     void PickObjectColor();

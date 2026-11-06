@@ -83,7 +83,7 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       brackets in shaded views; "N Objects Selected"; undoable (step 6.2).
 - [ ] Selection filter (the toolbar's "All" combo).
 - [x] Delete the selection (one undo step).
-- [ ] Name and Color for the selection: rename, recolour (undoable).
+- [x] Name and Color for the selection: rename, recolour (undoable) (step 6.3).
 - [ ] Move/Rotate/Scale with tripod, axis constraints, reference coord systems.
 - [ ] Status bar X/Y/Z type-in.
 

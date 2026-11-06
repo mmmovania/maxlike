@@ -12,7 +12,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
       picking (`view::Picking`: nearest edge in wireframe, nearest surface in shaded views,
       crossing regions); click / region / Ctrl adds / Alt removes; selected objects white,
       brackets in shaded views; "N Objects Selected"; Delete; new objects are selected
-- [ ] 6.3 Name and Color for the selection (rename, recolour)
+- [x] **6.3 Name and Color for the selection**: shows the one selected object (or the
+      creation target); typing in the name field renames it, the swatch recolours every
+      selected object; both undoable; the creation tool tracks its object by id
 - [ ] 6.4 Move, Rotate, Scale with axis constraints
 - [ ] 6.5 Wrap-up
 
@@ -42,6 +44,16 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [ ] Unverified: pick tolerance (4 px), crossing as the default region mode, Ctrl/Alt
       rules, the selection rectangle's look (solid white here), bracket length (¼ edge,
       measured roughly), "N Objects Selected" plural
+
+## Step 6.3 verification
+- [x] Builds warning-free (clean rebuild); twenty-two test programs pass (MinGW + Wine)
+- [x] `test_creation_tool`: renaming the just-created object keeps it the panel's target
+      (by id); undo restores the name
+- [x] Under Wine: create Box01 (name shown), type "Crate" + Enter (renamed), click empty
+      (field disabled), click the box (shows "Crate"); default window unchanged
+- [ ] On Windows: rename; recolour one and several objects with the swatch; undo both
+- [ ] Unverified: R3's Name and Color with several objects selected; R3's own Object
+      Color dialog (Windows' colour dialog stands in); duplicate names (allowed here)
 
 ## Notes
 - The strip is a second `Toolbar` (`ObjectsToolbarConfig`) shown in the main toolbar's

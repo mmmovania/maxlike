@@ -49,7 +49,8 @@ public:
     bool Busy() const { return creator_ != nullptr; }    // an object is being built
     int  Owner() const { return owner_; }
     int  Step() const { return creator_ ? creator_->Step() : 0; }
-    const std::string& LastCreatedName() const { return lastName_; }
+    // The last object created (tracked by id, so renaming it keeps it), or "" if gone.
+    std::string LastCreatedName() const;
 
     // R3 gives every new object a random colour; a fixed generator keeps tests stable.
     // NOTE: R3's palette for these colours is unverified.
@@ -69,7 +70,8 @@ private:
     std::shared_ptr<Object> object_;
     ConstructionPlane plane_;
     Node::Id liveId_ = 0;
-    std::string name_, lastName_;
+    std::string name_;
+    Node::Id lastId_ = 0;          // the last object created
     int owner_ = -1;
 };
 

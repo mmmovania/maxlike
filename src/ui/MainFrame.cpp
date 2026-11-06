@@ -52,13 +52,47 @@ void MainFrame::DeleteSelection() {
     viewports_.Redraw();
 }
 
+// Node names are UTF-8; the panel works in UTF-16.
+static std::wstring FromUtf8(const std::string& s) {
+    if (s.empty()) return {};
+    const int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0);
+    std::wstring w(static_cast<size_t>(n), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), w.data(), n);
+    return w;
+}
+
+static std::string ToUtf8(const std::wstring& w) {
+    if (w.empty()) return {};
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    std::string s(static_cast<size_t>(n), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), s.data(), n, nullptr, nullptr);
+    return s;
+}
+
+// While a primitive is active: the object being built or just created. Otherwise the
+// one selected object (none with zero or several selected; NOTE: R3's look with several
+// selected is unverified).
+scene::Node* MainFrame::NameColorTarget() const {
+    if (commandPanel_.CreateType() >= 0) {
+        const std::string name = creation_.TargetName();
+        return name.empty() ? nullptr : scene_.Find(name);
+    }
+    const auto& sel = scene_.Selection();
+    return sel.size() == 1 ? scene_.FindById(sel[0]) : nullptr;
+}
+
 void MainFrame::UpdateCreatePanel() {
     panelObject_ = creation_.TargetObject();
     if (!panelObject_) panelObject_ = template_;
     commandPanel_.SetParameterSource(panelObject_ ? &panelObject_->Params() : nullptr);
-    const std::string name = creation_.TargetName();
-    commandPanel_.SetObjectName(std::wstring(name.begin(), name.end()));
-    commandPanel_.SetObjectColor(creation_.Color());
+    const scene::Node* target = NameColorTarget();
+    if (creation_.Busy()) {
+        commandPanel_.SetObjectName(FromUtf8(creation_.TargetName()));   // the live node, not yet recorded
+        commandPanel_.SetObjectColor(creation_.Color());
+    } else {
+        commandPanel_.SetObjectName(target ? FromUtf8(target->Name()) : std::wstring());
+        commandPanel_.SetObjectColor(target ? target->WireColor() : creation_.Color());
+    }
     commandPanel_.Refresh();
 }
 
@@ -97,7 +131,26 @@ bool MainFrame::CreateRegions() {
     // mouse; the swatch gives the colour, and shows the next one after each object.
     // NOTE: R3's prompt wording is unverified.
     creation_.SetColor(commandPanel_.ObjectColor());
-    commandPanel_.onObjectColorChanged = [this](unsigned rgb) { creation_.SetColor(rgb); };
+    // The swatch recolours the selected objects (one undo step); with nothing selected it
+    // sets the next new object's colour.
+    commandPanel_.onObjectColorChanged = [this](unsigned rgb) {
+        if (creation_.Busy() || scene_.Selection().empty()) {
+            creation_.SetColor(rgb);
+        } else {
+            auto macro = std::make_unique<scene::MacroCommand>("Color Change");
+            for (scene::Node::Id id : scene_.Selection()) macro->Add(std::make_unique<scene::WireColorCommand>(id, rgb));
+            undo_.Execute(std::move(macro), scene_);
+            viewports_.Redraw();
+        }
+        UpdateCreatePanel();
+    };
+    // Renaming the object Name and Color shows (one undo step).
+    commandPanel_.onNameChanged = [this](const std::wstring& name) {
+        scene::Node* target = creation_.Busy() ? nullptr : NameColorTarget();
+        if (!target) return;
+        undo_.Execute(std::make_unique<scene::RenameCommand>(target->GetId(), ToUtf8(name)), scene_);
+        UpdateCreatePanel();
+    };
     commandPanel_.onCreateTypeChanged = [this](int type) {
         if (creation_.Cancel()) viewports_.Redraw();
         creation_.SetType(type);
@@ -175,6 +228,7 @@ bool MainFrame::CreateRegions() {
         if (next == scene_.Selection()) return;
         undo_.Execute(std::make_unique<scene::SelectCommand>(next), scene_);
         UpdateSelectionStatus();
+        UpdateCreatePanel();
         viewports_.Redraw();
     };
     viewports_.onDeleteKey = [this] { DeleteSelection(); };
