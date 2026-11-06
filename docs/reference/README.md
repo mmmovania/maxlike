@@ -16,6 +16,15 @@
   Note: except Box and Pyramid, its primitives use three.js geometry generators, which
   match Max's sizes and triangle counts but not necessarily Max's vertex order.
 
-Still to add: the sample `.max` files (put them in `docs/reference/samples/`; `.max` is
-marked binary in `.gitattributes`); Summary Info of box, plane and pyramid; R3.1
-wireframe screenshots at the default zoom (pixel-comparable); a shaded Perspective view.
+Still to add:
+- **For Phase 5** (most needed): R3.1 right after clicking Box, before dragging (the
+  checked button and the Creation Method, Keyboard Entry and Parameters rollouts with
+  their spinners); one screenshot mid-creation (base dragged, setting the height); a
+  rollout collapsed.
+- For later steps: R3's Object Color dialog (click the swatch); the Geometry dropdown
+  open; the name field with an object selected.
+- The sample `.max` files (in `docs/reference/samples/`; `.max` is marked binary in
+  `.gitattributes`); Summary Info of box, plane and pyramid; wireframe screenshots at the
+  default zoom (pixel-comparable); a shaded Perspective view.
+
+Screenshots: full screen, Max maximised at 1920 × 1080, as the reference.

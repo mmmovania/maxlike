@@ -67,6 +67,10 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       show the same panel; the enabled name field is checked in Phase 6.
 
 ## Phase 5 — Interactive creation (`phase/5-creation`)
+Needs R3.1 screenshots (see `docs/reference/README.md`): the Create panel right after
+clicking Box (checked button, Creation Method, Keyboard Entry, Parameters with
+spinners), and one mid-creation.
+
 - [ ] Creation state machines for all ten Standard Primitives, through the undo system
       (one undo step per created object).
 - [ ] Spinner control (measured from an R3.1 screenshot of the Parameters rollout).
