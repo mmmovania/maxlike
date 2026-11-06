@@ -24,6 +24,7 @@ public:
     std::function<void()> onMoveBegin;
     std::function<void(const math::Vec3&, int)> onMoveDrag;
     std::function<void(bool)> onMoveEnd;
+    std::function<void(bool, const math::Vec3&)> onCursorWorld;
 
     bool Create(HWND parent);
     NavMode Mode() const { return mode_; }

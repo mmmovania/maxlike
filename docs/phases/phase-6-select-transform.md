@@ -24,6 +24,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] **6.4c Rotate and Scale**: each object about its own pivot; Rotate about the
       constrained axis (a plane: its normal), Scale uniform / non-uniform / squash
       (volume kept); one undo step each; right-click cancels
+- [x] **6.4d Status bar X/Y/Z**: the cursor's world position; while dragging, the
+      movement, the angle (degrees) or the scale (%); display-only, as in R3.1
 - [ ] 6.5 Wrap-up
 
 ## Step 6.1 verification
@@ -105,6 +107,18 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
       other than each pivot
 - [x] Rotate and Scale show the same figure as Move (R3.1; confirmed by the project
       owner), so all three transform tools draw the Move gizmo
+
+## Step 6.4d verification
+- [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
+- [x] `test_move_math`: angle on the rotation axis, scale percentages, Euler angles
+      (X, then Y, then Z; for the Transform Type-In dialog later)
+- [x] Under Wine: cursor 20 units right of the Top view's centre shows 19.828 / 0.334 /
+      0.000 (within a pixel); a 100-px move shows 46.377 / 0 / 0; a 180-px rotation
+      shows 0 / 0 / 90
+- [ ] On Windows: the same in each view; Scale shows percentages
+- [ ] Unverified: R3's number format; whether R3 shows the cursor position in every
+      view (here: ortho view planes and the ground in Perspective); what it shows
+      after a drag ends (the last amount stays here)
 
 ## Notes
 - The strip is a second `Toolbar` (`ObjectsToolbarConfig`) shown in the main toolbar's

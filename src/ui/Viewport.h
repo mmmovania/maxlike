@@ -46,6 +46,9 @@ public:
     // delta: world movement (Move); upPixels: vertical mouse movement (Rotate, Scale).
     std::function<void(const math::Vec3& delta, int upPixels)> onMoveDrag;
     std::function<void(bool commit)> onMoveEnd;
+    // The world point under the mouse (view plane in ortho views, the ground in
+    // perspective); ok = false when there is none (above the horizon).
+    std::function<void(bool ok, const math::Vec3& world)> onCursorWorld;
     void SetIndex(int index) { index_ = index; }
 
     // `lines` and `meshes` are the panel's shared renderers (created on first paint).

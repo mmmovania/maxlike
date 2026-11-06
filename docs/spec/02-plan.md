@@ -85,7 +85,11 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 - [x] Delete the selection (one undo step).
 - [x] Name and Color for the selection: rename, recolour (undoable) (step 6.3).
 - [ ] Move/Rotate/Scale with tripod, axis constraints, reference coord systems.
-- [ ] Status bar X/Y/Z type-in.
+- [x] Status bar X/Y/Z display: the cursor's world position, and the movement, angle or
+      scale percentage while dragging (step 6.4d). In R3.1 these fields are display-only
+      (measured: plain sunken fields, no spinners); typing exact values belongs to the
+      Transform Type-In dialog.
+- [ ] Transform Type-In dialog (Tools menu): typed position, rotation, scale (later).
 
 ## Phase 7 — Modify panel (`phase/7-modify`)
 - [ ] Modifier stack UI.

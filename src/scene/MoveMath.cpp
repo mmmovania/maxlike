@@ -79,4 +79,22 @@ math::Vec3 DragScale(ScaleMode mode, const bool active[3], int upPixels) {
     return {s[0], s[1], s[2]};
 }
 
+math::Vec3 RotationDegrees(int axis, int upPixels) {
+    double d[3] = {0, 0, 0};
+    if (axis >= 0) d[axis] = upPixels * 0.5;
+    return {d[0], d[1], d[2]};
+}
+
+math::Vec3 ScalePercent(const math::Vec3& f) { return {f.x * 100, f.y * 100, f.z * 100}; }
+
+math::Vec3 EulerXYZDegrees(const math::Quat& q0) {
+    const math::Quat q = q0.Normalized();
+    const double k = 180.0 / 3.14159265358979323846;
+    // R = Rz * Ry * Rx; standard extraction.
+    const double sinX = 2 * (q.w * q.x + q.y * q.z), cosX = 1 - 2 * (q.x * q.x + q.y * q.y);
+    const double sinY = std::clamp(2 * (q.w * q.y - q.z * q.x), -1.0, 1.0);
+    const double sinZ = 2 * (q.w * q.z + q.x * q.y), cosZ = 1 - 2 * (q.y * q.y + q.z * q.z);
+    return {std::atan2(sinX, cosX) * k, std::asin(sinY) * k, std::atan2(sinZ, cosZ) * k};
+}
+
 } // namespace scene::move

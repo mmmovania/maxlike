@@ -67,6 +67,18 @@ int main() {
         CHECK(std::fabs(s.z - 2) < 1e-12 && std::fabs(s.x * s.y * s.z - 1) < 1e-12 && std::fabs(s.x - s.y) < 1e-12);
     }
     CHECK(Near(DragScale(ScaleMode::Uniform, xy, -500), {0.01, 0.01, 0.01}));  // never below 1 %
+    // Status bar values.
+    CHECK(Near(RotationDegrees(2, 90), {0, 0, 45}) && Near(RotationDegrees(-1, 90), {0, 0, 0}));
+    CHECK(Near(ScalePercent({1.5, 1, 0.25}), {150, 100, 25}));
+    {
+        const double r = 3.14159265358979323846 / 180;
+        // X 30, then Y 20, then Z 40 (Z * Y * X as quaternions) comes back as (30, 20, 40).
+        const math::Quat q = math::Quat::FromAxisAngle({0, 0, 1}, 40 * r) * math::Quat::FromAxisAngle({0, 1, 0}, 20 * r) *
+                             math::Quat::FromAxisAngle({1, 0, 0}, 30 * r);
+        const math::Vec3 e = EulerXYZDegrees(q);
+        CHECK(std::fabs(e.x - 30) < 1e-9 && std::fabs(e.y - 20) < 1e-9 && std::fabs(e.z - 40) < 1e-9);
+        CHECK(Near(EulerXYZDegrees({0, 0, 0, 1}), {0, 0, 0}));
+    }
     if (failures == 0) std::printf("move math: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

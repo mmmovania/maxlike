@@ -799,6 +799,13 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             if (moved || regionVisible_) { regionVisible_ = true; InvalidateRect(Hwnd(), nullptr, FALSE); }
             return 0;
         }
+        // The status bar's X/Y/Z follow the cursor when nothing is being dragged.
+        if (onCursorWorld && drag_ == NavMode::None && !selecting_ && !creatingDrag_) {
+            scene::ConstructionPlane plane;
+            double u = 0, v = 0, upp = 1;
+            const bool ok = PointOnPlane(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), plane, u, v, upp);
+            onCursorWorld(ok, ok ? plane.ToWorld(u, v) : math::Vec3{0, 0, 0});
+        }
         // Creation follows the mouse with or without the button (the height steps).
         if (drag_ == NavMode::None && creationActive && creationActive()) CreateEvent(scene::Creator::Event::Move, lp);
         if (drag_ != NavMode::None) {

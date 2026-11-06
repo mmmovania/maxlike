@@ -43,4 +43,13 @@ math::Quat RotateInParent(const math::Quat& parentWorld, const math::Quat& world
 enum class ScaleMode { Uniform, NonUniform, Squash };
 math::Vec3 DragScale(ScaleMode mode, const bool active[3], int upPixels);
 
+// The status bar's X/Y/Z during a drag (NOTE: R3's exact display rules and number
+// format are from memory, unverified): Move shows the movement, Rotate the angle about
+// each axis in degrees, Scale the percentage per axis.
+math::Vec3 RotationDegrees(int axis, int upPixels);           // the angle on the rotation axis only
+math::Vec3 ScalePercent(const math::Vec3& factors);           // 1.5 -> 150
+
+// Euler angles (degrees) of a rotation, applied X first, then Y, then Z.
+math::Vec3 EulerXYZDegrees(const math::Quat& q);
+
 } // namespace scene::move

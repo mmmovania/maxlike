@@ -1,4 +1,5 @@
 #include "ui/MainFrame.h"
+#include <cwchar>
 #include "ui/FrameLayout.h"
 #include "ui/Bevel.h"
 #include "scene/DemoScene.h"
@@ -58,6 +59,15 @@ void MainFrame::UpdateTransformDisplay() {
     if (tool_ == Tool::Rotate) prompt = L"Click and drag to select and rotate objects";
     if (tool_ == Tool::Scale) prompt = L"Click and drag to select and scale objects";
     statusArea_.SetPrompt(1, prompt);
+}
+
+void MainFrame::ShowCoordinates(const math::Vec3& v) {
+    auto f = [](double d) {
+        wchar_t buf[32];
+        std::swprintf(buf, 32, L"%.3f", std::fabs(d) < 0.0005 ? 0.0 : d);   // no "-0.000"
+        return std::wstring(buf);
+    };
+    statusArea_.SetCoordinates(f(v.x), f(v.y), f(v.z));
 }
 
 void MainFrame::DeleteSelection() {
@@ -268,8 +278,12 @@ bool MainFrame::CreateRegions() {
     // Move follows the mouse in the world; Rotate and Scale follow its vertical movement,
     // each object about its own pivot (NOTE: R3's pivot options are not implemented yet).
     viewports_.onMoveDrag = [this](const math::Vec3& delta, int up) {
-        const math::Quat turn = scene::move::DragRotation(scene::move::RotationAxis(constraint_), up);
+        const int axis = scene::move::RotationAxis(constraint_);
+        const math::Quat turn = scene::move::DragRotation(axis, up);
         const math::Vec3 factors = scene::move::DragScale(scaleMode_, constraint_, up);
+        if (tool_ == Tool::Move) ShowCoordinates(delta);
+        if (tool_ == Tool::Rotate) ShowCoordinates(scene::move::RotationDegrees(axis, up));
+        if (tool_ == Tool::Scale) ShowCoordinates(scene::move::ScalePercent(factors));
         for (const Moving& m : moving_) {
             scene::Node* n = scene_.FindById(m.id);
             if (!n) continue;
@@ -285,6 +299,13 @@ bool MainFrame::CreateRegions() {
             }
         }
         viewports_.Redraw();
+    };
+    // The status bar's X/Y/Z: the cursor's world position, or (below) the amount of the
+    // transform being dragged. NOTE: R3's display rules and format are unverified.
+    viewports_.onCursorWorld = [this](bool ok, const math::Vec3& p) {
+        if (!moving_.empty()) return;
+        if (ok) ShowCoordinates(p);
+        else statusArea_.SetCoordinates(L"", L"", L"");
     };
     viewports_.onMoveEnd = [this](bool commit) {
         const char* name = tool_ == Tool::Rotate ? "Rotate" : tool_ == Tool::Scale ? "Scale" : "Move";
