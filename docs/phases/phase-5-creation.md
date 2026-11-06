@@ -31,7 +31,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
       drag cancels, Sphere (one drag), Cone (three steps), Tube, Torus (tube radius from
       the ring), Plane, Pyramid; planes are orthonormal and right-handed; Front/Left
       objects face the viewer
-- [ ] On Windows: `ctest` passes (no visible change yet)
+- [x] On Windows: `ctest` passes (no visible change yet)
 - [ ] Unverified against R3.1: each primitive's exact steps; how radius 2 and the torus's
       tube radius follow the mouse; Cone radius 2 and Torus radius 2 before their steps
 
@@ -44,7 +44,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [x] `test_ortho_grid`: pixel → world → pixel round trip
 - [x] Under Wine: a box built in Top (shows in all views, swatch colour), a cylinder in
       Front (faces the viewer, next colour), Edit > Undo removes the cylinder
-- [ ] On Windows: create each primitive in each view; undo/redo; right-click cancels
+- [x] On Windows: create each primitive in each view; undo/redo; right-click cancels
 - [ ] Unverified: R3's creation cursor and prompts; R3's random colour palette; whether
       R3 leaves creation mode after an object (here it stays, ready for the next)
 
@@ -56,7 +56,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
       (spaces allowed, junk rejected, clamped)
 - [x] `test_creation_tool`: Keyboard Entry creates Box01 with typed sizes at a typed
       position, oriented like the Front view, as one undo step
-- [ ] On Windows: `ctest` passes (no visible change yet)
+- [x] On Windows: `ctest` passes (no visible change yet)
 - [ ] Unverified: all spinner conventions above (from memory of R3)
 
 ## Step 5.3b verification
@@ -72,7 +72,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
       interior and the swatch's random colour masked); the default panel still 0 of 143,519
 - [x] A spinner drag (Length +4.0 for 40 px) is one undo step; the toolbar's Undo restores
       both the box and the field
-- [ ] On Windows: create each primitive; edit its Parameters by click, drag (Ctrl/Alt),
+- [x] On Windows: create each primitive; edit its Parameters by click, drag (Ctrl/Alt),
       right-click and typing; undo/redo
 - [ ] Unverified: other primitives' Parameters and Creation Method lists (from memory);
       non-default creation methods (not implemented); the right-hand gutter's condition;
@@ -85,7 +85,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [x] Under Wine: the panel while creating a Box still matches R3.1 exactly (Keyboard Entry
       collapsed, 0 of 122,771); typed X 50, Length 40, Width 30, Height 20 and Create made
       a 30 × 40 box centred at X = 50 in the Top view
-- [ ] On Windows: open Keyboard Entry, type values, Create; undo
+- [x] On Windows: open Keyboard Entry, type values, Create; undo
 - [ ] Unverified: Keyboard Entry's layout, labels and default values (no R3.1 screenshot
       of it opened yet)
 
@@ -94,7 +94,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 5.
 - [x] With nothing created, the window is identical to the end of Phase 4 (whole window:
       7 differing pixels of 1,423,793 against the R3.1 reference, all icon art)
 - [x] While creating a Box, the command panel matches R3.1 exactly (0 of 122,771)
-- [ ] On Windows: `ctest`; create, edit and undo objects of every type
+- [x] On Windows: `ctest`; create, edit and undo objects of every type
 
 ## Notes
 - Steps are from memory of R3; the defaults (Creation Method: Box not Cube, Sphere from
