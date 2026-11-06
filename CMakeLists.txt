@@ -31,6 +31,10 @@ add_executable(maxlike WIN32
     src/ui/FrameLayout.h
     src/ui/Bevel.cpp
     src/ui/Bevel.h
+    src/ui/CommandPanel.cpp
+    src/ui/CommandPanel.h
+    src/ui/CommandPanelLayout.cpp
+    src/ui/CommandPanelLayout.h
     src/ui/Placeholder.cpp
     src/ui/Placeholder.h
     src/ui/CommandTable.cpp
@@ -111,7 +115,7 @@ target_include_directories(maxlike PRIVATE src res)
 
 # The .rc file pulls in these files; tell the build so editing them recompiles it.
 set_source_files_properties(res/maxlike.rc PROPERTIES OBJECT_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/res/toolbar_icons.bmp;${CMAKE_CURRENT_SOURCE_DIR}/res/status_icons.bmp;${CMAKE_CURRENT_SOURCE_DIR}/res/maxlike.manifest;${CMAKE_CURRENT_SOURCE_DIR}/res/resource.h")
+    "${CMAKE_CURRENT_SOURCE_DIR}/res/toolbar_icons.bmp;${CMAKE_CURRENT_SOURCE_DIR}/res/status_icons.bmp;${CMAKE_CURRENT_SOURCE_DIR}/res/panel_tab_icons.bmp;${CMAKE_CURRENT_SOURCE_DIR}/res/maxlike.manifest;${CMAKE_CURRENT_SOURCE_DIR}/res/resource.h")
 
 target_compile_definitions(maxlike PRIVATE
     UNICODE _UNICODE
@@ -163,3 +167,4 @@ maxlike_add_test(test_scene tests/test_scene.cpp src/scene/Mesh.cpp src/scene/Pa
 maxlike_add_test(test_primitives tests/test_primitives.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp)
 maxlike_add_test(test_modifiers tests/test_modifiers.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_undo tests/test_undo.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_command_panel_layout tests/test_command_panel_layout.cpp src/ui/CommandPanelLayout.cpp)

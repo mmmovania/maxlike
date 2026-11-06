@@ -7,6 +7,7 @@
 IDB_TOOLBAR_ICONS BITMAP "toolbar_icons.bmp"
 // Status-area icons: 16x16 cells, same generator.
 IDB_STATUS_ICONS  BITMAP "status_icons.bmp"
+IDB_PANEL_TAB_ICONS BITMAP "panel_tab_icons.bmp"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     0,3,0,0

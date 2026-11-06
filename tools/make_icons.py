@@ -2,6 +2,7 @@
 
   res/toolbar_icons.bmp  24x24 cells, main toolbar, order of ui::toolbar::Icon
   res/status_icons.bmp   16x16 cells, status-area buttons, order of ui::toolbar::StatusIcon
+  res/panel_tab_icons.bmp 22x20 cells, command panel tabs, order of ui::cmdpanel::Tab
 
 Both in src/ui/ToolbarSpec.h. Magenta (#FF00FF) is the transparent colour.
 Drawn pixel-exact with no anti-aliasing, in the spirit of 1999 toolbar art.
@@ -372,3 +373,73 @@ for n in range(STATUS_COUNT):
 sout = os.path.join(os.path.dirname(__file__), "..", "res", "status_icons.bmp")
 simg.save(sout)
 print("wrote", os.path.normpath(sout), simg.size)
+
+
+# ---------------------------------------------------------------- 22x20 command panel tabs
+def tab_icon(d, n):
+    if n == 0:    # Create: an arrow cursor with a sparkle
+        d.line([(9, 3), (9, 17)], fill=INK)
+        d.line([(9, 3), (19, 13)], fill=INK)
+        d.line([(9, 17), (12, 14)], fill=INK)
+        d.line([(12, 14), (15, 19)], fill=INK)
+        d.line([(15, 19), (17, 18)], fill=INK)
+        d.line([(17, 18), (14, 13)], fill=INK)
+        d.line([(14, 13), (19, 13)], fill=INK)
+        d.polygon([(10, 5), (10, 15), (12, 13), (15, 18), (16, 17), (13, 12), (17, 12)], fill=WHITE)
+        for x, y in ((4, 1), (4, 2), (4, 4), (4, 5), (2, 3), (3, 3), (5, 3), (6, 3)):
+            d.point((x, y), fill=YELLOW)
+        d.point((4, 3), fill=WHITE)
+        d.point((1, 7), fill=YELLOW)
+        d.point((7, 0), fill=YELLOW)
+    elif n == 1:  # Modify: a thick bent pipe (a shaded quarter ring)
+        c, ro, ri = (20, 19), 18, 8
+        d.pieslice([c[0] - ro, c[1] - ro, c[0] + ro, c[1] + ro], 180, 270, fill=BLUE)
+        d.pieslice([c[0] - 14, c[1] - 14, c[0] + 14, c[1] + 14], 180, 270, fill=LBLUE)
+        d.pieslice([c[0] - 11, c[1] - 11, c[0] + 11, c[1] + 11], 180, 270, fill=BLUE)
+        d.pieslice([c[0] - ri, c[1] - ri, c[0] + ri, c[1] + ri], 180, 270, fill=KEY)
+        d.arc([c[0] - ro, c[1] - ro, c[0] + ro, c[1] + ro], 180, 270, fill=INK)
+        d.arc([c[0] - ri, c[1] - ri, c[0] + ri, c[1] + ri], 180, 270, fill=INK)
+        d.line([(2, 19), (12, 19)], fill=INK)
+        d.line([(20, 1), (20, 11)], fill=INK)
+    elif n == 2:  # Hierarchy: a tree of boxes
+        d.rectangle([8, 1, 13, 6], outline=BLUE, fill=WHITE)
+        d.line([(10, 7), (10, 10)], fill=INK)
+        d.line([(3, 10), (18, 10)], fill=INK)
+        for x in (3, 10, 18):
+            d.line([(x, 10), (x, 13)], fill=INK)
+        for x0 in (1, 8, 15):
+            d.rectangle([x0, 13, x0 + 5, 18], outline=BLUE, fill=WHITE)
+    elif n == 3:  # Motion: a wheel with motion lines
+        d.ellipse([6, 2, 21, 17], outline=INK, fill=WHITE)
+        d.ellipse([8, 4, 19, 15], outline=GREY)
+        for a, b in (((13, 3), (13, 16)), ((7, 9), (20, 9)), ((9, 5), (18, 14)), ((18, 5), (9, 14))):
+            d.line([a, b], fill=GREY)
+        d.ellipse([11, 7, 15, 11], fill=RED, outline=INK)
+        for y in (5, 9, 13):
+            d.line([(0, y), (3, y)], fill=DARK)
+    elif n == 4:  # Display: a monitor
+        d.rectangle([1, 1, 20, 15], fill=DARK)
+        d.rectangle([3, 3, 18, 13], fill=WHITE)
+        d.rectangle([5, 5, 8, 12], fill=BLUE)
+        d.polygon([(10, 12), (13, 5), (16, 12)], fill=RED)
+        d.rectangle([8, 16, 13, 17], fill=DARK)
+        d.rectangle([5, 18, 16, 19], fill=GREY)
+        d.point((15, 16), fill=GREEN)
+    elif n == 5:  # Utilities: a hammer
+        d.rectangle([4, 1, 17, 5], fill=DARK)
+        d.rectangle([5, 2, 16, 3], fill=GREY)
+        d.rectangle([9, 6, 12, 19], fill=RED)
+        d.line([(10, 6), (10, 19)], fill=(230, 90, 70))
+        d.line([(12, 6), (12, 19)], fill=(130, 20, 20))
+
+
+TAB_COUNT = 6  # must equal ui::cmdpanel::kTabCount
+TW, TH = 22, 20
+timg = Image.new("RGB", (TW * TAB_COUNT, TH), KEY)
+for n in range(TAB_COUNT):
+    cell = Image.new("RGB", (TW, TH), KEY)
+    tab_icon(ImageDraw.Draw(cell), n)
+    timg.paste(cell, (n * TW, 0))
+tout = os.path.join(os.path.dirname(__file__), "..", "res", "panel_tab_icons.bmp")
+timg.save(tout)
+print("wrote", os.path.normpath(tout), timg.size)

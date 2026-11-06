@@ -202,7 +202,25 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
-## Command panel (Phase 4: to be measured)
+## Command panel: tab row (measured, step 4.1)
+Code: `src/ui/CommandPanelLayout.*`, `src/ui/CommandPanel.*`. Coordinates relative to the
+panel (184 px wide, client x 1736 at the reference size); outer frame: `Edge::CommandPanel`.
+
+- Six tabs, 29 px wide, side by side from x = 2: Create 2–30, Modify 31–59, Hierarchy
+  60–88, Motion 89–117, Display 118–146, Utilities 147–175.
+- Unselected tab (L, R its edges): row 3 highlight L+2..R−2; row 4 highlight at L+1,
+  light L+2..R−2, dark shadow at R−1; rows 5–27 highlight L, light L+1, face, shadow R−1,
+  dark shadow R (2-px chamfered top corners).
+- Selected tab: the same shape 2 px wider on each side, starting at row 1, drawn over
+  its neighbours, its sides continuing to row 28; rows 28–29 between its sides are
+  `#C0C0C0`, joining it to the body. (Only Create selected is in the reference; the look
+  of other selected tabs follows the same rule, unverified.)
+- Body: from row 28; top edge highlight (row 28) and light (row 29).
+- Icons: 22 × 20 at (tab left + 3, 6), not moving when selected; original art in
+  `res/panel_tab_icons.bmp` (`tools/make_icons.py`).
+- Verified: frame + tabs 0 differing pixels of 7,722 (icons masked).
+
+## Command panel: contents (Phase 4, steps 4.2–4.4: to be measured)
 - Tabs: Create, Modify, Hierarchy, Motion, Display, Utilities.
 - Create categories: Geometry, Shapes, Lights, Cameras, Helpers, Space Warps, Systems.
 - Subcategory combo: `Standard Primitives`.
