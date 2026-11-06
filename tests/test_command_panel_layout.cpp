@@ -27,6 +27,18 @@ int main() {
     CHECK(TabAt(70, 10, kCreate) == kHierarchy);
     CHECK(TabAt(70, 1, kCreate) == -1);          // above unselected tabs
     CHECK(TabAt(178, 10, kCreate) == -1);        // right of the last tab
+    // Category row (measured): the pressed Geometry button spans x 9..32, rows 37..59;
+    // the other icons start at x 37, 61, 85, 109, 133, 157 (button left + 4).
+    CHECK(Is(CategoryBox(kGeometry), 9, 37, 32, 59));
+    const int iconLefts[] = {37, 61, 85, 109, 133, 157};
+    for (int c = kShapes; c < kCategoryCount; ++c) CHECK(CategoryIconLeft(c, false) == iconLefts[c - 1]);
+    CHECK(CategoryAt(20, 45) == kGeometry && CategoryAt(170, 45) == kSystems && CategoryAt(5, 45) == -1);
+    CHECK(CategoryAt(100, 62) == -1);            // below the row
+    // The dropdown's sunken frame: x 21..163, rows 66..86 (143 x 21).
+    CHECK(kDropdown.right - kDropdown.left + 1 == 143 && kDropdown.bottom - kDropdown.top + 1 == 21);
+    // Every category lists something; Geometry starts with the reference's entry.
+    for (int c = 0; c < kCategoryCount; ++c) CHECK(!Subcategories(c).empty() && !CategoryName(c).empty());
+    CHECK(Subcategories(kGeometry).front() == L"Standard Primitives");
     if (failures == 0) std::printf("command panel layout: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

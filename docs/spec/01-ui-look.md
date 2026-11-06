@@ -220,7 +220,24 @@ panel (184 px wide, client x 1736 at the reference size); outer frame: `Edge::Co
   `res/panel_tab_icons.bmp` (`tools/make_icons.py`).
 - Verified: frame + tabs 0 differing pixels of 7,722 (icons masked).
 
-## Command panel: contents (Phase 4, steps 4.2–4.4: to be measured)
+## Create panel: category row and dropdown (measured, step 4.2)
+Code: `cmdpanel::CategoryBox`, `CommandPanel::PaintCategories`.
+
+- Seven category buttons, 24 × 23, side by side from x = 9 (rows 37–59): Geometry,
+  Shapes, Lights, Cameras, Helpers, Space Warps, Systems. Icons 16 × 16 at (button
+  left + 4, 40); original art in `res/panel_category_icons.bmp`.
+- Pressed button (the active category): 1-px shadow top and left, 2-px highlight right
+  and bottom, a face-coloured inner line along its top and left, `#E1E1E1` inside; its
+  icon 1 px down and right. Unpressed buttons: icon only (hover look unverified).
+- Dropdown: a classic `COMBOBOX` (drop-down list), sunken frame x 21–163, rows 66–86
+  (143 × 21); with classic controls Windows draws exactly R3's frame, 17 × 17 button and
+  arrow. Lists per category: only "Standard Primitives" is in the reference, the rest
+  from memory (unverified).
+- Verified: panel rows 0–93, 0 differing pixels of 10,270 (icons and the dropdown's
+  interior masked).
+- Only on the Create tab.
+
+## Command panel: rollouts (Phase 4, steps 4.3–4.4: to be measured)
 - Tabs: Create, Modify, Hierarchy, Motion, Display, Utilities.
 - Create categories: Geometry, Shapes, Lights, Cameras, Helpers, Space Warps, Systems.
 - Subcategory combo: `Standard Primitives`.

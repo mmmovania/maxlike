@@ -19,4 +19,41 @@ int TabAt(int x, int y, int selected) {
     return -1;
 }
 
+
+Box CategoryBox(int c) {
+    const int left = kFirstCategoryLeft + c * kCategoryPitch;
+    return {left, kCategoryTop, left + kCategoryPitch - 1, kCategoryBottom};
+}
+
+int CategoryIconLeft(int c, bool pressed) { return CategoryBox(c).left + 4 + (pressed ? 1 : 0); }
+int CategoryIconTop(bool pressed) { return 40 + (pressed ? 1 : 0); }
+
+int CategoryAt(int x, int y) {
+    for (int c = 0; c < kCategoryCount; ++c) {
+        const Box b = CategoryBox(c);
+        if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return c;
+    }
+    return -1;
+}
+
+std::vector<std::wstring> Subcategories(int c) {
+    switch (c) {
+    case kGeometry:   return {L"Standard Primitives", L"Extended Primitives", L"Compound Objects",
+                              L"Particle Systems", L"Patch Grids", L"NURBS Surfaces", L"Dynamics Objects"};
+    case kShapes:     return {L"Splines", L"NURBS Curves"};
+    case kLights:     return {L"Standard"};
+    case kCameras:    return {L"Standard"};
+    case kHelpers:    return {L"Standard", L"Atmospheric Apparatus", L"Camera Match"};
+    case kSpaceWarps: return {L"Particles & Dynamics", L"Modifier-Based", L"Particles Only", L"Dynamics Interface"};
+    case kSystems:    return {L"Standard"};
+    }
+    return {};
+}
+
+std::wstring CategoryName(int c) {
+    static const wchar_t* kNames[kCategoryCount] = {L"Geometry", L"Shapes", L"Lights", L"Cameras",
+                                                    L"Helpers", L"Space Warps", L"Systems"};
+    return (c >= 0 && c < kCategoryCount) ? kNames[c] : L"";
+}
+
 } // namespace ui::cmdpanel

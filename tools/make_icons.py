@@ -3,6 +3,7 @@
   res/toolbar_icons.bmp  24x24 cells, main toolbar, order of ui::toolbar::Icon
   res/status_icons.bmp   16x16 cells, status-area buttons, order of ui::toolbar::StatusIcon
   res/panel_tab_icons.bmp 22x20 cells, command panel tabs, order of ui::cmdpanel::Tab
+  res/panel_category_icons.bmp 16x16 cells, Create panel categories, order of ui::cmdpanel::Category
 
 Both in src/ui/ToolbarSpec.h. Magenta (#FF00FF) is the transparent colour.
 Drawn pixel-exact with no anti-aliasing, in the spirit of 1999 toolbar art.
@@ -443,3 +444,58 @@ for n in range(TAB_COUNT):
 tout = os.path.join(os.path.dirname(__file__), "..", "res", "panel_tab_icons.bmp")
 timg.save(tout)
 print("wrote", os.path.normpath(tout), timg.size)
+
+
+# ---------------------------------------------------------------- 16x16 Create categories
+def category_icon(d, n):
+    if n == 0:    # Geometry: a sphere lit from the upper left
+        d.ellipse([1, 1, 14, 14], fill=(60, 60, 70))
+        for (x0, y0, x1, y1), c in ((( 2, 2, 12, 12), (100, 100, 110)), ((3, 3, 10, 10), (140, 140, 150)),
+                                    ((3, 3, 8, 8), (180, 180, 190)), ((4, 4, 6, 6), (225, 225, 230))):
+            d.ellipse([x0, y0, x1, y1], fill=c)
+        d.point((5, 4), fill=WHITE)
+        d.ellipse([1, 1, 14, 14], outline=(30, 30, 40))
+    elif n == 1:  # Shapes: a curve through three control points
+        d.arc([1, 3, 14, 18], 200, 340, fill=BLUE)
+        d.line([(2, 13), (7, 4), (13, 13)], fill=GREY)
+        for x, y in ((2, 13), (7, 4), (13, 13)):
+            d.rectangle([x - 1, y - 1, x + 1, y + 1], fill=RED)
+    elif n == 2:  # Lights: a spotlight and its beam
+        d.polygon([(2, 2), (7, 2), (9, 6), (4, 8)], fill=DARK)
+        d.polygon([(8, 6), (5, 8), (11, 15), (15, 11)], fill=YELLOW)
+        d.line([(5, 8), (11, 15)], fill=(200, 160, 20))
+        d.line([(8, 6), (15, 11)], fill=(200, 160, 20))
+    elif n == 3:  # Cameras: a film camera
+        d.ellipse([2, 1, 6, 5], outline=INK, fill=GREY)
+        d.ellipse([7, 1, 11, 5], outline=INK, fill=GREY)
+        d.rectangle([1, 6, 11, 12], fill=DARK)
+        d.polygon([(11, 8), (15, 6), (15, 13), (11, 11)], fill=INK)
+        d.point((4, 9), fill=RED)
+    elif n == 4:  # Helpers: a tape measure
+        d.rectangle([1, 3, 9, 11], fill=YELLOW, outline=INK)
+        d.ellipse([3, 5, 7, 9], outline=INK)
+        d.rectangle([9, 9, 15, 11], fill=WHITE, outline=INK)
+        for x in (11, 13):
+            d.point((x, 10), fill=INK)
+    elif n == 5:  # Space Warps: waves
+        for y in (4, 8, 12):
+            pts = [(x, y + (1 if (x // 2) % 2 else -1)) for x in range(1, 15)]
+            d.line(pts, fill=BLUE)
+    elif n == 6:  # Systems: two gears
+        for cx, cy, r in ((5, 6, 4), (11, 11, 3)):
+            d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=DARK)
+            for dx, dy in ((0, -r - 1), (0, r + 1), (-r - 1, 0), (r + 1, 0)):
+                d.point((cx + dx, cy + dy), fill=DARK)
+            d.ellipse([cx - 1, cy - 1, cx + 1, cy + 1], fill=KEY)
+
+
+CATEGORY_COUNT = 7  # must equal ui::cmdpanel::kCategoryCount
+C = 16
+cimg = Image.new("RGB", (C * CATEGORY_COUNT, C), KEY)
+for n in range(CATEGORY_COUNT):
+    cell = Image.new("RGB", (C, C), KEY)
+    category_icon(ImageDraw.Draw(cell), n)
+    cimg.paste(cell, (n * C, 0))
+cout = os.path.join(os.path.dirname(__file__), "..", "res", "panel_category_icons.bmp")
+cimg.save(cout)
+print("wrote", os.path.normpath(cout), cimg.size)
