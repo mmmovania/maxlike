@@ -15,7 +15,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] **4.4 Name and Color**: measured name field (disabled until a selection exists)
       and colour swatch (`#8D073A`, as in the reference), colour picker on click;
       spinners moved to Phase 5 (none in the reference to measure)
-- [ ] 4.5 Pixel check of the whole panel, `docs/tech/phase4-tech-docs.md`, version 0.4.0
+- [x] **4.5 Wrap-up**: whole-window check, `docs/tech/phase4-tech-docs.md`, version 0.4.0
 
 ## Step 4.1 verification
 - [x] Builds warning-free; sixteen test programs pass (MinGW + Wine)
@@ -56,6 +56,14 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] Clicking the swatch opens a colour dialog; the chosen colour shows in the swatch
 - [ ] On Windows: the same
 - [ ] Unverified: R3's own Object Color dialog; the name field's enabled look
+
+## Step 4.5 verification (whole client area at 1920 × 998, Wine)
+- [x] Clean rebuild: 0 warnings; seventeen test programs pass
+- [x] Tab panel + toolbar, viewport frames, Top, Front, Left, command panel, time slider +
+      track bar: 0 differing pixels; status area: 7 (icon art, as before). Total 7 of
+      1,423,793 (text, icons, Wine-drawn control interiors, labels and the Perspective
+      view masked; Perspective checked in Phase 2)
+- [ ] On Windows: `ctest`; the panel next to R3.1
 
 ## Notes
 - R3's etched frame is not `DrawEdge(EDGE_ETCHED)`: the corners differ (two offset
