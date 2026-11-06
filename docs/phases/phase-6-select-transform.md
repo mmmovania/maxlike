@@ -15,7 +15,11 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] **6.3 Name and Color for the selection**: shows the one selected object (or the
       creation target); typing in the name field renames it, the swatch recolours every
       selected object; both undoable; the creation tool tracks its object by id
-- [ ] 6.4 Move, Rotate, Scale with axis constraints
+- [x] **6.4a Transform display and tool state**: the axis tripod (Select, creation) and
+      the Move gizmo, measured from R3.1 (`view::TransformAxesPixels`); the toolbar's
+      tools and X/Y/Z/XY/YZ/ZX constraints as live state; prompts
+- [ ] 6.4b Move: dragging selected objects with the constraints (undoable)
+- [ ] 6.4c Rotate and Scale
 - [ ] 6.5 Wrap-up
 
 ## Step 6.1 verification
@@ -54,6 +58,21 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [ ] On Windows: rename; recolour one and several objects with the swatch; undo both
 - [ ] Unverified: R3's Name and Color with several objects selected; R3's own Object
       Color dialog (Windows' colour dialog stands in); duplicate names (allowed here)
+
+## Step 6.4a verification
+- [x] Builds warning-free (clean rebuild); twenty-three test programs pass (MinGW + Wine)
+- [x] `test_transform_axes`: tripod (lines, arrow strokes, letters, grey axis at the
+      viewer) and Move gizmo (shafts 17–60, heads, letters, the XY corner, no Z in Top;
+      Front's XZ corner colours) at pixels measured in `r3.1-box-created.png` and
+      `r3.1-move-selected.png`
+- [x] Under Wine, a box at the origin with Move active, aligned per view against R3.1's
+      screenshot: Top 83 %, Left 79 %, Front 68 % of R3's gizmo pixels identical; the rest
+      are arrowhead edges (R3's rasteriser) and overlaps with the box's edges
+- [x] With nothing selected, the window is unchanged
+- [ ] On Windows: select objects with Select / Move; switch constraints; check each view
+- [ ] Unverified: arrowhead edges (fitted triangle, about 10 % of edge pixels differ);
+      Rotate and Scale looks (the tripod shows for now); several objects selected (one
+      figure at the average pivot); the tripod in Perspective
 
 ## Notes
 - The strip is a second `Toolbar` (`ObjectsToolbarConfig`) shown in the main toolbar's

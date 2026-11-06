@@ -8,6 +8,7 @@
 #include "scene/Creation.h"
 #include "scene/Node.h"
 #include "view/Picking.h"
+#include "view/TransformAxes.h"
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
@@ -63,6 +64,14 @@ public:
                       double& unitsPerPixel) const;
     // This view's construction plane (ortho: its right and up; perspective: the ground).
     scene::ConstructionPlane CreationPlane() const;
+
+    // What to draw at the selection's pivot (set by the panel from the toolbar's tool and
+    // constraint buttons).
+    void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
+        axesStyle_ = style;
+        for (int i = 0; i < 3; ++i) axesActive_[i] = active[i];
+        InvalidateRect(Hwnd(), nullptr, FALSE);
+    }
 
     // Picking (window pixels): the object under the point, 0 if none; the objects a
     // rectangle touches.
@@ -120,6 +129,9 @@ private:
     void CollectPickData(std::vector<scene::Node::Id>& ids, std::vector<std::vector<view::Segment2>>& outlines,
                          std::vector<std::vector<view::Triangle2>>* surfaces) const;
     void DrawBrackets(int width, int height, const math::Mat4& worldToClip);
+    void DrawTransformAxes(int width, int height);
+    view::AxesStyle axesStyle_ = view::AxesStyle::Tripod;
+    bool axesActive_[3] = {true, true, false};   // R3's default constraint: XY
     int index_ = 0;                      // which viewport this is (creation owner)
     bool CreateEvent(scene::Creator::Event e, LPARAM lp);
     UINT labelDpi_ = 0;                  // DPI the label was rendered for

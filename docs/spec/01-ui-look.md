@@ -204,6 +204,20 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
+## Transform display at the selection's pivot (measured, step 6.4a)
+Screenshots `r3.1-box-created.png`, `r3.1-create-tripod-z.png`, `r3.1-move-selected.png`.
+- Axis tripod (Select, creation): the object's own axes; lines from the pivot to 84 px,
+  open arrowheads (two 8-px strokes), letters (viewport tripod glyphs, 9 rows above the
+  tip); `#C82323` for axes in the active constraint, `#666666` otherwise; an axis at the
+  viewer shows only its letter at the pivot.
+- Move gizmo (Select and Move): world axes; shaft O + round(17·d) … O + round(60·d)
+  (yellow `#FFFF00` when constrained, else the axis colour); filled head to 84.5 px
+  (triangle fitted: base 62 px, half-width 3.75 px; X `#FF0000`, Y `#00FF00`, Z
+  `#0000FF`); letter at O + round(84.5·d) (yellow when constrained); plane corners at
+  O + round(84·(dₐ + d_b)), arms 17 px (yellow for the active plane, else each arm in the
+  colour of the axis it runs beside); axes at the viewer not drawn.
+- Prompt with Move: "Click and drag to select and move objects" (verified).
+
 ## Tab panel: Objects strip (measured, step 6.1)
 Screenshot `r3.1-objects-tab.png`. The strip replaces the main toolbar with the same
 geometry: 32-px buttons from x 4 (icons 24 × 24, 4 px in, rows 26–49 of the client area),

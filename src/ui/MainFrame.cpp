@@ -44,6 +44,20 @@ void MainFrame::UpdateSelectionStatus() {
     statusArea_.SetPrompt(0, text);
 }
 
+// The figure at the selection's pivot and the prompt follow the tool and constraint.
+// Prompts: Select and Move verified (r3.1-move-selected.png); Rotate and Scale follow
+// the same pattern (NOTE: unverified). Rotate and Scale show the tripod until their own
+// look is measured.
+void MainFrame::UpdateTransformDisplay() {
+    viewports_.SetAxesDisplay(tool_ == Tool::Move ? view::AxesStyle::MoveGizmo : view::AxesStyle::Tripod, constraint_);
+    if (commandPanel_.CreateType() >= 0) return;   // creation keeps its own prompt
+    const wchar_t* prompt = L"Click or click-and-drag to select objects";
+    if (tool_ == Tool::Move) prompt = L"Click and drag to select and move objects";
+    if (tool_ == Tool::Rotate) prompt = L"Click and drag to select and rotate objects";
+    if (tool_ == Tool::Scale) prompt = L"Click and drag to select and scale objects";
+    statusArea_.SetPrompt(1, prompt);
+}
+
 void MainFrame::DeleteSelection() {
     if (scene_.Selection().empty()) return;
     undo_.Execute(std::make_unique<scene::DeleteSelectionCommand>(), scene_);
@@ -161,8 +175,8 @@ bool MainFrame::CreateRegions() {
             objectsToolbar_.SetChecked(toolbar::ObjectsToolbarSpec()[static_cast<size_t>(i)].command, i == type);
         UpdateCreatePanel();
         // Prompt verified against R3.1 (screenshot r3.1-box-created.png).
-        statusArea_.SetPrompt(1, type >= 0 ? L"Click and drag to begin creation process"
-                                           : L"Click or click-and-drag to select objects");
+        if (type >= 0) statusArea_.SetPrompt(1, L"Click and drag to begin creation process");
+        else UpdateTransformDisplay();
     };
     // Keyboard Entry's Create: the typed object, oriented by the active viewport.
     commandPanel_.onKeyboardCreate = [this](double x, double y, double z, const std::vector<std::pair<int, double>>& sizes) {
@@ -355,6 +369,25 @@ void MainFrame::OnCommand(const std::string& command) {
         const bool ok = command == "edit.undo" ? undo_.Undo(scene_) : undo_.Redo(scene_);
         if (ok) { viewports_.Redraw(); UpdateCreatePanel(); UpdateSelectionStatus(); }
         return;
+    }
+
+    // Transform tools and axis constraints (radio groups in the toolbar).
+    {
+        struct T { const char* cmd; Tool tool; };
+        static const T kTools[] = {{"tool.select", Tool::Select}, {"tool.move", Tool::Move}, {"tool.rotate", Tool::Rotate},
+                                   {"tool.scale_uniform", Tool::Scale}, {"tool.scale_nonuniform", Tool::Scale},
+                                   {"tool.scale_squash", Tool::Scale}};
+        for (const T& t : kTools)
+            if (command == t.cmd) { tool_ = t.tool; UpdateTransformDisplay(); return; }
+        struct C { const char* cmd; bool x, y, z; };
+        static const C kAxes[] = {{"constraint.x", 1, 0, 0}, {"constraint.y", 0, 1, 0}, {"constraint.z", 0, 0, 1},
+                                  {"constraint.xy", 1, 1, 0}, {"constraint.yz", 0, 1, 1}, {"constraint.zx", 1, 0, 1}};
+        for (const C& c : kAxes)
+            if (command == c.cmd) {
+                constraint_[0] = c.x; constraint_[1] = c.y; constraint_[2] = c.z;
+                UpdateTransformDisplay();
+                return;
+            }
     }
 
     if (command == "edit.delete") {

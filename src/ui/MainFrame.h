@@ -52,6 +52,11 @@ private:
     double paramDragStart_ = 0;                     // ...and the value it started from
     void UpdateCreatePanel();                       // Parameters, name, colour from the creation tool
     void UpdateSelectionStatus();                   // "None Selected" / "1 Object Selected" / ...
+    // The toolbar's transform tool and axis constraint (R3's defaults: Select, XY).
+    enum class Tool { Select, Move, Rotate, Scale };
+    Tool tool_ = Tool::Select;
+    bool constraint_[3] = {true, true, false};
+    void UpdateTransformDisplay();
     void DeleteSelection();
     scene::Node* NameColorTarget() const;          // whose name and colour the panel shows
     std::wstring docName_ = L"Untitled";

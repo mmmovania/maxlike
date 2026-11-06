@@ -7,6 +7,10 @@
 - `screenshots/r3.1-cylinder-selected-zoomed.png`, `r3.1-cone-selected-zoomed.png` —
   wireframes in R3.1 (views zoomed, so not pixel-comparable): cap spokes hidden, rings
   start at +X, selected objects drawn white.
+- `screenshots/r3.1-move-selected.png` — R3.1 with Box01 selected and Select and Move
+  active: the Move gizmo in all four views (step 6.4a).
+- `screenshots/r3.1-create-tripod-z.png` — R3.1 creating a Box (built in the Front view)
+  with the Z constraint: the grey/red axis tripod on the object's own axes (step 6.4a).
 - `screenshots/r3.1-objects-tab.png` — R3.1 with the tab panel's Objects tab selected:
   source of the Objects strip (step 6.1).
 - `screenshots/r3.1-box-created.png` — R3.1 right after creating Box01 (Box still active):
@@ -24,9 +28,8 @@ Still to add:
 - Keyboard Entry opened (Box clicked) to measure its contents; one screenshot
   mid-creation; the tab panel's other tabs (Shapes, Lights & Cameras, Helpers) when
   their features come.
-- **For Phase 6**: an object selected in each view (white wireframe, the Perspective
-  view's corner brackets, the transform axes) at the default zoom, with Select and Move
-  active.
+- **For Phase 6**: an object selected with Select and Rotate, and with Select and
+  Uniform Scale active (their pivot figures); a selection with several objects.
 - For later steps: R3's Object Color dialog (click the swatch); the Geometry dropdown
   open; the name field with an object selected.
 - The sample `.max` files (in `docs/reference/samples/`; `.max` is marked binary in

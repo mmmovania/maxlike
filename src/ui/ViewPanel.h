@@ -27,6 +27,7 @@ public:
     void SetNavMode(NavMode mode);          // None leaves the current mode
     void ZoomExtents(bool allViews);        // empty scene: back to the default framing
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
+    void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     int  Active() const { return active_; }

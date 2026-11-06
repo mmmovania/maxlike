@@ -50,6 +50,7 @@ void Viewport::Render(HDC dc) {
             DrawOrthoGrid(rc.right, rc.bottom);
     }
     DrawScene(rc.right, rc.bottom);
+    DrawTransformAxes(rc.right, rc.bottom);
     DrawLabelAndTripod(rc.right, rc.bottom);
     if (regionVisible_) DrawRegionRectangle(rc.right, rc.bottom);
 
@@ -318,6 +319,56 @@ void Viewport::DrawScene(int w, int h) {
         const uint32_t c = scene_->IsSelected(node->GetId()) ? 0xFFFFFF : node->WireColor();
         lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
     }
+}
+
+// The axes at the selection's pivot (one object: its pivot; several: the average of
+// their pivots; NOTE: R3's choice for several objects is unverified). The Move gizmo
+// shows the world axes, the tripod the object's own axes (measured, step 6.4a).
+void Viewport::DrawTransformAxes(int w, int h) {
+    if (!scene_ || scene_->Selection().empty()) return;
+    math::Vec3 pivot{0, 0, 0};
+    const scene::Node* first = nullptr;
+    int count = 0;
+    for (scene::Node::Id id : scene_->Selection())
+        if (const scene::Node* n = scene_->FindById(id)) {
+            pivot = pivot + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
+            if (!first) first = n;
+            ++count;
+        }
+    if (!count) return;
+    pivot = pivot * (1.0 / count);
+    double px = 0, py = 0, depth = 0;
+    if (!WorldToWindow(pivot, px, py, depth)) return;
+
+    // Screen directions: world axes from the view; local axes through the object's rotation.
+    double axes[3][2];
+    ScreenAxes(axes);
+    if (axesStyle_ == view::AxesStyle::Tripod && count == 1) {
+        const math::Mat4 m = first->WorldMatrix();
+        double world[3][2];
+        ScreenAxes(world);
+        for (int a = 0; a < 3; ++a) {
+            const math::Vec3 d = math::Normalize({m.m[a][0], m.m[a][1], m.m[a][2]});
+            axes[a][0] = d.x * world[0][0] + d.y * world[1][0] + d.z * world[2][0];
+            axes[a][1] = d.x * world[0][1] + d.y * world[1][1] + d.z * world[2][1];
+        }
+    }
+    const auto pixels = view::TransformAxesPixels(axesStyle_, axes, static_cast<int>(std::floor(px)),
+                                                  static_cast<int>(std::floor(py)), axesActive_);
+    // Group by colour, in order, so later pixels still cover earlier ones.
+    std::vector<float> run;
+    uint32_t colour = pixels.empty() ? 0 : pixels.front().rgb;
+    const math::Mat4 toClip = math::PixelToClip(w, h);
+    auto flush = [&] {
+        if (!run.empty())
+            lines_->DrawPoints(run, toClip, ((colour >> 16) & 0xFF) / 255.0f, ((colour >> 8) & 0xFF) / 255.0f, (colour & 0xFF) / 255.0f);
+        run.clear();
+    };
+    for (const view::ColoredPixel& p : pixels) {
+        if (p.rgb != colour) { flush(); colour = p.rgb; }
+        run.insert(run.end(), {p.x + 0.5f, p.y + 0.5f, 0.0f});
+    }
+    flush();
 }
 
 bool Viewport::WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const {
