@@ -73,8 +73,7 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 - [x] Parameters rollout updates live while dragging; edits afterwards are undo steps.
 - [x] Creation Method and Keyboard Entry rollouts (Keyboard Entry creates typed objects).
 - [x] Pixel check: the panel while creating a Box, 0 differing pixels of 122,771.
-- [ ] Objects tab strip of the tab panel: deferred until an R3.1 screenshot of the
-      Objects tab exists (strips are built from measurements, decision B).
+- [x] Objects tab strip of the tab panel: built in step 6.1 once R3.1's screenshot arrived.
 
 ## Phase 6 — Selection and transforms (`phase/6-select-transform`)
 - [ ] Click and region selection, selection filter; selected objects drawn white.

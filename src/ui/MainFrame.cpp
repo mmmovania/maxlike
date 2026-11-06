@@ -60,16 +60,18 @@ void MainFrame::SetDocumentName(const std::wstring& name) {
     }
 }
 
-std::array<win::Window*, 7> MainFrame::Regions() {
-    return {&tabPanel_, &mainToolbar_, &viewports_, &timeSlider_,
+std::array<win::Window*, 8> MainFrame::Regions() {
+    return {&tabPanel_, &mainToolbar_, &objectsToolbar_, &viewports_, &timeSlider_,
             &trackBar_, &commandPanel_, &statusArea_};
 }
 
 bool MainFrame::CreateRegions() {
     if (!tabPanel_.Create(Hwnd()) || !mainToolbar_.Create(Hwnd(), toolbar::MainToolbarConfig()) ||
         !timeSlider_.Create(Hwnd()) || !trackBar_.Create(Hwnd()) || !statusArea_.Create(Hwnd()) ||
-        !viewports_.Create(Hwnd()) || !commandPanel_.Create(Hwnd()))
+        !viewports_.Create(Hwnd()) || !commandPanel_.Create(Hwnd()) ||
+        !objectsToolbar_.Create(Hwnd(), toolbar::ObjectsToolbarConfig()))
         return false;
+    ShowWindow(objectsToolbar_.Hwnd(), SW_HIDE);   // shown with the Objects tab
 
     viewports_.SetScene(&scene_);
 
@@ -82,6 +84,10 @@ bool MainFrame::CreateRegions() {
         if (creation_.Cancel()) viewports_.Redraw();
         creation_.SetType(type);
         template_ = type >= 0 ? scene::MakePrimitive(type) : nullptr;
+        // The Objects strip's button for the active primitive looks pressed too.
+        // NOTE: whether R3 shows it pressed is unverified.
+        for (int i = 0; i < 10; ++i)
+            objectsToolbar_.SetChecked(toolbar::ObjectsToolbarSpec()[static_cast<size_t>(i)].command, i == type);
         UpdateCreatePanel();
         // Prompt verified against R3.1 (screenshot r3.1-box-created.png).
         statusArea_.SetPrompt(1, type >= 0 ? L"Click and drag to begin creation process"
@@ -135,8 +141,14 @@ bool MainFrame::CreateRegions() {
 
     tabPanel_.onTabChanged = [this](int index) {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];
-        mainToolbar_.ShowStrip(index, tab.label);
+        // The Objects tab (index 1) has its own toolbar in the main toolbar's place; the
+        // other strips are still drawn by the main toolbar as placeholders.
+        const bool objects = index == 1;
+        ShowWindow(objectsToolbar_.Hwnd(), objects ? SW_SHOW : SW_HIDE);
+        ShowWindow(mainToolbar_.Hwnd(), objects ? SW_HIDE : SW_SHOW);
+        if (!objects) mainToolbar_.ShowStrip(index, tab.label);
     };
+    objectsToolbar_.onCommand = [this](const std::string& command) { OnCommand(command); };
     // The track bar follows the time slider. Later the current frame will live in
     // the scene's animation state, and both will just display it.
     timeSlider_.onFrameChanged = [this](int frame) { ShowFrame(frame); };
@@ -187,6 +199,7 @@ void MainFrame::LayoutRegions(int w, int h) {
     struct Item { win::Window* wnd; const Rect* r; };
     const Item items[] = {
         {&tabPanel_, &L.tabPanel},     {&mainToolbar_, &L.mainToolbar},
+        {&objectsToolbar_, &L.mainToolbar},
         {&viewports_, &L.viewports},   {&timeSlider_, &L.timeSlider},
         {&trackBar_, &L.trackBar},     {&commandPanel_, &L.commandPanel},
         {&statusArea_, &L.statusArea},
@@ -235,6 +248,14 @@ void MainFrame::OnCommand(const std::string& command) {
         ShowFrame(timeSlider_.Frame());
         return;
     }
+
+    // The Objects strip's Standard Primitives: the same as their Create panel buttons
+    // (clicking the active one again turns it off).
+    for (int i = 0; i < 10; ++i)
+        if (command == toolbar::ObjectsToolbarSpec()[static_cast<size_t>(i)].command) {
+            commandPanel_.SetCreateType(commandPanel_.CreateType() == i ? -1 : i);
+            return;
+        }
 
     if (command == "edit.undo" || command == "edit.redo") {
         const bool ok = command == "edit.undo" ? undo_.Undo(scene_) : undo_.Redo(scene_);

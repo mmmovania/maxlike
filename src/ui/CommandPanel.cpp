@@ -494,6 +494,23 @@ LRESULT CALLBACK CommandPanel::EditProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) 
     return CallWindowProcW(old, h, msg, wp, lp);
 }
 
+void CommandPanel::SetCreateType(int type) {
+    if (type >= 0) {
+        if (selected_ != kCreate) SelectTab(kCreate);
+        if (category_ != kGeometry) SelectCategory(kGeometry);
+        if (dropdown_ && SendMessageW(dropdown_, CB_GETCURSEL, 0, 0) != 0) SendMessageW(dropdown_, CB_SETCURSEL, 0, 0);
+    }
+    EndTyping(true);
+    createType_ = type;
+    spec_ = params::ParametersFor(createType_);
+    keyboard_ = params::KeyboardEntryFor(createType_);
+    keValues_.assign(keyboard_.fields.rows.size(), 0.0);   // NOTE: R3's defaults unverified
+    method_ = params::CreationMethodsFor(createType_).selected;
+    scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+    if (onCreateTypeChanged) onCreateTypeChanged(createType_);
+}
+
 void CommandPanel::SetObjectColor(unsigned rgb) {
     objectColor_ = rgb & 0xFFFFFF;
     InvalidateRect(Hwnd(), nullptr, FALSE);
@@ -677,14 +694,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         // A primitive button checks (or unchecks) its type.
         const int type = TypeButtonAt(x, y);
         if (type >= 0) {
-            createType_ = (type == createType_) ? -1 : type;
-            spec_ = params::ParametersFor(createType_);
-            keyboard_ = params::KeyboardEntryFor(createType_);
-            keValues_.assign(keyboard_.fields.rows.size(), 0.0);   // NOTE: R3's defaults unverified
-            method_ = params::CreationMethodsFor(createType_).selected;
-            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
-            InvalidateRect(Hwnd(), nullptr, FALSE);
-            if (onCreateTypeChanged) onCreateTypeChanged(createType_);
+            SetCreateType(type == createType_ ? -1 : type);
             return 0;
         }
         // Creation Method radios.

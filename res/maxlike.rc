@@ -9,6 +9,7 @@ IDB_TOOLBAR_ICONS BITMAP "toolbar_icons.bmp"
 IDB_STATUS_ICONS  BITMAP "status_icons.bmp"
 IDB_PANEL_TAB_ICONS BITMAP "panel_tab_icons.bmp"
 IDB_PANEL_CATEGORY_ICONS BITMAP "panel_category_icons.bmp"
+IDB_OBJECTS_ICONS BITMAP "objects_icons.bmp"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     0,5,0,0

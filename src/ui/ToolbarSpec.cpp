@@ -109,6 +109,46 @@ const std::vector<Item>& MainToolbarSpec() {
     return items;
 }
 
+const std::vector<Item>& ObjectsToolbarSpec() {
+    static const std::vector<Item> items = [] {
+        struct B { const char* cmd; const wchar_t* tip; };
+        static const B kPrims[] = {
+            {"create.box", L"Box"}, {"create.sphere", L"Sphere"}, {"create.cylinder", L"Cylinder"},
+            {"create.torus", L"Torus"}, {"create.teapot", L"Teapot"}, {"create.cone", L"Cone"},
+            {"create.geosphere", L"GeoSphere"}, {"create.tube", L"Tube"}, {"create.pyramid", L"Pyramid"},
+            {"create.plane", L"Plane"},
+            {"create.hedra", L"Hedra"}, {"create.chamferbox", L"ChamferBox"}, {"create.oiltank", L"OilTank"},
+            {"create.chamfercyl", L"ChamferCyl"}, {"create.spindle", L"Spindle"}, {"create.gengon", L"Gengon"},
+            {"create.ringwave", L"RingWave"}, {"create.torusknot", L"Torus Knot"}, {"create.capsule", L"Capsule"},
+            {"create.lext", L"L-Ext"}, {"create.cext", L"C-Ext"}, {"create.prism", L"Prism"},
+        };
+        static const B kRest[] = {
+            {"create.quadpatch", L"Quad Patch"}, {"create.tripatch", L"Tri Patch"},
+            {"create.nurbs_point_surface", L"Point Surface"}, {"create.nurbs_cv_surface", L"CV Surface"},
+            {"create.bones", L"Bones"},
+            {"create.damper", L"Damper"}, {"create.spring", L"Spring"},
+        };
+        std::vector<Item> v;
+        int icon = 0;
+        for (const B& b : kPrims) v.push_back(Btn(b.cmd, b.tip, icon++));
+        const int groups[] = {2, 2, 1, 2};
+        size_t k = 0;
+        for (int g : groups) {
+            v.push_back(Sep());
+            for (int i = 0; i < g; ++i, ++k) v.push_back(Btn(kRest[k].cmd, kRest[k].tip, icon++));
+        }
+        return v;
+    }();
+    return items;
+}
+
+Config ObjectsToolbarConfig() {
+    Config c;
+    c.items = ObjectsToolbarSpec();
+    c.icons = IconStrip::Objects;
+    return c;
+}
+
 Config MainToolbarConfig() {
     Config c;
     c.items = MainToolbarSpec();

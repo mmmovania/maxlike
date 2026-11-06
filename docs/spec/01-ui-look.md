@@ -202,6 +202,16 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
+## Tab panel: Objects strip (measured, step 6.1)
+Screenshot `r3.1-objects-tab.png`. The strip replaces the main toolbar with the same
+geometry: 32-px buttons from x 4 (icons 24 × 24, 4 px in, rows 26–49 of the client area),
+6-px separators with their etched line at +3/+4. 29 buttons: Box, Sphere, Cylinder,
+Torus, Teapot, Cone, GeoSphere, Tube, Pyramid, Plane, Hedra, ChamferBox, OilTank,
+ChamferCyl, Spindle, Gengon, RingWave, Torus Knot, Capsule, L-Ext, C-Ext, Prism | Quad
+Patch, Tri Patch | Point Surface, CV Surface | Bones | Damper, Spring (names after the
+first ten read from the icons, unverified). Tab row with Objects selected and the strip:
+0 differing pixels of 81,384.
+
 ## Command panel (Phase 4)
 The reference shows the Create panel: six tabs (Create, Modify, Hierarchy, Motion,
 Display, Utilities); the Geometry category pressed among Geometry, Shapes, Lights,

@@ -7,6 +7,8 @@
 - `screenshots/r3.1-cylinder-selected-zoomed.png`, `r3.1-cone-selected-zoomed.png` —
   wireframes in R3.1 (views zoomed, so not pixel-comparable): cap spokes hidden, rings
   start at +X, selected objects drawn white.
+- `screenshots/r3.1-objects-tab.png` — R3.1 with the tab panel's Objects tab selected:
+  source of the Objects strip (step 6.1).
 - `screenshots/r3.1-box-created.png` — R3.1 right after creating Box01 (Box still active):
   the creation rollouts, spinners, checked button, enabled name field; source of step 5.3b.
 - `max-reader-handoff.md` — status of the JS `.max` reader. Its regression table's
@@ -19,9 +21,9 @@
   match Max's sizes and triangle counts but not necessarily Max's vertex order.
 
 Still to add:
-- Keyboard Entry opened (Box clicked) to measure its contents; the **Objects** tab of the
-  tab panel (above the main toolbar) clicked, for its button strip; one screenshot
-  mid-creation.
+- Keyboard Entry opened (Box clicked) to measure its contents; one screenshot
+  mid-creation; the tab panel's other tabs (Shapes, Lights & Cameras, Helpers) when
+  their features come.
 - **For Phase 6**: an object selected in each view (white wireframe, the Perspective
   view's corner brackets, the transform axes) at the default zoom, with Select and Move
   active.

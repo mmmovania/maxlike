@@ -36,6 +36,9 @@ public:
     void SetObjectName(const std::wstring& name);
     void Refresh() { InvalidateRect(Hwnd(), nullptr, FALSE); }
     int CreateType() const { return createType_; }
+    // Activate a primitive (or -1 for none), as clicking its Object Type button does;
+    // shows the Create tab, Geometry and Standard Primitives first.
+    void SetCreateType(int type);
 
     // The colour shown in Name and Color (the next object's colour, or the selection's).
     unsigned ObjectColor() const { return objectColor_; }

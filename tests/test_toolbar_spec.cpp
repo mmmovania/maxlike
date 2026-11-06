@@ -158,7 +158,26 @@ static void StatusMatchesReference() {
     CHECK(anim.items[0].text == L"Animate" && anim.items[0].alarm && anim.items[0].toggle);
 }
 
+static void ObjectsStrip() {
+    // Measured (R3.1 screenshot r3.1-objects-tab.png): icons at x 8 + 32k for the 22
+    // primitives (button = icon - 4), separators with their line at 711, 781, 851, 889,
+    // and the last button's icon at 928.
+    const auto& items = ObjectsToolbarSpec();
+    const auto rects = LayoutToolbar(items, 38, 96);
+    std::vector<int> buttons, seps;
+    int icons = 0;
+    for (size_t i = 0; i < items.size(); ++i) {
+        if (items[i].kind == Kind::Button) { buttons.push_back(rects[i].left); if (items[i].icon >= 0) ++icons; }
+        if (items[i].kind == Kind::Separator) seps.push_back(rects[i].left + 3);
+    }
+    CHECK(buttons.size() == 29 && icons == kObjectsIconCount);
+    CHECK(buttons[0] == 4 && buttons[21] == 676 && buttons[22] == 714 && buttons.back() == 924);
+    CHECK(seps.size() == 4 && seps[0] == 711 && seps[1] == 781 && seps[2] == 851 && seps[3] == 889);
+    CHECK(items[0].command == "create.box" && items[9].command == "create.plane");
+}
+
 int main() {
+    ObjectsStrip();
     FlyoutsMatchReference();
     StatusGroupsAreWellFormed();
     StatusMatchesReference();

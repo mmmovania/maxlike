@@ -39,7 +39,7 @@ private:
     void UpdateEditMenu(HMENU menu);   // "Undo <name>" / "Redo <name>", greyed when empty
     void ShowFrame(int frame);
 
-    std::array<win::Window*, 7> Regions();
+    std::array<win::Window*, 8> Regions();
 
     HFONT uiFont_ = nullptr;
     CommandTable commands_;
@@ -56,6 +56,7 @@ private:
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;
     Toolbar     mainToolbar_;
+    Toolbar     objectsToolbar_;    // the tab panel's Objects strip, in the toolbar's place
     ViewPanel   viewports_;
     TimeSlider  timeSlider_;
     TrackBar    trackBar_;

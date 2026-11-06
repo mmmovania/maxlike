@@ -75,7 +75,7 @@ enum StatusIcon {
     kStatusIconCount
 };
 
-enum class IconStrip { Main, Status };
+enum class IconStrip { Main, Status, Objects };
 
 // Everything that differs between the main toolbar and the status-area groups.
 struct Config {
@@ -93,6 +93,14 @@ struct Config {
 const std::vector<Item>& MainToolbarSpec();
 
 Config MainToolbarConfig();
+
+// The tab panel's Objects strip (measured, R3.1 screenshot r3.1-objects-tab.png): 29
+// buttons in the main toolbar's geometry (32-px buttons from x 4, 6-px separators):
+// 22 primitives, then groups of 2, 2, 1, 2. The ten Standard Primitives send
+// "create.<name>"; names after them are read from the icons (NOTE: unverified).
+const std::vector<Item>& ObjectsToolbarSpec();
+Config ObjectsToolbarConfig();
+inline constexpr int kObjectsIconCount = 29;
 // Bottom-row toggles and snaps, left of the Animate button (status area, step 1.5c).
 // Size at 100%: kStatusSnapWidth x kStatusSnapHeight.
 Config StatusSnapConfig();
