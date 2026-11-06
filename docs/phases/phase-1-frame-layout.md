@@ -72,7 +72,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] Under Wine: Scale → Squash, XY → YZ, Quick Render → Draft each change the button
       and send the right command; radio groups follow
 - [x] Found and fixed: the build did not recompile `maxlike.rc` when the icon bitmap changed
-- [ ] On Windows: a quick click on a flyout button acts immediately; holding opens the
+- [x] On Windows: a quick click on a flyout button acts immediately; holding opens the
       strip; releasing outside the strip cancels
 - [x] Unverified against R3.1: flyout alternatives, strip look, hold delay (300 ms)
 
@@ -81,7 +81,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] Pixel comparison under Wine of both bars (label text masked): 0 differing pixels
 - [x] Under Wine: dragging the thumb to frame 50 and clicking ">" gives 51; the track-bar
       marker follows
-- [ ] On Windows: drag, arrows (hold to repeat), and clicking the trough all work
+- [x] On Windows: drag, arrows (hold to repeat), and clicking the trough all work
 - [ ] Unverified against R3.1: pressed arrow look, repeat timing, trough click behaviour,
       meaning of the track-bar "[" marker
 
@@ -90,7 +90,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
 - [x] Pixel comparison under Wine (text and padlock masked, Wine's system palette
       normalised): 0 differing pixels in the step 1.5b area
 - [x] Under Wine: Enter in the listener echoes to the pink line; lock toggles; splitter drags
-- [ ] On Windows: the same three behaviours; prompt line 2 shows toolbar/menu commands
+- [x] On Windows: the same three behaviours; prompt line 2 shows toolbar/menu commands
 - [ ] Unverified against R3.1: purpose of the empty bottom-row field, lock icon art,
       listener font
 
@@ -100,7 +100,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 1.
       masked): 7 differing pixels, all icon art inside the Zoom Extents button
 - [x] Under Wine: Animate toggles red; Go to End gives 100 in slider and field; typing 42
       in the frame field moves the slider to 42
-- [ ] On Windows: the same; toggles, flyouts and tooltips in both groups
+- [x] On Windows: the same; toggles, flyouts and tooltips in both groups
 - [ ] Unverified against R3.1: names/tooltips of all status buttons, flyout alternatives,
       Animate's "on" colour, the Time Tag click menu (not implemented)
 
@@ -119,7 +119,7 @@ The 236: 229 are the command panel's inner rollout area (Phase 4), 7 are icon ar
 Zoom Extents button. Not compared yet: viewport frames and contents (Phase 2), command
 panel tabs and rollouts (Phase 4), title bar and menu bar (drawn by Windows).
 
-- [ ] On Windows: a final look at 1920 × 1080, maximised
+- [x] On Windows: a final look at 1920 × 1080, maximised
 
 ## Notes
 - Measurements are client-relative at 100%: client top = bottom of the menu bar

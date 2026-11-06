@@ -24,7 +24,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] Under Wine at the reference size: panel frame and tabs 0 differing pixels of 7,722
       (icons masked; body interior is for the next steps)
 - [x] Clicking a tab selects it (raised, joined to the body)
-- [ ] On Windows: the same; tab icons look reasonable
+- [x] On Windows: the same; tab icons look reasonable
 - [ ] Unverified: the look of a selected tab other than Create; R3's tab tooltips
 
 ## Step 4.2 verification
@@ -34,7 +34,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] Under Wine: panel rows 0–93 identical to the reference (10,270 pixels; icons and
       the dropdown's interior masked)
 - [x] Clicking a category presses it and refills the dropdown; other tabs hide both
-- [ ] On Windows: the same; the dropdown opens and lists its entries
+- [x] On Windows: the same; the dropdown opens and lists its entries
 - [ ] Unverified: the dropdown lists other than "Standard Primitives"; category tooltips;
       the hover look of category buttons
 
@@ -45,7 +45,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] Under Wine: the whole command panel identical to the reference, 138,011 pixels
       (text, icons, dropdown interior and Name and Color's contents masked)
 - [x] Clicking a primitive checks it (again: unchecks); clicking a title collapses/expands
-- [ ] On Windows: the same; text looks like R3's
+- [x] On Windows: the same; text looks like R3's
 - [ ] Unverified: see `01-ui-look.md` (checked look, "+", scrolling details)
 
 ## Step 4.4 verification
@@ -54,7 +54,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
 - [x] Under Wine: the whole command panel identical to the reference, now including Name
       and Color: 0 differing pixels of 143,519 (text, icons, dropdown interior masked)
 - [x] Clicking the swatch opens a colour dialog; the chosen colour shows in the swatch
-- [ ] On Windows: the same
+- [x] On Windows: the same
 - [ ] Unverified: R3's own Object Color dialog; the name field's enabled look
 
 ## Step 4.5 verification (whole client area at 1920 × 998, Wine)
@@ -63,7 +63,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 4.
       track bar: 0 differing pixels; status area: 7 (icon art, as before). Total 7 of
       1,423,793 (text, icons, Wine-drawn control interiors, labels and the Perspective
       view masked; Perspective checked in Phase 2)
-- [ ] On Windows: `ctest`; the panel next to R3.1
+- [x] On Windows: `ctest`; the panel next to R3.1
 
 ## Notes
 - R3's etched frame is not `DrawEdge(EDGE_ETCHED)`: the corners differ (two offset
