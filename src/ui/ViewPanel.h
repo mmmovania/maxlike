@@ -21,6 +21,9 @@ public:
     std::function<bool()> onCreateCancel;
     std::function<void(const std::vector<scene::Node::Id>&, bool, bool, bool)> onSelect;
     std::function<void()> onDeleteKey;
+    std::function<void()> onMoveBegin;
+    std::function<void(const math::Vec3&)> onMoveDrag;
+    std::function<void(bool)> onMoveEnd;
 
     bool Create(HWND parent);
     NavMode Mode() const { return mode_; }

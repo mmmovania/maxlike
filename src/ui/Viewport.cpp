@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "scene/MoveMath.h"
 #include "gl/GLContext.h"
 #include "gl/LineRenderer.h"
 #include "gl/MeshRenderer.h"
@@ -371,6 +372,55 @@ void Viewport::DrawTransformAxes(int w, int h) {
     flush();
 }
 
+math::Vec3 Viewport::SelectionPivot() const {
+    math::Vec3 sum{0, 0, 0};
+    int count = 0;
+    for (scene::Node::Id id : scene_->Selection())
+        if (const scene::Node* n = scene_->FindById(id)) { sum = sum + math::TransformPoint(n->WorldMatrix(), {0, 0, 0}); ++count; }
+    return count ? sum * (1.0 / count) : sum;
+}
+
+// The ray under a pixel: from the eye in perspective; in ortho views from the point on
+// the view plane, along the view direction.
+bool Viewport::MouseRay(int x, int y, math::Vec3& origin, math::Vec3& dir) const {
+    RECT rc;
+    GetClientRect(Hwnd(), &rc);
+    const int w = rc.right, h = rc.bottom;
+    if (w <= 0 || h <= 0) return false;
+    if (type_ != ViewType::Perspective) {
+        math::Vec3 right, up;
+        OrthoBasis(right, up);
+        const math::Vec3 toward = math::Cross(right, up);
+        origin = right * view::UOfColumn(x, w, h, ortho_) + up * view::VOfRow(y, w, h, ortho_) + toward * 1e5;
+        dir = toward * -1.0;
+        return true;
+    }
+    const math::Mat4 view = perspective_.ViewMatrix();
+    const math::Vec3 right{view.m[0][0], view.m[1][0], view.m[2][0]};
+    const math::Vec3 up{view.m[0][1], view.m[1][1], view.m[2][1]};
+    origin = perspective_.Eye();
+    const math::Vec3 forward = math::Normalize(perspective_.target - origin);
+    const double f = (w / 2.0) / std::tan(perspective_.fovDeg * 3.14159265358979323846 / 360.0);
+    dir = math::Normalize(forward * f + right * (x + 0.5 - w / 2.0) - up * (y + 0.5 - h / 2.0));
+    return true;
+}
+
+// Ortho: the mouse moves on the view plane; axes outside the constraint are dropped
+// (Front with XY moves along X only). Perspective: the mouse ray meets a plane through
+// the pivot (the constraint's plane, or for one axis the plane containing it that faces
+// the camera), and the movement is kept to the allowed axes.
+math::Vec3 Viewport::MoveDelta(int x, int y) const {
+    math::Vec3 o0, d0, o1, d1;
+    if (!MouseRay(moveStart_.x, moveStart_.y, o0, d0) || !MouseRay(x, y, o1, d1)) return {0, 0, 0};
+    if (type_ != ViewType::Perspective) return scene::move::Constrain(o1 - o0, axesActive_);
+    math::Vec3 n, h0, h1;
+    const math::Vec3 forward = math::Normalize(perspective_.target - perspective_.Eye());
+    if (!scene::move::DragPlaneNormal(axesActive_, forward, n)) n = forward;   // all axes: the view plane
+    if (!scene::move::RayPlane(o0, d0, movePivot_, n, h0) || !scene::move::RayPlane(o1, d1, movePivot_, n, h1))
+        return {0, 0, 0};
+    return scene::move::Constrain(h1 - h0, axesActive_);
+}
+
 bool Viewport::WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const {
     RECT rc;
     GetClientRect(Hwnd(), &rc);
@@ -709,6 +759,16 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (onSelect && axesStyle_ == view::AxesStyle::MoveGizmo &&
+                   PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) != 0) {
+            // Select and Move on an object: select it if needed, then drag the selection.
+            const scene::Node::Id id = PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+            if (!scene_->IsSelected(id)) onSelect({id}, false, (wp & MK_CONTROL) != 0, false);
+            moving_ = true;
+            moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            movePivot_ = SelectionPivot();
+            SetCapture(Hwnd());
+            if (onMoveBegin) onMoveBegin();
         } else if (onSelect) {
             // Selecting: a click, or a region once the mouse moves.
             selecting_ = true;
@@ -729,6 +789,10 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MOUSEMOVE:
+        if (moving_) {
+            if (onMoveDrag) onMoveDrag(MoveDelta(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+            return 0;
+        }
         if (selecting_) {
             dragLast_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
             const bool moved = std::abs(dragLast_.x - dragStart_.x) > 2 || std::abs(dragLast_.y - dragStart_.y) > 2;
@@ -758,6 +822,12 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_LBUTTONUP:
+        if (moving_) {
+            moving_ = false;
+            ReleaseCapture();
+            if (onMoveEnd) onMoveEnd(true);
+            return 0;
+        }
         if (selecting_) {
             selecting_ = false;
             const bool region = regionVisible_;
@@ -788,6 +858,7 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_CAPTURECHANGED:
+        if (moving_) { moving_ = false; if (onMoveEnd) onMoveEnd(true); }
         creatingDrag_ = false;
         if (selecting_) { selecting_ = false; regionVisible_ = false; InvalidateRect(Hwnd(), nullptr, FALSE); }
         if (drag_ != NavMode::None) EndDrag(false);
@@ -811,6 +882,13 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (onActivate) onActivate();
         return 0;
     case WM_RBUTTONUP:
+        // While moving, right-click cancels the move.
+        if (moving_) {
+            moving_ = false;
+            if (onMoveEnd) onMoveEnd(false);
+            ReleaseCapture();
+            return 0;
+        }
         // While building an object, right-click cancels it.
         if (onCreateCancel && onCreateCancel()) return 0;
         // In a navigation mode, right-click leaves the mode (as in R3).

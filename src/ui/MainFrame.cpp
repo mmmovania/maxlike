@@ -2,6 +2,7 @@
 #include "ui/FrameLayout.h"
 #include "ui/Bevel.h"
 #include "scene/DemoScene.h"
+#include "scene/MoveMath.h"
 #include "ui/MenuBuilder.h"
 #include "ui/MenuSpec.h"
 #include "ui/TabStrip.h"
@@ -246,6 +247,49 @@ bool MainFrame::CreateRegions() {
         viewports_.Redraw();
     };
     viewports_.onDeleteKey = [this] { DeleteSelection(); };
+    // Moving: a live preview from the starting positions, then one "Move" undo step.
+    viewports_.onMoveBegin = [this] {
+        moving_.clear();
+        for (scene::Node::Id id : scene_.Selection()) {
+            scene::Node* n = scene_.FindById(id);
+            if (!n) continue;
+            bool ancestorSelected = false;
+            for (const scene::Node* p = n->Parent(); p && !ancestorSelected; p = p->Parent())
+                ancestorSelected = scene_.IsSelected(p->GetId());
+            if (ancestorSelected) continue;
+            Moving m{id, n->Transform(), math::TransformPoint(n->WorldMatrix(), {0, 0, 0}), n->Parent() != nullptr, {}};
+            if (n->Parent()) m.parentWorld = n->Parent()->WorldMatrix();
+            moving_.push_back(m);
+        }
+    };
+    viewports_.onMoveDrag = [this](const math::Vec3& delta) {
+        for (const Moving& m : moving_) {
+            scene::Node* n = scene_.FindById(m.id);
+            if (!n) continue;
+            const math::Vec3 world = m.startWorld + delta;
+            math::Vec3 local = world;
+            if (m.hasParent && !scene::move::InverseTransformPoint(m.parentWorld, world, local)) continue;
+            n->Transform().position = local;
+        }
+        viewports_.Redraw();
+    };
+    viewports_.onMoveEnd = [this](bool commit) {
+        auto macro = std::make_unique<scene::MacroCommand>("Move");
+        bool changed = false;
+        for (const Moving& m : moving_) {
+            scene::Node* n = scene_.FindById(m.id);
+            if (!n) continue;
+            const scene::PRS after = n->Transform();
+            n->Transform() = m.start;                   // so the command records the real "before"
+            if (commit && math::Length(after.position - m.start.position) > 1e-12) {
+                macro->Add(std::make_unique<scene::TransformCommand>(m.id, m.start, after));
+                changed = true;
+            }
+        }
+        moving_.clear();
+        if (changed) undo_.Execute(std::move(macro), scene_);
+        viewports_.Redraw();
+    };
 
     tabPanel_.onTabChanged = [this](int index) {
         const auto& tab = tabstrip::Tabs()[static_cast<size_t>(index)];

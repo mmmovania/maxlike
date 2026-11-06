@@ -117,6 +117,8 @@ add_executable(maxlike WIN32
     src/scene/Creation.h
     src/scene/CreationTool.cpp
     src/scene/CreationTool.h
+    src/scene/MoveMath.cpp
+    src/scene/MoveMath.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
     res/resource.h
@@ -187,3 +189,4 @@ maxlike_add_test(test_spinner tests/test_spinner.cpp src/ui/SpinnerModel.cpp)
 maxlike_add_test(test_parameters_spec tests/test_parameters_spec.cpp src/ui/ParametersSpec.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_picking tests/test_picking.cpp src/view/Picking.cpp)
 maxlike_add_test(test_transform_axes tests/test_transform_axes.cpp src/view/TransformAxes.cpp)
+maxlike_add_test(test_move_math tests/test_move_math.cpp src/scene/MoveMath.cpp src/scene/Node.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/math/Quat.cpp src/math/Mat4.cpp)

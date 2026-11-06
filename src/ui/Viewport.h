@@ -40,6 +40,11 @@ public:
     // Ctrl / Alt keys; and the Delete key.
     std::function<void(const std::vector<scene::Node::Id>& ids, bool region, bool ctrl, bool alt)> onSelect;
     std::function<void()> onDeleteKey;
+    // Moving (Select and Move): begin, a world-space movement since the start (preview),
+    // end (true: keep, as one undo step; false: cancelled).
+    std::function<void()> onMoveBegin;
+    std::function<void(const math::Vec3& delta)> onMoveDrag;
+    std::function<void(bool commit)> onMoveEnd;
     void SetIndex(int index) { index_ = index; }
 
     // `lines` and `meshes` are the panel's shared renderers (created on first paint).
@@ -123,6 +128,12 @@ private:
     bool regionVisible_ = false;
     bool creatingDrag_ = false;          // left button held during creation
     bool selecting_ = false;             // left button held for a selection click or region
+    bool moving_ = false;                // dragging the selection with Select and Move
+    POINT moveStart_{};
+    math::Vec3 movePivot_{};
+    math::Vec3 SelectionPivot() const;
+    bool MouseRay(int x, int y, math::Vec3& origin, math::Vec3& dir) const;
+    math::Vec3 MoveDelta(int x, int y) const;   // world movement from moveStart_ to (x, y)
     // World point -> window pixels (and depth, smaller = nearer) in this view; false if
     // behind the camera.
     bool WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const;

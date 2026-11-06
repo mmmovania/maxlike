@@ -57,6 +57,10 @@ private:
     Tool tool_ = Tool::Select;
     bool constraint_[3] = {true, true, false};
     void UpdateTransformDisplay();
+    // A move in progress: each moved node's starting transform, world position and
+    // parent matrix (children of moved nodes move with them, not twice).
+    struct Moving { scene::Node::Id id; scene::PRS start; math::Vec3 startWorld; bool hasParent; math::Mat4 parentWorld; };
+    std::vector<Moving> moving_;
     void DeleteSelection();
     scene::Node* NameColorTarget() const;          // whose name and colour the panel shows
     std::wstring docName_ = L"Untitled";

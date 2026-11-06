@@ -52,6 +52,9 @@ bool ViewPanel::Create(HWND parent) {
             if (onSelect) onSelect(ids, region, ctrl, alt);
         };
         v.onDeleteKey = [this] { if (onDeleteKey) onDeleteKey(); };
+        v.onMoveBegin = [this] { if (onMoveBegin) onMoveBegin(); };
+        v.onMoveDrag = [this](const math::Vec3& d) { if (onMoveDrag) onMoveDrag(d); };
+        v.onMoveEnd = [this](bool commit) { if (onMoveEnd) onMoveEnd(commit); };
         v.navMode = [this] { return mode_; };
         v.onExitMode = [this] { SetNavMode(NavMode::None); };
         v.onZoomAll = [this, i](double factor) {

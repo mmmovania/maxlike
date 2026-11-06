@@ -1,0 +1,48 @@
+// Unit tests for moving objects with axis constraints.
+#include "scene/MoveMath.h"
+#include "scene/Node.h"
+#include <cmath>
+#include <cstdio>
+
+static int failures = 0;
+#define CHECK(cond) do { if (!(cond)) { ++failures; std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); } } while (0)
+static bool Near(const math::Vec3& a, const math::Vec3& b) {
+    return std::fabs(a.x - b.x) < 1e-9 && std::fabs(a.y - b.y) < 1e-9 && std::fabs(a.z - b.z) < 1e-9;
+}
+
+using namespace scene::move;
+
+int main() {
+    const bool xy[3] = {true, true, false}, x[3] = {true, false, false}, z[3] = {false, false, true};
+    const bool all[3] = {true, true, true};
+    // Constrain: keep the allowed axes only (e.g. Front view with XY: only X survives).
+    CHECK(Near(Constrain({3, 4, 5}, xy), {3, 4, 0}));
+    CHECK(Near(Constrain({3, 0, 5}, xy), {3, 0, 0}));
+    CHECK(Near(Constrain({3, 4, 5}, z), {0, 0, 5}));
+
+    // Drag planes: XY -> the ground (normal Z); X seen from the front-ish -> faces the camera.
+    math::Vec3 n;
+    CHECK(DragPlaneNormal(xy, {0, 1, -0.5}, n) && Near(n, {0, 0, 1}));
+    CHECK(DragPlaneNormal(x, {0, 1, 0}, n) && std::fabs(n.x) < 1e-9 && std::fabs(std::fabs(n.y) - 1) < 1e-9);
+    CHECK(DragPlaneNormal(z, {0.6, 0.8, 0}, n) && std::fabs(n.z) < 1e-9);     // contains Z, faces the view
+    CHECK(!DragPlaneNormal(x, {1, 0, 0}, n));                                    // looking along X
+    CHECK(!DragPlaneNormal(all, {0, 1, 0}, n));
+
+    // Ray and plane.
+    math::Vec3 hit;
+    CHECK(RayPlane({0, 0, 10}, {0, 0, -1}, {0, 0, 2}, {0, 0, 1}, hit) && Near(hit, {0, 0, 2}));
+    CHECK(!RayPlane({0, 0, 10}, {1, 0, 0}, {0, 0, 2}, {0, 0, 1}, hit));          // parallel
+    CHECK(!RayPlane({0, 0, 10}, {0, 0, 1}, {0, 0, 2}, {0, 0, 1}, hit));          // behind
+
+    // Into a parent's space: rotated 90° about Z, scaled 2, moved (10, 0, 0).
+    scene::PRS parent;
+    parent.position = {10, 0, 0};
+    parent.rotation = math::Quat::FromAxisAngle({0, 0, 1}, 3.14159265358979323846 / 2);
+    parent.scale = {2, 2, 2};
+    const math::Mat4 pm = parent.Matrix();
+    math::Vec3 local;
+    CHECK(InverseTransformPoint(pm, math::TransformPoint(pm, {1, 2, 3}), local) && Near(local, {1, 2, 3}));
+    CHECK(InverseTransformPoint(pm, {10, 2, 0}, local) && Near(local, {1, 0, 0}));  // world +2 along Y = local +1 along X
+    if (failures == 0) std::printf("move math: all tests passed\n");
+    return failures == 0 ? 0 : 1;
+}

@@ -18,7 +18,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [x] **6.4a Transform display and tool state**: the axis tripod (Select, creation) and
       the Move gizmo, measured from R3.1 (`view::TransformAxesPixels`); the toolbar's
       tools and X/Y/Z/XY/YZ/ZX constraints as live state; prompts
-- [ ] 6.4b Move: dragging selected objects with the constraints (undoable)
+- [x] **6.4b Move**: with Select and Move, pressing on an object selects it if needed and
+      drags the selection (`scene::move`: constrained movement, drag planes in
+      Perspective, parent space); one "Move" undo step; right-click cancels
 - [ ] 6.4c Rotate and Scale
 - [ ] 6.5 Wrap-up
 
@@ -73,6 +75,19 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 6.
 - [ ] Unverified: arrowhead edges (fitted triangle, about 10 % of edge pixels differ);
       Rotate and Scale looks (the tripod shows for now); several objects selected (one
       figure at the average pivot); the tripod in Perspective
+
+## Step 6.4b verification
+- [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
+- [x] `test_move_math`: constraints, drag planes (two axes: their plane; one axis: the
+      plane facing the camera; none along the view), ray–plane, the inverse of a rotated
+      and scaled parent matrix
+- [x] Under Wine: Top view, a 100-px drag moves the box exactly 100 px; with Y only a
+      horizontal drag moves nothing (and records nothing); one Undo restores it; in
+      Perspective a drag slides it along the ground (Top moves, Front height unchanged)
+- [ ] On Windows: move in every view with X, Y, Z, XY, YZ, ZX; undo; right-click cancels
+- [ ] Unverified: R3's cursor while moving; whether R3 shows the movement in the status
+      bar's X/Y/Z fields while dragging (Phase 6 type-in item); several objects about
+      their own pivots or a common centre (the same movement is applied to each)
 
 ## Notes
 - The strip is a second `Toolbar` (`ObjectsToolbarConfig`) shown in the main toolbar's
