@@ -206,6 +206,28 @@ static void Deformers() {
         const double r = 100 / (kPi / 2);
         CHECK(Close(m.verts[4], {r, r, 0}));
     }
+    // Against R3.1 (screenshot r3.1-modify-bend.png): Box 62.572 wide, 60.718 tall, Bend
+    // 30.5 degrees about Z. R3 draws the top corners of the bent box's straight edges at
+    // pixels that convert (Front view: 5.9132 px per unit, pivot at x 1303, base row 495)
+    // to the right corner (42.79, 41.94) and the left edge passing (-29.25, 7.61),
+    // (-24.52, 24.52) and (-15.39, 58.35) in (x, z); ours must agree within a pixel.
+    {
+        scene::Mesh m;
+        m.verts = {{31.286, 0, 60.718}, {-31.286, 0, 60.718}, {31.286, 0, 0}, {-31.286, 0, 0}};   // base too: the extent
+        scene::BendModifier b;
+        b.Params().Set(scene::BendModifier::kAngle, 30.5);
+        b.Apply(m);
+        const double px = 1 / 5.9132;                                       // one pixel in units
+        CHECK(std::fabs(m.verts[0].x - 42.79) < px && std::fabs(m.verts[0].z - 41.94) < px);
+        // The left edge runs from (-31.286, 0) to the bent left top corner; check it passes
+        // R3's measured points.
+        const double x0 = -31.286, x1 = m.verts[1].x, z1 = m.verts[1].z;
+        const double pts[3][2] = {{-29.25, 7.61}, {-24.52, 24.52}, {-15.39, 58.35}};
+        for (const auto& pt : pts) {
+            const double xOnLine = x0 + (x1 - x0) * (pt[1] / z1);
+            CHECK(std::fabs(xOnLine - pt[0]) < px);
+        }
+    }
     // On a real object through the stack: a box keeps its vertex count; bending changes it.
     {
         auto d = std::make_shared<scene::DerivedObject>(std::make_shared<scene::BoxObject>(20, 20, 100));

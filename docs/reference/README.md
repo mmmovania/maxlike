@@ -7,6 +7,10 @@
 - `screenshots/r3.1-cylinder-selected-zoomed.png`, `r3.1-cone-selected-zoomed.png` —
   wireframes in R3.1 (views zoomed, so not pixel-comparable): cap spokes hidden, rings
   start at +X, selected objects drawn white.
+- `screenshots/r3.1-modify-box.png`, `r3.1-modify-bend.png`,
+  `r3.1-modify-editmesh-vertex.png`, `r3.1-modifiers-dialog.png` — R3.1's Modify tab with
+  a box, with Bend 30.5°, with Edit Mesh at Vertex level, and the Modifiers list
+  (Phase 7; Bend's geometry verified against the second).
 - `screenshots/r3.1-move-selected.png` — R3.1 with Box01 selected and Select and Move
   active: the Move gizmo in all four views (step 6.4a).
 - `screenshots/r3.1-create-tripod-z.png` — R3.1 creating a Box (built in the Front view)

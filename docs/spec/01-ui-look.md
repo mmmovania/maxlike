@@ -204,6 +204,33 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
+## Modify panel (measured, step 7.2a)
+Screenshots `r3.1-modify-box.png`, `r3.1-modify-bend.png`,
+`r3.1-modify-editmesh-vertex.png`, `r3.1-modifiers-dialog.png` (panel coordinates as for
+the Create panel).
+- Name field above the rollup: x 16–149, rows 35–54 (wider than the Create panel's
+  15–146); swatch x 152–168, same rows.
+- Rollup container from row 59 (Create: 94); same rollout rules (first title +5, frame
+  +8, next title 7 after a frame).
+- Modifiers (title 64, content 164): "Use Pivot Points" checkbox (disabled with one
+  object) at title + 22; More… x 17–70 (dark-grey bottom edge) and Sets x 80–133 at rows
+  104–121; an icon button x 141–161, rows 101–121; ten buttons in two columns, x 17–88
+  and 92–163, 20 rows tall at rows 127, 150, 173, 195, 218: Bend, Taper / Twist, Noise /
+  Extrude, Lathe (disabled for meshes) / UVW Map, Edit Patch / Mesh Select, Edit Spline
+  (disabled).
+- Modifier Stack (title 250, content 106): pin icon x 15–31; stack dropdown x 36–166,
+  rows 271–294 ("Box", "Bend", "* Edit Mesh"); five icon buttons from x 36, rows
+  302–324 (the second shown pressed); "Selection Level:" at row 331; Sub-Object button
+  x 12–74 and level combo x 78–167, rows 344–364 (disabled for a base object; with Bend
+  the combo shows "Gizmo"; with Edit Mesh at Vertex, Sub-Object is yellow).
+- Parameters (title 378): the same layout as the Create panel's.
+- Bend's Parameters: group boxes "Bend:" (Angle, Direction), "Bend Axis:" (X / Y / Z
+  radios), "Limits" (Limit Effect checkbox, Upper Limit, Lower Limit); angles shown with
+  one decimal ("30.5", "0.0"). In the views, the gizmo is orange.
+- Edit Mesh at Vertex level: vertices drawn as dots, selected red, others blue; a
+  Selection rollout (five level icons, "4 Vertices Selected"), Soft Selection
+  (collapsed), Edit Geometry.
+
 ## Transform display at the selection's pivot (measured, step 6.4a)
 Screenshots `r3.1-box-created.png`, `r3.1-create-tripod-z.png`, `r3.1-move-selected.png`.
 - Axis tripod (Select, creation): the object's own axes; lines from the pivot to 84 px,
