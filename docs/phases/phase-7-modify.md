@@ -50,7 +50,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       modifier stack
 - [x] Under Wine, `--demo-scene deform`: a quarter-arc bend standing on its pivot, a
       90° twist, an inward taper with a slight bow
-- [ ] On Windows: `ctest`; `build\Debug\maxlike.exe --demo-scene deform`
+- [x] On Windows: `ctest`; `build\Debug\maxlike.exe --demo-scene deform`
 - [ ] Unverified: parameter indices (they matter for `.max` import), Twist bias and
       Taper curve formulas (Bend's direction, extent and centre: verified in 7.2a)
 
@@ -60,7 +60,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       three measured points)
 - [x] Bend's direction (+X), radius rule (height ÷ angle) and centre (the pivot) are
       therefore verified, no longer from memory
-- [ ] On Windows: `ctest`
+- [x] On Windows: `ctest`
 
 ## Step 7.2b verification
 - [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
@@ -77,7 +77,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       panel is unchanged (window identical to the end of Phase 5)
 - [x] Under Wine: Bend added (stack "Bend", bulb on, Sub-Object enabled, "Gizmo"); Box
       picked in the list (its Parameters return); remove and undo
-- [ ] On Windows: the same; the disabled combo's button should match R3 there
+- [x] On Windows: the same; the disabled combo's button should match R3 there
 - [ ] Unverified: the stack icons (original drawings, approximate positions), the icon
       button's icon, what More... and Sets open (not implemented)
 
@@ -93,7 +93,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       masked); the plain-box panel still 58 (Wine's disabled combo button); the default
       window unchanged
 - [x] Under Wine: Angle 90 bends a box; Bend Axis X changes the bend; Undo restores it
-- [ ] On Windows: edit Bend, Taper and Twist with spinners, radios and Limit Effect; undo
+- [x] On Windows: edit Bend, Taper and Twist with spinners, radios and Limit Effect; undo
 - [ ] Unverified: Taper's and Twist's rollouts (laid out like Bend's: labels, the axis
       group's extra rows, label gaps), spinner speeds
 
@@ -110,7 +110,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       indices 10–12 into a ten-name table
 - [x] No regressions: default window unchanged; the Modify panel with Bend still 0
       differing pixels against R3.1
-- [ ] On Windows: the same, including the dialog's look (not compared: this test display
+- [x] On Windows: the same, including the dialog's look (not compared: this test display
       has no window manager, so the dialog is not painted there)
 - [ ] Unverified: the dialog's layout and the entries after "STL-Check"; vertex pick
       tolerance; Rotate and Scale at vertex level (not implemented)
@@ -128,7 +128,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       leave a 4-px column for the scroll indicator; a checked box's tick is the classic
       7 × 7 pattern (Wine draws another; now drawn from the measured pattern)
 - [x] "N Vertices Selected" follows the selection; level icons enter sub-object mode
-- [ ] On Windows: the same; checked boxes' ticks (enabled: black, assumed)
+- [x] On Windows: the same; checked boxes' ticks (enabled: black, assumed)
 - [ ] Unverified: the level icons (original drawings), R3's wording for one or no
       vertices, Edit Geometry below Weld and its content height, Soft Selection's contents
 
@@ -144,7 +144,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       were hidden (a title above the top was treated as "not shown"; now `kNoTitle`);
       labels paint their own background ("pixels" covers the Target arrows' last column);
       disabled radios show a grey dot; the indicator's end rounds up
-- [ ] On Windows: scroll the Edit Mesh panel (wheel or drag) and watch the indicator
+- [x] On Windows: scroll the Edit Mesh panel (wheel or drag) and watch the indicator
 - [ ] Unverified: Surface Properties' height (inferred from the indicator: the column
       scrolls 463 rows) and contents; Soft Selection's contents
 
@@ -155,7 +155,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
 - [x] The default window (Create panel) unchanged since Phase 5 (cursor text masked)
 - [x] Documentation sweep: overview decisions, UI spec (outdated "not yet" notes and the
       custom-controls table), plan, menus, README, tech index, reference wish list
-- [ ] On Windows: `ctest`; the "Try it" steps of 7.1–7.4c
+- [x] On Windows: `ctest`; the "Try it" steps of 7.1–7.4c
 
 ## Notes
 - No user interface yet: the modifiers are visible through the demo scene; the Modify
