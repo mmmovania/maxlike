@@ -116,7 +116,10 @@ private:
     int StackButtonAt(int x, int y) const;       // 0..4, or -1
     std::vector<int> VisibleRollouts() const;
     std::vector<rollup::Item> RolloutItems() const;
-    int TitleTopOf(int id) const;             // -1 if not shown or closed
+    // A rollout's title row (negative when scrolled above the container), or kNoTitle
+    // if it is not shown or closed.
+    static constexpr int kNoTitle = -1000000;
+    int TitleTopOf(int id) const;
 
     // Parameters interaction.
     enum class Part { None, Field, Up, Down, Check, Radio, Button, Level };

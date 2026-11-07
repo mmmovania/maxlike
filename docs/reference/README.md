@@ -11,6 +11,8 @@
   `r3.1-modify-editmesh-vertex.png`, `r3.1-modifiers-dialog.png` — R3.1's Modify tab with
   a box, with Bend 30.5°, with Edit Mesh at Vertex level, and the Modifiers list
   (Phase 7; Bend's geometry verified against the second).
+- `screenshots/r3.1-modify-editmesh-scrolled.png` — R3.1's Edit Mesh panel scrolled down by
+  270: the rest of Edit Geometry and the scroll indicator in a second position (step 7.4c).
 - `screenshots/r3.1-move-selected.png` — R3.1 with Box01 selected and Select and Move
   active: the Move gizmo in all four views (step 6.4a).
 - `screenshots/r3.1-create-tripod-z.png` — R3.1 creating a Box (built in the Front view)

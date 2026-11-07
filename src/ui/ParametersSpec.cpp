@@ -203,9 +203,9 @@ std::vector<Spec> ModifierRollouts(const std::string& name) {
         if (s.rows.empty()) return {};
         return {s};
     }
-    // Measured (r3.1-modify-editmesh-vertex.png), title-relative: Selection at 378, Soft
-    // Selection (collapsed) at 595, Edit Geometry at 615. Edit Geometry is measured down
-    // to the Weld group, where the screenshot ends (NOTE: the rest is not built yet).
+    // Measured (r3.1-modify-editmesh-vertex.png and, scrolled down by 270, r3.1-modify-
+    // editmesh-scrolled.png), title-relative: Selection at 378, Soft Selection (collapsed)
+    // at 595, Edit Geometry at 615, Surface Properties at 1140.
     using scene::EditMeshModifier;
     auto button = [](const wchar_t* label, int top, int left, int right, bool enabled = true) {
         Row r{label, -1, Kind::Button, 0, 0, 0, top};
@@ -246,7 +246,13 @@ std::vector<Spec> ModifierRollouts(const std::string& name) {
     soft.contentHeight = 40;
     Spec geo;
     geo.title = L"Edit Geometry";
-    geo.groups = {{90, 157, L"", 0, 14, 165}, {163, 233, L"", 0, 14, 165}, {243, 298, L"Weld", 49, 14, 166, 21, 23}};
+    geo.groups = {{90, 157, L"", 0, 14, 165}, {163, 233, L"", 0, 14, 165}, {243, 298, L"Weld", 49, 14, 166, 21, 23},
+                  {303, 345, L"", 0, 14, 165}, {350, 392, L"", 0, 14, 165}};
+    auto radios2 = [](int index, int top, const wchar_t* a, const wchar_t* b, int la, int lb) {
+        Row r{L"", index, Kind::Radio, 0, 1, 1, top};
+        r.options = {a, b}; r.optionLefts = {la, lb}; r.enabled = false;
+        return r;
+    };
     geo.rows = {button(L"Create", 23, 15, 86), button(L"Delete", 23, 92, 163),
                 button(L"Attach", 45, 15, 86), button(L"Detach", 45, 92, 163),
                 button(L"Break", 68, 15, 86), button(L"Turn", 68, 92, 163, false),
@@ -262,9 +268,31 @@ std::vector<Spec> ModifierRollouts(const std::string& name) {
                 check(L"Split", EditMeshModifier::kSplit, 196, 99, true),
                 check(L"Refine Ends", EditMeshModifier::kRefineEnds, 215, 23, false),
                 button(L"Selected", 252, 21, 83),
-                spinner(L"", EditMeshModifier::kWeldThreshold, 255, 92, 56, 150, true, 0, 1e6)};
-    geo.contentHeight = 300;                 // NOTE: estimated; the rest of the rollout is below the screenshot
-    return {sel, soft, geo};
+                spinner(L"", EditMeshModifier::kWeldThreshold, 255, 92, 56, 150, true, 0, 1e6),
+                button(L"Target", 274, 21, 83),
+                [] { Row r{L"", EditMeshModifier::kWeldTargetPixels, Kind::Int, 1, 100, 1, 276};
+                     r.fieldLeft = 92; r.fieldWidth = 29; r.arrowsLeft = 123; return r; }(),
+                label(L"pixels", 278, 134, 172, false),   // its background covers the arrows' last column
+                button(L"Tessellate", 309, 20, 87, false),
+                spinner(L"", EditMeshModifier::kTessTension, 310, 92, 56, 150, false, -1e6, 1e6),
+                label(L"by:", 331, 21, 38, false, false),
+                radios2(EditMeshModifier::kTessByFace, 331, L"Edge", L"Face-Center", 39, 87),
+                button(L"Explode", 354, 20, 85, false),
+                spinner(L"", EditMeshModifier::kExplodeAngle, 356, 92, 56, 150, false, 0, 180),
+                label(L"to:", 378, 21, 38, false, false),
+                radios2(EditMeshModifier::kExplodeToElements, 378, L"Objects", L"Elements", 39, 100),
+                button(L"Remove Isolated Vertices", 401, 15, 163),
+                button(L"Select Open Edges", 424, 15, 163, false),
+                button(L"Create Shape from Edges", 447, 15, 163, false),
+                button(L"View Align", 469, 15, 86), button(L"Grid Align", 469, 92, 163),
+                button(L"Make Planar", 492, 15, 86), button(L"Collapse", 492, 92, 163)};
+    geo.contentHeight = 503;                 // measured: frame's shadow line at title + 517
+    Spec surface;
+    surface.title = L"Surface Properties";
+    // NOTE: below both screenshots. Its height is inferred from the scroll indicator
+    // (the column scrolls 463 rows); its contents are not built.
+    surface.contentHeight = 186;
+    return {sel, soft, geo, surface};
 }
 
 Methods CreationMethodsFor(int type) {

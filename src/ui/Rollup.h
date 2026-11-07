@@ -46,4 +46,10 @@ int MaxScroll(const std::vector<Item>& items, const Box& container = kContainer)
 // Index of the rollout whose title button contains the point, or -1.
 int TitleAt(const std::vector<Item>& items, int scroll, int x, int y, const Box& container = kContainer);
 
+// The scroll indicator's visible (grey) part, rows first..last, in the column x right-4 ..
+// right-1, rows top+1 .. bottom-1 (measured, Edit Mesh unscrolled and scrolled by 270:
+// rows 60..587 and 232..760 with a maximum scroll of 463).
+struct Thumb { int first, last; };
+Thumb ScrollThumb(const Box& container, int scroll, int maxScroll);
+
 } // namespace ui::rollup

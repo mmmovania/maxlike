@@ -32,8 +32,11 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       Thresh, Hide / Unhide All, Copy / Paste, "N Vertices Selected"), Soft Selection
       (collapsed), Edit Geometry down to the Weld group; new row kinds (buttons, labels,
       level icons), disabled controls, several rollouts per modifier
-- [ ] 7.4c The rest of Edit Geometry and Soft Selection; their buttons' actions; Face level
-- [ ] The rollup's scroll indicator (x 174–177; seen with Edit Mesh)
+- [x] **7.4c Scrolled**: the rest of Edit Geometry (Weld Target, Tessellate, Explode,
+      Remove Isolated Vertices, View / Grid Align, Make Planar / Collapse) and Surface
+      Properties' place, from R3.1 scrolled by 270; the rollup's scroll indicator
+      (`rollup::ScrollThumb`), measured at two scroll positions
+- [ ] Soft Selection's and Surface Properties' contents; Edit Mesh's button actions; Face level
 - [ ] 7.5 Wrap-up
 
 ## Step 7.1 verification
@@ -126,6 +129,22 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
 - [ ] On Windows: the same; checked boxes' ticks (enabled: black, assumed)
 - [ ] Unverified: the level icons (original drawings), R3's wording for one or no
       vertices, Edit Geometry below Weld and its content height, Soft Selection's contents
+
+## Step 7.4c verification
+- [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
+- [x] `test_rollup`: the indicator's grey part 60..587 unscrolled and 232..760 at 270, as
+      measured; it reaches the last row at the end of the column
+- [x] `test_parameters_spec`: four Edit Mesh rollouts, Edit Geometry's measured height
+- [x] Under Wine, compared with R3.1, scroll indicator included: Edit Mesh unscrolled 0
+      differing pixels of 82,389; scrolled by 270, 1 of 86,174 (one pixel of a digit in
+      Wine's font); Bend 0; plain box 58 (Wine's disabled combo)
+- [x] Found while comparing: controls inside a rollout scrolled above the container's top
+      were hidden (a title above the top was treated as "not shown"; now `kNoTitle`);
+      labels paint their own background ("pixels" covers the Target arrows' last column);
+      disabled radios show a grey dot; the indicator's end rounds up
+- [ ] On Windows: scroll the Edit Mesh panel (wheel or drag) and watch the indicator
+- [ ] Unverified: Surface Properties' height (inferred from the indicator: the column
+      scrolls 463 rows) and contents; Soft Selection's contents
 
 ## Notes
 - No user interface yet: the modifiers are visible through the demo scene; the Modify

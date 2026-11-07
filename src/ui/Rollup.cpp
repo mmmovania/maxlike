@@ -1,4 +1,5 @@
 #include "ui/Rollup.h"
+#include <cmath>
 #include <algorithm>
 
 namespace ui::rollup {
@@ -36,6 +37,14 @@ int TitleAt(const std::vector<Item>& items, int scroll, int x, int y, const Box&
     for (size_t i = 0; i < p.size(); ++i)
         if (y >= p[i].titleTop && y <= p[i].titleBottom) return static_cast<int>(i);
     return -1;
+}
+
+Thumb ScrollThumb(const Box& k, int scroll, int maxScroll) {
+    // H rows of indicator stand for H + maxScroll rows of column; the end rounds up.
+    const int H = (k.bottom - 1) - (k.top + 1) + 1;
+    const double C = H + maxScroll;
+    return {k.top + 1 + static_cast<int>(std::floor(scroll * H / C)),
+            k.top + 1 + static_cast<int>(std::ceil((scroll + H) * H / C)) - 1};
 }
 
 } // namespace ui::rollup

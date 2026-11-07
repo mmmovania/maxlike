@@ -255,8 +255,17 @@ the Create panel).
   interior and 2-px white margins; radios with a face interior. A checked box's tick:
   the classic 7 × 7 pattern, 3 px inside the box (grey when disabled).
 - Modify container: bottom edge at row 884; content stops one row above it; an
-  overflowing column leaves x 174–177 for a scroll indicator (grey track, black part;
-  NOTE: not built).
+  overflowing column leaves x 174–177 for the scroll indicator: rows 60–883 black, the
+  visible part of the column grey, from 60 + floor(scroll·H/C) to 60 + ceil((scroll+H)·H/C) − 1
+  (H = 824, C = H + the maximum scroll); the container's top line runs across it, the
+  bottom line stops at x 173 (verified at scroll 0 and 270).
+- Edit Geometry below the Weld group (verified, `r3.1-modify-editmesh-scrolled.png`):
+  Target x 21–83 with a 29-wide field (x 92–120, arrows 123) and "pixels" (a label whose
+  background starts at x 134); Tessellate and Explode groups (x 14–165, G+303…+345 and
+  G+350…+392) with disabled buttons, spinners and "by:" / "to:" radios (circles at x 39
+  and 87 / 100; disabled radios show a grey dot); wide buttons x 15–163 at G+401, +424,
+  +447; View Align / Grid Align and Make Planar / Collapse; content height 503; Surface
+  Properties' title at 1140.
 - More… dialog (`r3.1-modifiers-dialog.png`): a 308 × 646 window titled "Modifiers", a
   list with the headings "WORLD-SPACE MODIFIERS" and "OBJECT-SPACE MODIFIERS" (world-space
   entries prefixed "* "), OK and Cancel at the top right; it lists the modifiers not on

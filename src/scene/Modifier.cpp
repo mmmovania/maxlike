@@ -14,6 +14,11 @@ EditMeshModifier::EditMeshModifier(size_t expectedVertexCount, std::vector<Move>
     params_.Define(kRefineEnds, ParamType::Bool, 1);
     params_.Define(kWeldThreshold, ParamType::Float, 0.1);
     params_.Define(kNormalLocal, ParamType::Int, 0);
+    params_.Define(kWeldTargetPixels, ParamType::Int, 4);
+    params_.Define(kTessTension, ParamType::Float, 25);
+    params_.Define(kTessByFace, ParamType::Int, 0);
+    params_.Define(kExplodeAngle, ParamType::Float, 24);
+    params_.Define(kExplodeToElements, ParamType::Int, 0);
 }
 
 bool EditMeshModifier::Apply(Mesh& mesh) const {

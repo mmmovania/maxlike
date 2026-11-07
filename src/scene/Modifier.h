@@ -77,7 +77,8 @@ public:
     // Settings shown in Edit Mesh's rollouts (maxlike's own indices: R3 keeps these
     // outside a parameter block).
     enum { kIgnoreBackfacing = 0, kPlanarThresh, kExtrudeAmount, kChamferAmount, kSplit, kRefineEnds,
-           kWeldThreshold, kNormalLocal };
+           kWeldThreshold, kNormalLocal, kWeldTargetPixels, kTessTension, kTessByFace, kExplodeAngle,
+           kExplodeToElements };
     EditMeshModifier(size_t expectedVertexCount, std::vector<Move> moves);
     std::string ClassName() const override { return "Edit Mesh"; }
     bool Apply(Mesh& mesh) const override;

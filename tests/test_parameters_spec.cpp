@@ -60,7 +60,8 @@ int main() {
     // the Weld group's frame one column wider (x 14..166).
     {
         const auto r = ModifierRollouts("Edit Mesh");
-        CHECK(r.size() == 3 && r[0].title == L"Selection" && r[1].title == L"Soft Selection" && !r[1].startsOpen);
+        CHECK(r.size() == 4 && r[0].title == L"Selection" && r[1].title == L"Soft Selection" && !r[1].startsOpen);
+        CHECK(r[3].title == L"Surface Properties" && r[2].contentHeight == 503);   // measured from the scrolled screenshot
         CHECK(r[0].contentHeight == 195 && r[2].title == L"Edit Geometry");
         const Row& planar = r[0].rows[4];
         CHECK(planar.fieldLeft == 99 && planar.FieldRight() == 143 && planar.ArrowsLeft() == 146 && !planar.enabled);

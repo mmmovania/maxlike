@@ -103,11 +103,11 @@ void CommandPanel::SetModifyInfo(const ModifyInfo& info) {
 // The two combos live inside the Modifier Stack rollout, so they move with the column
 // and hide when it is closed or scrolled out of the container.
 void CommandPanel::UpdateModifyControls() {
-    const int t = InModify() ? TitleTopOf(kRollStack) : -1;
+    const int t = InModify() ? TitleTopOf(kRollStack) : kNoTitle;
     const rollup::Box k = Container();
     auto place = [&](HWND h, int x, int y, int itemHeight) {
         if (!h) return;
-        const bool show = t >= 0 && y > k.top && y + 24 < k.bottom;
+        const bool show = t != kNoTitle && y > k.top && y + 24 < k.bottom;
         if (show) {
             SetWindowPos(h, nullptr, Scale(x), Scale(y), 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
             if (itemHeight > 0) SendMessageW(h, CB_SETITEMHEIGHT, static_cast<WPARAM>(-1), Scale(itemHeight));
@@ -133,7 +133,7 @@ constexpr int kModButtonLeft[2] = {17, 92}, kModButtonWidth = 72, kModButtonHeig
 
 int CommandPanel::ModifierButtonAt(int x, int y) const {
     const int t = TitleTopOf(kRollModifiers);
-    if (t < 0) return -1;
+    if (t == kNoTitle) return -1;
     for (int r = 0; r < 5; ++r)
         for (int c = 0; c < 2; ++c) {
             const int L = kModButtonLeft[c], T = t + kModButtonTop[r];
@@ -202,7 +202,7 @@ void CommandPanel::PaintModifiers(HDC dc, int t) {
 // The icons are original drawings (NOTE: their exact positions are approximate).
 int CommandPanel::StackButtonAt(int x, int y) const {
     const int t = TitleTopOf(kRollStack);
-    if (t < 0 || y < t + 52 || y > t + 74) return -1;
+    if (t == kNoTitle || y < t + 52 || y > t + 74) return -1;
     static const int kLeft[5] = {14, 36, 72, 98, 136}, kRight[5] = {33, 59, 96, 122, 158};
     for (int i = 0; i < 5; ++i)
         if (x >= kLeft[i] && x <= kRight[i]) return i;
@@ -271,8 +271,8 @@ bool CommandPanel::NameColorBoxes(Box& field, Box& swatch) const {
         swatch = {152, 35, 168, 54};
         return true;
     }
-    const int t = ShowsRollouts() ? TitleTopOf(kRollNameColor) : -1;
-    if (t < 0) return false;
+    const int t = ShowsRollouts() ? TitleTopOf(kRollNameColor) : kNoTitle;
+    if (t == kNoTitle) return false;
     field = NameFieldBox(t);
     swatch = SwatchBox(t);
     return true;
@@ -322,8 +322,8 @@ int CommandPanel::TitleTopOf(int id) const {
     const std::vector<int> ids = VisibleRollouts();
     const auto placed = rollup::Layout(RolloutItems(), scroll_, Container());
     for (size_t i = 0; i < ids.size(); ++i)
-        if (ids[i] == id) return placed[i].open ? placed[i].titleTop : -1;
-    return -1;
+        if (ids[i] == id) return placed[i].open ? placed[i].titleTop : kNoTitle;
+    return kNoTitle;
 }
 
 void CommandPanel::SetParameterSource(const scene::ParamBlock* block) {
@@ -346,8 +346,8 @@ void CommandPanel::SetScroll(int scroll) {
 }
 
 int CommandPanel::TypeButtonAt(int x, int y) const {
-    const int titleTop = ShowsRollouts() ? TitleTopOf(kRollObjectType) : -1;
-    if (titleTop < 0) return -1;
+    const int titleTop = ShowsRollouts() ? TitleTopOf(kRollObjectType) : kNoTitle;
+    if (titleTop == kNoTitle) return -1;
     for (int i = 0; i < 10; ++i) {
         const Box b = TypeButtonBox(i, titleTop);
         if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom && y >= Container().top + 1 &&
@@ -371,14 +371,25 @@ void CommandPanel::PaintRollouts(HDC dc) {
     // (x 174..177): the container's top and bottom stop at x 173. Measured; NOTE: probably
     // a gutter for a scroll indicator, the exact condition is unverified.
     // In the Modify tab it appears when the column overflows (Edit Mesh; not with a box or
-    // Bend). NOTE: the scroll indicator drawn in it is not built yet.
-    const bool overflow = rollup::MaxScroll(RolloutItems(), k) > 0;
-    const int gutter = (InModify() ? overflow : createType_ >= 0) ? 4 : 0;
-    px(k.left, k.top, k.right - 1 - gutter, k.top, sh);  // sunken: shadow top and left,
+    // Bend) and holds the scroll indicator.
+    const int maxScroll = rollup::MaxScroll(RolloutItems(), k);
+    const bool indicator = InModify() && maxScroll > 0;
+    const int gutter = (InModify() ? indicator : createType_ >= 0) ? 4 : 0;
+    px(k.left, k.top, k.right - 1 - (indicator ? 0 : gutter), k.top, sh);  // sunken: shadow top and left,
     px(k.left, k.top, k.left, k.bottom, sh);              // (down to the bottom row, measured)
     px(k.right, k.top, k.right, k.bottom, hi);          // highlight right and bottom
     px(k.left + 1, k.bottom, k.right - 1 - gutter, k.bottom, hi);
     px(k.right, k.bottom, k.right, k.bottom, hi);
+    if (indicator) {
+        // The scroll indicator (measured, Edit Mesh unscrolled and scrolled by 270): rows
+        // top+1 .. bottom-1 (H rows) in black, the visible part of the column in grey:
+        // from top+1 + floor(scroll * H / C) to top+1 + round((scroll + H) * H / C) - 1,
+        // C = H + the maximum scroll; the end rounds up (both screenshots: 527.6 -> 528,
+        // 700.4 -> 701). Under the container's top line, which runs across.
+        const rollup::Thumb thumb = rollup::ScrollThumb(k, scroll_, maxScroll);
+        px(k.right - 4, k.top + 1, k.right - 1, k.bottom - 1, RGB(0, 0, 0));
+        px(k.right - 4, thumb.first, k.right - 1, thumb.last, sh);
+    }
 
     // Everything else stays inside the container.
     const int saved = SaveDC(dc);
@@ -548,7 +559,7 @@ void CommandPanel::DrawRadio(HDC dc, int x, int y, bool checked, bool enabled) {
                 char ch = kRadio[ry][rx];
                 // Disabled (measured: Edit Mesh's Normal radios): the white inside turns face.
                 if (!enabled && ch == 'W' && ry >= 2 && ry <= 9 && rx >= 2 && rx <= 9) ch = '.';
-                if (checked && ry >= 4 && ry < 8 && rx >= 3 && rx < 9 && kDot[ry - 4][rx - 3] == 'k') ch = 'k';
+                if (checked && ry >= 4 && ry < 8 && rx >= 3 && rx < 9 && kDot[ry - 4][rx - 3] == 'k') ch = enabled ? 'k' : 's';   // disabled: a grey dot
                 COLORREF c;
                 switch (ch) {
                 case 's': c = theme::kButtonShadow.Ref(); break;
@@ -664,6 +675,9 @@ void CommandPanel::PaintRows(HDC dc, int titleTop, int slot) {
             std::wstring t = row.label;
             const size_t at = t.find(L"{selection}");
             if (at != std::wstring::npos) t.replace(at, 11, modify_.selectionText);
+            // A label paints its background, as R3's static controls do (measured: "pixels"
+            // hides the end of the Target spinner's arrows).
+            if (!row.alignRight) px(row.left, T, row.right, T + row.height - 1, face);
             text(t, row.alignRight ? 10 : row.left, T - 2, row.right + 1, T + row.height, row.alignRight ? DT_RIGHT : DT_LEFT, row.enabled);
             continue;
         }
@@ -766,7 +780,7 @@ CommandPanel::Part CommandPanel::ParamPartAt(int x, int y, int& row) const {
     else slots = {0, -1};
     for (int slot : slots) {
         const int titleTop = TitleTopOf(slot < 0 ? kRollKeyboardEntry : RollIdForSlot(slot));
-        if (titleTop < 0) continue;
+        if (titleTop == kNoTitle) continue;
         const std::vector<params::Row>& rows = slot < 0 ? keyboard_.fields.rows : SpecAt(slot).rows;
         for (size_t i = 0; i < rows.size(); ++i) {
             const params::Row& r = rows[i];
@@ -805,7 +819,7 @@ CommandPanel::Part CommandPanel::ParamPartAt(int x, int y, int& row) const {
 
 bool CommandPanel::OnCreateButton(int x, int y) const {
     const int titleTop = TitleTopOf(kRollKeyboardEntry);
-    if (titleTop < 0) return false;
+    if (titleTop == kNoTitle) return false;
     const int T = titleTop + keyboard_.buttonTop;
     return x >= params::kCreateButtonLeft && x < params::kCreateButtonLeft + params::kCreateButtonWidth &&
            y >= T && y < T + params::kCreateButtonHeight;
@@ -816,7 +830,7 @@ bool CommandPanel::OnCreateButton(int x, int y) const {
 void CommandPanel::BeginTyping(int row) {
     EndTyping(true);
     const int titleTop = RowTitleTop(row);
-    if (titleTop < 0) return;
+    if (titleTop == kNoTitle) return;
     const params::Row& r = RowAt(row);
     const int T = titleTop + r.top;
     SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, r.decimals);
@@ -1111,7 +1125,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             const int s = StackButtonAt(x, y);
             if (s >= 0) { if (onStackButton) onStackButton(s); return 0; }
             const int st = TitleTopOf(kRollStack);
-            if (st >= 0 && x >= 12 && x <= 74 && y >= st + 94 && y <= st + 114 && !modify_.subObjectLevels.empty()) {
+            if (st != kNoTitle && x >= 12 && x <= 74 && y >= st + 94 && y <= st + 114 && !modify_.subObjectLevels.empty()) {
                 if (onSubObject) onSubObject(!modify_.subObjectOn);
                 return 0;
             }
@@ -1124,7 +1138,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         // Creation Method radios.
         const int methodTop = TitleTopOf(kRollCreationMethod);
-        if (methodTop >= 0 && y >= methodTop + params::kMethodTop - 2 && y <= methodTop + params::kMethodTop + 13) {
+        if (methodTop != kNoTitle && y >= methodTop + params::kMethodTop - 2 && y <= methodTop + params::kMethodTop + 13) {
             for (int i = 0; i < 2; ++i)
                 if (x >= params::kMethodRadioLeft[i] && x < params::kMethodRadioLeft[i] + 62 && method_ != i) {
                     method_ = i;
