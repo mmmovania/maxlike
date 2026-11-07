@@ -121,6 +121,10 @@ add_executable(maxlike WIN32
     src/scene/CreationTool.h
     src/scene/MoveMath.cpp
     src/scene/MoveMath.h
+    src/io/Cfb.cpp
+    src/io/Cfb.h
+    src/io/Chunks.cpp
+    src/io/Chunks.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
     res/resource.h
@@ -192,3 +196,6 @@ maxlike_add_test(test_parameters_spec tests/test_parameters_spec.cpp src/ui/Para
 maxlike_add_test(test_picking tests/test_picking.cpp src/view/Picking.cpp)
 maxlike_add_test(test_transform_axes tests/test_transform_axes.cpp src/view/TransformAxes.cpp)
 maxlike_add_test(test_move_math tests/test_move_math.cpp src/scene/MoveMath.cpp src/scene/Node.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_cfb tests/test_cfb.cpp src/io/Cfb.cpp)
+target_compile_definitions(test_cfb PRIVATE MAXLIKE_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+maxlike_add_test(test_chunks tests/test_chunks.cpp src/io/Chunks.cpp)
