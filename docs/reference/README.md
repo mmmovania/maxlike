@@ -34,10 +34,11 @@ Still to add:
 - Keyboard Entry opened (Box clicked) to measure its contents; one screenshot
   mid-creation; the tab panel's other tabs (Shapes, Lights & Cameras, Helpers) when
   their features come.
-- **For Phase 6**: an object selected with Select and Rotate, and with Select and
-  Uniform Scale active (their pivot figures); a selection with several objects.
+- A selection with several objects (Name and Color, the transform figure).
 - For later steps: R3's Object Color dialog (click the swatch); the Geometry dropdown
-  open; the name field with an object selected.
+  open; Edit Mesh's Soft Selection opened; Surface Properties (scrolled to the end); an
+  Edit Mesh at Face level; a modifier's gizmo up close.
+- **For Phase 8**: the `.max` samples themselves (below).
 - The sample `.max` files (in `docs/reference/samples/`; `.max` is marked binary in
   `.gitattributes`); Summary Info of box, plane and pyramid; wireframe screenshots at the
   default zoom (pixel-comparable); a shaded Perspective view.

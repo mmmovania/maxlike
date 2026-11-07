@@ -30,7 +30,7 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 | Objects | ✔ Phase 6, step 6.1 (planned for Phase 5; built when R3.1's screenshot of the tab arrived). Standard Primitives work; the other buttons wait for their features |
 | Shapes, Compounds, Particles | when splines / compounds / particles exist (after Phase 8) |
 | Lights & Cameras, Helpers, SpaceWarps | when those object types exist (after Phase 8) |
-| Modifiers, Modeling | Phase 7 (modify panel) |
+| Modifiers, Modeling | Planned for Phase 7, deferred: needs R3.1 screenshots of those tabs (the Modify panel's buttons cover the same modifiers meanwhile) |
 | Rendering | when rendering exists (after Phase 8) |
 
 ## Phase 2 — Viewports (`phase/2-viewports`) ✔ v0.2.0
@@ -95,10 +95,17 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       Transform Type-In dialog.
 - [ ] Transform Type-In dialog (Tools menu): typed position, rotation, scale (later).
 
-## Phase 7 — Modify panel (`phase/7-modify`)
-- [ ] Modifier stack UI.
-- [ ] Edit Mesh / Editable Mesh vertex and face levels.
-- [ ] Bend, Taper, Twist.
+## Phase 7 — Modify panel (`phase/7-modify`) ✔ v0.7.0
+- [x] Modifier stack UI: the Modify panel (name field, Modifiers, Modifier Stack with the
+      stack list, on/off, remove, Sub-Object), measured against R3.1 (steps 7.2a–b).
+- [x] Edit Mesh at Vertex level: More… dialog, sub-object selection and moves through
+      undo, its Selection and Edit Geometry rollouts, measured (7.4–7.4c).
+- [x] Bend, Taper, Twist: geometry (Bend verified against R3.1) and rollouts (Bend's
+      measured) (7.1, 7.3).
+- Deferred: Edit Mesh's other levels (Edge, Face, Polygon, Element) and its button actions
+  (Hide, Create, Chamfer, …); Soft Selection's and Surface Properties' contents; the
+  modifier gizmo (orange in R3); Rotate and Scale at vertex level; the other modifiers in
+  the More… list.
 
 ## Phase 8 — `.max` import (`phase/8-max-import`)
 - [ ] CFB reader, zlib, chunk walker, class directory, DLL directory.

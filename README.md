@@ -20,8 +20,8 @@ This is how it looks so far
 | 4 Command panel (tabs, categories, rollouts, Object Type, Name and Color) | ✔ pixel-checked | 0.4.0 |
 | 5 Interactive creation (all primitives, live Parameters, Keyboard Entry, undo) | ✔ panel pixel-checked | 0.5.0 |
 | 6 Selection and transforms (Objects strip, selection, Name and Color, Move/Rotate/Scale, X/Y/Z) | ✔ strip pixel-checked, gizmo measured | 0.6.0 |
-| 7 Modify panel | next | |
-| 8 `.max` import | planned | |
+| 7 Modify panel (modifier stack, Bend/Taper/Twist, Edit Mesh at Vertex level) | ✔ panels pixel-checked | 0.7.0 |
+| 8 `.max` import | next | |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 
@@ -39,8 +39,8 @@ build\Debug\maxlike.exe
 `maxlike.exe --client-size 1920x998` opens the window un-maximised with exactly the
 client size of the R3.1 reference screenshot (useful for pixel comparisons).
 `--demo-scene <name>|all` opens with objects from the verified `.max` samples (box, plane,
-pyramid, cylinder, cone, tube, torus, sphere, geosphere, teapot), or `instances` (seven nodes sharing one
-modified box).
+pyramid, cylinder, cone, tube, torus, sphere, geosphere, teapot), `instances` (seven nodes sharing one
+modified box) or `deform` (three tall boxes with Bend, Twist and Taper).
 
 ## Branches
 

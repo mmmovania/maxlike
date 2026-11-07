@@ -241,7 +241,7 @@ the Create panel).
   pixels) centred on it, `#FF0000` selected, `#0000FF` otherwise, red drawn last; the
   active Sub-Object button: the checked-button outline around `#F0F080`. A Selection
   rollout (five level icons, "4 Vertices Selected"), Soft Selection (collapsed), Edit
-  Geometry (not yet built).
+  Geometry (built in steps 7.4b–c; below).
 - Edit Mesh's rollouts (verified, 0 differing pixels): Selection (title 378, content 195)
   with five level icons 25 px apart from x 27 (the active one in a 1-px sunken frame,
   x 27–50, 23 rows), By Vertex / Ignore Backfacing / Ignore Visible Edges checkboxes at
@@ -359,7 +359,8 @@ Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
 - Name and Color: title rows 248–263, frame to row 299 (content height 36).
   - Name field x 15–146, rows 271–290 (title + 23 … + 42): 1-px sunken edge; inside it
     black top and left, face right and bottom; then white (one row on top, two columns
-    each side); face inside while disabled (nothing selected). Enabled look: Phase 6.
+    each side); face inside while disabled (nothing selected). Enabled: white inside,
+    the name in black (measured in step 5.3b).
   - Colour swatch x 150–166, same rows: 1-px sunken edge filled with the colour; the
     reference shows `#8D073A` (R3 picks the next object's colour at random). Clicking it
     opens Windows' colour dialog for now (R3's own "Object Color" dialog: later).
@@ -396,9 +397,14 @@ MAXScript mini-listener (pink), prompt line 1 (`None Selected`), prompt line 2
 ## Custom controls
 | Control | Behaviour | State |
 |---|---|---|
-| Rollout | Bevelled title bar with `-`/`+`, collapses; stacked in a rollup that scrolls by hand-drag | ✔ Phase 4 (`Rollup.*`; "+" and scrolling details unverified) |
+| Rollout | Bevelled title bar with `-`/`+`, collapses; stacked in a rollup that scrolls by hand-drag or wheel | ✔ Phase 4 (`Rollup.*`); "+" and the collapsed frame measured (5.3b); scroll indicator measured (7.4c); the wheel step (30 px) unverified |
 | Spinner | Edit + tiny up/down arrows; drag to change, Ctrl accelerates, Alt slows, right-click resets (from memory) | ✔ Phase 5 (look measured; behaviour `SpinnerModel`) |
 | Colour swatch | Sunken fill; click opens picker | ✔ Phase 4 (Windows' colour dialog stands in for R3's) |
-| Check button | Looks pressed when on | ✔ Phase 4 (Object Type buttons; checked look unverified) |
+| Check button | Looks pressed when on | ✔ Pressed outline around `#C0FFC0` (Object Type, measured 5.3b) or `#F0F080` (Sub-Object, measured 7.4) |
 | Flyout button | Corner triangle; hold to open strip of alternatives | ✔ Phase 1 (toolbar, status area) |
-| Dropdown | Classic combo box | ✔ Phase 4 (real `COMBOBOX`) |
+| Dropdown | Classic combo box | ✔ Phase 4 (real `COMBOBOX`; the disabled one's drop button differs under Wine only) |
+| Radio button | Classic circle | ✔ Phase 5, from the measured 12 × 12 pattern; disabled: face inside, grey dot (7.4c) |
+| Checkbox | Classic box and tick | ✔ box by `DrawFrameControl`, tick from the measured 7 × 7 pattern (7.4b) |
+| Group box | Etched frame, label breaking the top line | ✔ Phase 7 (Bend, Edit Mesh; per-group frame and gap) |
+| Push button / label | Raised button; static text painting its own background | ✔ Phase 7 (Edit Mesh) |
+| Scroll indicator | Black column with the visible part grey | ✔ Phase 7 (measured at two scroll positions) |

@@ -22,7 +22,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       decimals, radio rows and group boxes (`params::Row`, `params::Group`); Bend's rollout
       measured (`ModifierParametersFor`), Taper's and Twist's in the same layout; every
       change undoable
-- [ ] 7.3b The modifier gizmo in the views (orange in R3)
+- [ ] 7.3b The modifier gizmo in the views (orange in R3) — deferred (see the plan)
 - [x] **7.4 Edit Mesh at Vertex level**: More... dialog (R3's list; Edit Mesh works);
       Sub-Object (pressed yellow) and its levels; vertices drawn as R3's diamonds (red
       selected, blue otherwise) from the stack evaluated up to the Edit Mesh; click /
@@ -37,6 +37,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       Properties' place, from R3.1 scrolled by 270; the rollup's scroll indicator
       (`rollup::ScrollThumb`), measured at two scroll positions
 - [ ] Soft Selection's and Surface Properties' contents; Edit Mesh's button actions; Face level
+- [x] **7.5 Wrap-up**: checks, `docs/tech/phase7-tech-docs.md`, version 0.7.0, a sweep of
+      every spec and reference document
 - [ ] 7.5 Wrap-up
 
 ## Step 7.1 verification
@@ -145,6 +147,15 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
 - [ ] On Windows: scroll the Edit Mesh panel (wheel or drag) and watch the indicator
 - [ ] Unverified: Surface Properties' height (inferred from the indicator: the column
       scrolls 463 rows) and contents; Soft Selection's contents
+
+## Step 7.5 verification
+- [x] Clean rebuild: 0 warnings; twenty-four test programs pass (MinGW + Wine)
+- [x] Against R3.1: Modify panel with a box 58 differing pixels (Wine's disabled combo),
+      with Bend 0, with Edit Mesh 0, Edit Mesh scrolled by 270: 1 (a digit in Wine's font)
+- [x] The default window (Create panel) unchanged since Phase 5 (cursor text masked)
+- [x] Documentation sweep: overview decisions, UI spec (outdated "not yet" notes and the
+      custom-controls table), plan, menus, README, tech index, reference wish list
+- [ ] On Windows: `ctest`; the "Try it" steps of 7.1–7.4c
 
 ## Notes
 - No user interface yet: the modifiers are visible through the demo scene; the Modify
