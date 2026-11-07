@@ -10,6 +10,9 @@ namespace ui::rollup {
 using cmdpanel::Box;
 
 inline constexpr Box kContainer{4, 94, 178, 885};   // 1-px sunken edge; inside x 5..177, rows 95..884
+// The Modify panel's container: the same, starting at row 59 (its name field sits above
+// it; measured, r3.1-modify-box.png).
+inline constexpr Box kModifyContainer{4, 59, 178, 885};
 inline constexpr int kFirstTitleGap = 5;             // container top -> first title top (row 99)
 inline constexpr int kTitleLeft = 11, kTitleRight = 168, kTitleHeight = 16;
 inline constexpr int kFrameLeft = 7, kFrameRight = 172;   // etched edge, 2 px
@@ -32,15 +35,15 @@ struct Placed {
 };
 
 // Where each rollout is with the column scrolled up by `scroll` pixels.
-std::vector<Placed> Layout(const std::vector<Item>& items, int scroll);
+std::vector<Placed> Layout(const std::vector<Item>& items, int scroll, const Box& container = kContainer);
 
 // Height of the whole column, from the first title's top to the last rollout's bottom.
 int ContentHeight(const std::vector<Item>& items);
 
 // How far the column can scroll (0 when everything fits).
-int MaxScroll(const std::vector<Item>& items);
+int MaxScroll(const std::vector<Item>& items, const Box& container = kContainer);
 
 // Index of the rollout whose title button contains the point, or -1.
-int TitleAt(const std::vector<Item>& items, int scroll, int x, int y);
+int TitleAt(const std::vector<Item>& items, int scroll, int x, int y, const Box& container = kContainer);
 
 } // namespace ui::rollup

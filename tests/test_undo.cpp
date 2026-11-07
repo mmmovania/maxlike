@@ -161,7 +161,41 @@ static void SelectionAndDelete() {
     CHECK(!s.IsSelected(ia) && s.Selection().size() == 1);
 }
 
+static void ModifierCommands() {
+    Scene s;
+    UndoStack u;
+    Node* n = s.CreateNode("Box01");
+    auto box = std::make_shared<BoxObject>(20, 20, 100);
+    n->SetObject(box);
+    const Node::Id id = n->GetId();
+    // Adding a modifier to a plain object wraps it in a stack; undo unwraps it.
+    auto bend = std::make_shared<BendModifier>();
+    u.Execute(std::make_unique<AddModifierCommand>(id, bend), s);
+    auto d = std::dynamic_pointer_cast<DerivedObject>(s.FindById(id)->GetObject());
+    CHECK(d && d->Base() == box && d->Modifiers().size() == 1 && u.UndoName() == "Add Modifier");
+    CHECK(u.Undo(s) && s.FindById(id)->GetObject() == box);
+    CHECK(u.Redo(s) && std::dynamic_pointer_cast<DerivedObject>(s.FindById(id)->GetObject()));
+    // A second modifier goes on top of the same stack, without wrapping again.
+    auto twist = std::make_shared<TwistModifier>();
+    u.Execute(std::make_unique<AddModifierCommand>(id, twist), s);
+    d = std::dynamic_pointer_cast<DerivedObject>(s.FindById(id)->GetObject());
+    CHECK(d && d->Modifiers().size() == 2 && d->Modifiers()[1] == twist);
+    // Changing a modifier's parameter, then undoing it.
+    u.Execute(std::make_unique<SetParamCommand>(std::shared_ptr<Modifier>(bend), BendModifier::kAngle, 45.0), s);
+    CHECK(bend->Params().Float(BendModifier::kAngle) == 45);
+    CHECK(u.Undo(s) && bend->Params().Float(BendModifier::kAngle) == 0);
+    // Removing the bottom modifier (Bend), then undoing: it returns at the same place.
+    u.Execute(std::make_unique<RemoveModifierCommand>(id, 0), s);
+    CHECK(d->Modifiers().size() == 1 && d->Modifiers()[0] == twist && u.UndoName() == "Delete Modifier");
+    CHECK(u.Undo(s) && d->Modifiers().size() == 2 && d->Modifiers()[0] == bend);
+    // Turning a modifier off and on.
+    u.Execute(std::make_unique<EnableModifierCommand>(twist, false), s);
+    CHECK(!twist->Enabled());
+    CHECK(u.Undo(s) && twist->Enabled());
+}
+
 int main() {
+    ModifierCommands();
     SelectionAndDelete();
     CreateUndoRedo();
     DeleteRestoresHierarchyExactly();

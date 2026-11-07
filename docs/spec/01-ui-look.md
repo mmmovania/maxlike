@@ -224,6 +224,11 @@ the Create panel).
   x 12–74 and level combo x 78–167, rows 344–364 (disabled for a base object; with Bend
   the combo shows "Gizmo"; with Edit Mesh at Vertex, Sub-Object is yellow).
 - Parameters (title 378): the same layout as the Create panel's.
+- Tab row with Modify selected: the body's top edge (row 28) starts at x 1; the join's
+  second row (29) spans the selected tab from its left edge to one pixel short of its
+  right (x 29–60 for Modify); with Create selected these are hidden by the tab.
+- Verified: the Modify panel with a box, 58 differing pixels of 59,367, all in the
+  disabled level combo's drop button (Wine draws its highlight white).
 - Bend's Parameters: group boxes "Bend:" (Angle, Direction), "Bend Axis:" (X / Y / Z
   radios), "Limits" (Limit Effect checkbox, Upper Limit, Lower Limit); angles shown with
   one decimal ("30.5", "0.0"). In the views, the gizmo is orange.

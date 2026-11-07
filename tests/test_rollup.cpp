@@ -9,7 +9,17 @@ static int failures = 0;
 
 using namespace ui::rollup;
 
+static void ModifyContainer() {
+    // Measured (r3.1-modify-box.png): Modifiers title at 64, Modifier Stack at 250
+    // (Modifiers content 164), Parameters at 378 (Stack content 106).
+    std::vector<Item> items = {{164, true}, {106, true}, {168, true}};
+    const auto p = Layout(items, 0, kModifyContainer);
+    CHECK(p[0].titleTop == 64 && p[0].frameBottom == 243 && p[1].titleTop == 250 && p[1].frameBottom == 371 && p[2].titleTop == 378);
+    CHECK(TitleAt(items, 0, 50, 255, kModifyContainer) == 1);
+}
+
 int main() {
+    ModifyContainer();
     const std::vector<Item> create = {{127, true}, {36, true}};   // Object Type, Name and Color
     const auto p = Layout(create, 0);
     CHECK(p[0].titleTop == 99 && p[0].titleBottom == 114 && p[0].frameTop == 107 && p[0].frameBottom == 241);

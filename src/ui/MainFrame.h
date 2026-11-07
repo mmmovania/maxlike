@@ -69,6 +69,13 @@ private:
     std::vector<Moving> moving_;
     void DeleteSelection();
     scene::Node* NameColorTarget() const;          // whose name and colour the panel shows
+    // The Modify tab: the stack entry shown (0 = top) and filling the panel from the
+    // selected object.
+    int modifyIndex_ = 0;
+    void UpdateModifyPanel();
+    // The selected object's stack: its Derived Object (or null) and the entry shown.
+    std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;
+    std::shared_ptr<scene::Modifier> CurrentModifier() const;   // null when the base is shown
     std::wstring docName_ = L"Untitled";
 
     // Regions, in the order of FrameLayout.

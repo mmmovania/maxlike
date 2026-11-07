@@ -1,6 +1,8 @@
 #pragma once
 #include "scene/Object.h"
 #include "scene/ParamBlock.h"
+#include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -93,6 +95,12 @@ public:
 
     const std::shared_ptr<Object>& Base() const { return base_; }
     void AddModifier(std::shared_ptr<Modifier> modifier) { modifiers_.push_back(std::move(modifier)); }
+    void InsertModifier(size_t index, std::shared_ptr<Modifier> modifier) {
+        modifiers_.insert(modifiers_.begin() + static_cast<std::ptrdiff_t>(std::min(index, modifiers_.size())), std::move(modifier));
+    }
+    void RemoveModifierAt(size_t index) {
+        if (index < modifiers_.size()) modifiers_.erase(modifiers_.begin() + static_cast<std::ptrdiff_t>(index));
+    }
     const std::vector<std::shared_ptr<Modifier>>& Modifiers() const { return modifiers_; }
     // Names of modifiers that could not apply in the last Evaluate (for a status note).
     const std::vector<std::string>& Skipped() const { return skipped_; }

@@ -37,6 +37,13 @@ bool CommandPanel::Create(HWND parent) {
                                 Scale(200), Hwnd(), reinterpret_cast<HMENU>(static_cast<INT_PTR>(kDropdownId)),
                                 win::App::Instance(), nullptr);
     FillDropdown();
+    // The Modify tab's combos (measured: stack list x 36..167, rows title + 21..+44, 24
+    // rows closed; selection level x 78..167, 21 rows), placed with their rollout.
+    stackCombo_ = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_VSCROLL | CBS_DROPDOWNLIST,
+                                  0, 0, Scale(132), Scale(200), Hwnd(),
+                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(kDropdownId + 1)), win::App::Instance(), nullptr);
+    levelCombo_ = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_DISABLED | CBS_DROPDOWNLIST,
+                                  0, 0, Scale(90), Scale(120), Hwnd(), nullptr, win::App::Instance(), nullptr);
     return true;
 }
 
@@ -52,13 +59,209 @@ void CommandPanel::UpdateCreateControls() {
     if (dropdown_) ShowWindow(dropdown_, selected_ == kCreate ? SW_SHOW : SW_HIDE);
 }
 
+void CommandPanel::SetModifyInfo(const ModifyInfo& info) {
+    EndTyping(true);
+    modify_ = info;
+    if (selected_ == kModify) spec_ = modify_.currentIsModifier ? params::Spec{} : params::ParametersFor(modify_.baseType);
+    if (stackCombo_) {
+        SendMessageW(stackCombo_, CB_RESETCONTENT, 0, 0);
+        for (const std::wstring& e : modify_.stack) SendMessageW(stackCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(e.c_str()));
+        SendMessageW(stackCombo_, CB_SETCURSEL, static_cast<WPARAM>(modify_.current), 0);
+    }
+    if (levelCombo_) {
+        // NOTE: modifiers' sub-object levels arrive with their rollouts (Bend: "Gizmo").
+        SendMessageW(levelCombo_, CB_RESETCONTENT, 0, 0);
+        if (modify_.currentIsModifier) {
+            SendMessageW(levelCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Gizmo"));
+            SendMessageW(levelCombo_, CB_SETCURSEL, 0, 0);
+        }
+    }
+    scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems(), Container()));
+    UpdateModifyControls();
+    InvalidateRect(Hwnd(), nullptr, FALSE);
+}
+
+// The two combos live inside the Modifier Stack rollout, so they move with the column
+// and hide when it is closed or scrolled out of the container.
+void CommandPanel::UpdateModifyControls() {
+    const int t = InModify() ? TitleTopOf(kRollStack) : -1;
+    const rollup::Box k = Container();
+    auto place = [&](HWND h, int x, int y, int itemHeight) {
+        if (!h) return;
+        const bool show = t >= 0 && y > k.top && y + 24 < k.bottom;
+        if (show) {
+            SetWindowPos(h, nullptr, Scale(x), Scale(y), 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            if (itemHeight > 0) SendMessageW(h, CB_SETITEMHEIGHT, static_cast<WPARAM>(-1), Scale(itemHeight));
+        }
+        ShowWindow(h, show ? SW_SHOW : SW_HIDE);
+    };
+    place(stackCombo_, 36, t + 21, 18);   // 24 rows closed (measured)
+    place(levelCombo_, 78, t + 94, 0);
+}
+
+// ---------------------------------------------------------------- Modify tab
+// Measured (r3.1-modify-box.png), title-relative rows (Modifiers title at 64):
+//   "Use Pivot Points": checkbox x 17, title + 22 (disabled with one object)
+//   More... x 17..70 and Sets x 80..133, rows +40..+57; an icon button x 141..161, +37..+57
+//   ten buttons x 17..88 / 92..163, 20 rows, at +63, +86, +109, +131, +154
+// More... has a raised edge with a dark-grey outer bottom and right (EDGE_RAISED: white
+// and light top-left, shadow and dark-grey bottom-right); the others are drawn like the
+// Create panel's buttons (white top-left, black outer and shadow inner bottom-right).
+namespace {
+constexpr int kModButtonTop[5] = {63, 86, 109, 131, 154};
+constexpr int kModButtonLeft[2] = {17, 92}, kModButtonWidth = 72, kModButtonHeight = 20;
+}
+
+int CommandPanel::ModifierButtonAt(int x, int y) const {
+    const int t = TitleTopOf(kRollModifiers);
+    if (t < 0) return -1;
+    for (int r = 0; r < 5; ++r)
+        for (int c = 0; c < 2; ++c) {
+            const int L = kModButtonLeft[c], T = t + kModButtonTop[r];
+            if (x >= L && x < L + kModButtonWidth && y >= T && y < T + kModButtonHeight) return r * 2 + c;
+        }
+    // More..., Sets and the icon button report as 10, 11, 12.
+    if (y >= t + 40 && y <= t + 57) {
+        if (x >= 17 && x <= 70) return 10;
+        if (x >= 80 && x <= 133) return 11;
+    }
+    if (y >= t + 37 && y <= t + 57 && x >= 141 && x <= 161) return 12;
+    return -1;
+}
+
+void CommandPanel::PaintModifiers(HDC dc, int t) {
+    auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
+        if (x1 < x0 || y1 < y0) return;
+        FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
+    };
+    const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), dk = RGB(0, 0, 0);
+    const COLORREF light = theme::kLight.Ref(), dark = theme::kDarkShadow.Ref();
+    auto button = [&](int L, int T, int R, int B, const wchar_t* label, bool enabled) {
+        px(L, T, R, B, theme::Face());
+        px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);
+        px(R, T, R, B, dk);      px(L + 1, B, R, B, dk);
+        px(R - 1, T + 1, R - 1, B - 1, sh);
+        px(L + 2, B - 1, R - 1, B - 1, sh);
+        if (!label) return;
+        SIZE size{};
+        const int n = static_cast<int>(wcslen(label));
+        GetTextExtentPoint32W(dc, label, n, &size);
+        DrawStateW(dc, nullptr, nullptr, reinterpret_cast<LPARAM>(label), n,
+                   Scale(L) + (Scale(R - L + 1) - size.cx) / 2, Scale(T) + (Scale(B - T + 1) - size.cy) / 2, 0, 0,
+                   DST_TEXT | (enabled ? DSS_NORMAL : DSS_DISABLED));
+    };
+    // "Use Pivot Points" (disabled with one object selected).
+    RECT box{Scale(17), Scale(t + 22), Scale(30), Scale(t + 35)};
+    DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_INACTIVE);
+    DrawStateW(dc, nullptr, nullptr, reinterpret_cast<LPARAM>(L"Use Pivot Points"), 16, Scale(36), Scale(t + 22), 0, 0,
+               DST_TEXT | DSS_DISABLED);
+    // More...: EDGE_RAISED colours.
+    {
+        const int L = 17, T = t + 40, R = 70, B = t + 57;
+        px(L, T, R, B, theme::Face());
+        px(L, T, R - 1, T, hi);           px(L, T, L, B - 1, hi);
+        px(R, T, R, B, dark);             px(L, B, R, B, dark);
+        px(L + 1, T + 1, R - 2, T + 1, light);  px(L + 1, T + 1, L + 1, B - 2, light);
+        px(R - 1, T + 1, R - 1, B - 1, sh);     px(L + 1, B - 1, R - 1, B - 1, sh);
+        RECT text{Scale(L), Scale(T), Scale(R + 1), Scale(B)};
+        DrawTextW(dc, L"More...", -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
+    button(80, t + 40, 133, t + 57, L"Sets", true);
+    button(141, t + 37, 161, t + 57, nullptr, true);
+    // NOTE: the icon on this button (R3: configure the button set) is not drawn yet.
+    static const wchar_t* kNames[10] = {L"Bend", L"Taper", L"Twist", L"Noise", L"Extrude",
+                                        L"Lathe", L"UVW Map", L"Edit Patch", L"Mesh Select", L"Edit Spline"};
+    for (int i = 0; i < 10; ++i) {
+        const int L = kModButtonLeft[i % 2], T = t + kModButtonTop[i / 2];
+        button(L, T, L + kModButtonWidth - 1, T + kModButtonHeight - 1, kNames[i], i != 4 && i != 5 && i != 9);
+    }
+}
+
+// Modifier Stack (title at 250): a pin icon, the stack combo, five icon buttons at rows
+// +52..+74 (the second, Show End Result, drawn pressed as in R3), "Selection Level:",
+// the Sub-Object button x 12..74 at +94..+114 and the level combo.
+// The icons are original drawings (NOTE: their exact positions are approximate).
+int CommandPanel::StackButtonAt(int x, int y) const {
+    const int t = TitleTopOf(kRollStack);
+    if (t < 0 || y < t + 52 || y > t + 74) return -1;
+    static const int kLeft[5] = {14, 36, 72, 98, 136}, kRight[5] = {33, 59, 96, 122, 158};
+    for (int i = 0; i < 5; ++i)
+        if (x >= kLeft[i] && x <= kRight[i]) return i;
+    return -1;
+}
+
+void CommandPanel::PaintStack(HDC dc, int t) {
+    auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
+        if (x1 < x0 || y1 < y0) return;
+        FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
+    };
+    const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), dk = RGB(0, 0, 0);
+    auto pattern = [&](int x, int y, std::initializer_list<const char*> rows, COLORREF c) {
+        int r = 0;
+        for (const char* row : rows) {
+            for (int col = 0; row[col]; ++col) if (row[col] == '#') px(x + col, y + r, x + col, y + r, c);
+            ++r;
+        }
+    };
+    const bool modifier = modify_.currentIsModifier;
+    // Pin (original drawing).
+    pattern(15, t + 28, {"......##.......", "......####.....", "#############..", "......####.....", "......##......."}, dk);
+    // Light bulb: on/off for the current modifier (grey for the base object).
+    const COLORREF bulb = modifier ? (modify_.currentEnabled ? RGB(0xFF, 0xD8, 0x00) : sh) : sh;
+    pattern(18, t + 55, {"..###..", ".#...#.", "#.....#", "#.....#", "#.....#", ".#...#.", "..#.#..", "..###..", "..###.."}, bulb);
+    // Show End Result: pressed frame with two bars.
+    px(36, t + 52, 58, t + 52, sh);  px(36, t + 52, 36, t + 74, sh);
+    px(59, t + 52, 59, t + 74, hi);  px(37, t + 74, 59, t + 74, hi);
+    px(44, t + 57, 45, t + 68, dk);  px(50, t + 57, 51, t + 68, dk);
+    // Etched separators.
+    for (int x : {66, 130}) { px(x, t + 55, x, t + 70, sh); px(x + 1, t + 55, x + 1, t + 70, hi); }
+    // Make Unique (a split arrow), Remove (a cross), Edit Stack (stacked bars): original.
+    pattern(77, t + 57, {"#.........#", ".#.......#.", "..#.....#..", "...#...#...", "....#.#....", ".....#.....", ".....#.....", ".....#....."}, modifier ? dk : sh);
+    pattern(104, t + 57, {"#.......#", ".#.....#.", "..#...#..", "...#.#...", "....#....", "...#.#...", "..#...#..", ".#.....#.", "#.......#"}, modifier ? dk : sh);
+    pattern(141, t + 56, {"###########", "...........", "###########", "...........", "###########", "...........", "###########"}, dk);
+    // Selection Level.
+    RECT label{Scale(13), Scale(t + 78), Scale(170), Scale(t + 92)};
+    DrawTextW(dc, L"Selection Level:", -1, &label, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    {
+        const int L = 12, T = t + 94, R = 74, B = t + 114;
+        px(L, T, R, B, theme::Face());
+        px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);
+        px(R, T, R, B, dk);      px(L + 1, B, R, B, dk);
+        px(R - 1, T + 1, R - 1, B - 1, sh);
+        px(L + 2, B - 1, R - 1, B - 1, sh);
+        SIZE size{};
+        GetTextExtentPoint32W(dc, L"Sub-Object", 10, &size);
+        DrawStateW(dc, nullptr, nullptr, reinterpret_cast<LPARAM>(L"Sub-Object"), 10,
+                   Scale(L) + (Scale(R - L + 1) - size.cx) / 2, Scale(T) + (Scale(B - T + 1) - size.cy) / 2, 0, 0,
+                   DST_TEXT | (modifier ? DSS_NORMAL : DSS_DISABLED));
+    }
+}
+
+bool CommandPanel::NameColorBoxes(Box& field, Box& swatch) const {
+    if (InModify()) {
+        field = {16, 35, 149, 54};        // measured (r3.1-modify-box.png)
+        swatch = {152, 35, 168, 54};
+        return true;
+    }
+    const int t = ShowsRollouts() ? TitleTopOf(kRollNameColor) : -1;
+    if (t < 0) return false;
+    field = NameFieldBox(t);
+    swatch = SwatchBox(t);
+    return true;
+}
+
 bool CommandPanel::ShowsRollouts() const {
+    if (InModify()) return true;
     // NOTE: other categories and types have their own rollouts in R3 (later phases).
     if (selected_ != kCreate || category_ != kGeometry || !dropdown_) return false;
     return SendMessageW(dropdown_, CB_GETCURSEL, 0, 0) == 0;   // "Standard Primitives"
 }
 
 std::vector<int> CommandPanel::VisibleRollouts() const {
+    if (InModify()) {
+        if (!spec_.rows.empty()) return {kRollModifiers, kRollStack, kRollParameters};
+        return {kRollModifiers, kRollStack};
+    }
     if (createType_ < 0) return {kRollObjectType, kRollNameColor};
     return {kRollObjectType, kRollNameColor, kRollCreationMethod, kRollKeyboardEntry, kRollParameters};
 }
@@ -73,6 +276,8 @@ std::vector<rollup::Item> CommandPanel::RolloutItems() const {
         case kRollCreationMethod: content = params::kCreationMethodContent; break;
         case kRollKeyboardEntry:  content = keyboard_.fields.contentHeight; break;
         case kRollParameters:     content = spec_.contentHeight; break;
+        case kRollModifiers:      content = 164; break;   // measured (Modify tab)
+        case kRollStack:          content = 106; break;
         }
         items.push_back({content, open_[id]});
     }
@@ -81,7 +286,7 @@ std::vector<rollup::Item> CommandPanel::RolloutItems() const {
 
 int CommandPanel::TitleTopOf(int id) const {
     const std::vector<int> ids = VisibleRollouts();
-    const auto placed = rollup::Layout(RolloutItems(), scroll_);
+    const auto placed = rollup::Layout(RolloutItems(), scroll_, Container());
     for (size_t i = 0; i < ids.size(); ++i)
         if (ids[i] == id) return placed[i].open ? placed[i].titleTop : -1;
     return -1;
@@ -99,10 +304,11 @@ void CommandPanel::SetObjectName(const std::wstring& name) {
 }
 
 void CommandPanel::SetScroll(int scroll) {
-    scroll = std::clamp(scroll, 0, rollup::MaxScroll(RolloutItems()));
+    scroll = std::clamp(scroll, 0, rollup::MaxScroll(RolloutItems(), Container()));
     if (scroll == scroll_) return;
     scroll_ = scroll;
     InvalidateRect(Hwnd(), nullptr, FALSE);
+    UpdateModifyControls();
 }
 
 int CommandPanel::TypeButtonAt(int x, int y) const {
@@ -110,8 +316,8 @@ int CommandPanel::TypeButtonAt(int x, int y) const {
     if (titleTop < 0) return -1;
     for (int i = 0; i < 10; ++i) {
         const Box b = TypeButtonBox(i, titleTop);
-        if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom && y >= rollup::kContainer.top + 1 &&
-            y <= rollup::kContainer.bottom - 1)
+        if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom && y >= Container().top + 1 &&
+            y <= Container().bottom - 1)
             return i;
     }
     return -1;
@@ -126,7 +332,7 @@ void CommandPanel::PaintRollouts(HDC dc) {
         FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
     };
     const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref();
-    const rollup::Box& k = rollup::kContainer;
+    const rollup::Box k = Container();
     // With the creation rollouts showing, R3 leaves a 4-px column inside the right edge
     // (x 174..177): the container's top and bottom stop at x 173. Measured; NOTE: probably
     // a gutter for a scroll indicator, the exact condition is unverified.
@@ -145,9 +351,9 @@ void CommandPanel::PaintRollouts(HDC dc) {
     SetTextColor(dc, RGB(0, 0, 0));
 
     static const wchar_t* kTitles[kRollCount] = {L"Object Type", L"Name and Color", L"Creation Method",
-                                                 L"Keyboard Entry", L"Parameters"};
+                                                 L"Keyboard Entry", L"Parameters", L"Modifiers", L"Modifier Stack"};
     const std::vector<int> ids = VisibleRollouts();
-    const auto placed = rollup::Layout(RolloutItems(), scroll_);
+    const auto placed = rollup::Layout(RolloutItems(), scroll_, Container());
     for (size_t i = 0; i < placed.size(); ++i) {
         const rollup::Placed& r = placed[i];
         const int id = ids[i];
@@ -169,6 +375,8 @@ void CommandPanel::PaintRollouts(HDC dc) {
                 if (id == kRollNameColor) PaintNameAndColor(dc, r.titleTop);
                 if (id == kRollCreationMethod) PaintCreationMethod(dc, r.titleTop);
                 if (id == kRollParameters) PaintRows(dc, r.titleTop, false);
+                if (id == kRollModifiers) PaintModifiers(dc, r.titleTop);
+                if (id == kRollStack) PaintStack(dc, r.titleTop);
                 if (id == kRollKeyboardEntry) PaintRows(dc, r.titleTop, true);
             }
         }
@@ -246,6 +454,10 @@ void CommandPanel::PaintObjectType(HDC dc, int titleTop) {
 //   (the field is disabled until an object is selected; its enabled look: Phase 6).
 //   swatch x 150..166, same rows: 1-px sunken edge filled with the colour.
 void CommandPanel::PaintNameAndColor(HDC dc, int titleTop) {
+    PaintNameColorBoxes(dc, NameFieldBox(titleTop), SwatchBox(titleTop));
+}
+
+void CommandPanel::PaintNameColorBoxes(HDC dc, const Box& f, const Box& w) {
     auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
         if (x1 < x0 || y1 < y0) return;
         FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
@@ -257,7 +469,6 @@ void CommandPanel::PaintNameAndColor(HDC dc, int titleTop) {
         px(b.right, b.top, b.right, b.bottom, hi);
         px(b.left + 1, b.bottom, b.right, b.bottom, hi);
     };
-    const Box f = NameFieldBox(titleTop);
     sunken(f);
     px(f.left + 1, f.top + 1, f.right - 2, f.top + 1, RGB(0, 0, 0));      // black top
     px(f.left + 1, f.top + 1, f.left + 1, f.bottom - 1, RGB(0, 0, 0));    // black left
@@ -277,7 +488,6 @@ void CommandPanel::PaintNameAndColor(HDC dc, int titleTop) {
         }
     }
 
-    const Box w = SwatchBox(titleTop);
     sunken(w);
     const COLORREF c = RGB((objectColor_ >> 16) & 0xFF, (objectColor_ >> 8) & 0xFF, objectColor_ & 0xFF);
     px(w.left + 1, w.top + 1, w.right - 1, w.bottom - 1, c);
@@ -341,8 +551,9 @@ void CommandPanel::RowChanged(int id, double value, bool final) {
 }
 
 double CommandPanel::ParamValue(const params::Row& r) const {
-    if (r.paramIndex < 0 || !source_) return 0;
-    return source_->Float(static_cast<size_t>(r.paramIndex));
+    const scene::ParamBlock* block = InModify() ? modify_.params : source_;
+    if (r.paramIndex < 0 || !block) return 0;
+    return block->Float(static_cast<size_t>(r.paramIndex));
 }
 
 // Parameters, measured (Box): labels right-aligned to x 87; the number field x 90..143
@@ -471,9 +682,8 @@ void CommandPanel::BeginTyping(int row) {
 // Renaming: an EDIT over the name field's white area (only while it is enabled).
 void CommandPanel::BeginNameTyping() {
     EndTyping(true);
-    const int titleTop = TitleTopOf(kRollNameColor);
-    if (titleTop < 0 || objectName_.empty()) return;
-    const Box f = NameFieldBox(titleTop);
+    Box f{}, w{};
+    if (!NameColorBoxes(f, w) || objectName_.empty()) return;
     typing_ = CreateWindowExW(0, L"EDIT", objectName_.c_str(), WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL,
                               Scale(f.left + 4), Scale(f.top + 3), Scale(f.right - f.left - 7), Scale(f.bottom - f.top - 5),
                               Hwnd(), nullptr, win::App::Instance(), nullptr);
@@ -531,7 +741,7 @@ void CommandPanel::SetCreateType(int type) {
     keyboard_ = params::KeyboardEntryFor(createType_);
     keValues_.assign(keyboard_.fields.rows.size(), 0.0);   // NOTE: R3's defaults unverified
     method_ = params::CreationMethodsFor(createType_).selected;
-    scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
+    scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems(), Container()));
     InvalidateRect(Hwnd(), nullptr, FALSE);
     if (onCreateTypeChanged) onCreateTypeChanged(createType_);
 }
@@ -604,7 +814,13 @@ void CommandPanel::PaintCategories(HDC dc) {
 void CommandPanel::SelectTab(int tab) {
     if (tab < 0 || tab >= kTabCount || tab == selected_) return;
     selected_ = tab;
+    EndTyping(true);
+    if (tab == kCreate) spec_ = params::ParametersFor(createType_);
+    if (tab == kModify) spec_ = modify_.currentIsModifier ? params::Spec{} : params::ParametersFor(modify_.baseType);
+    scroll_ = 0;
     UpdateCreateControls();
+    UpdateModifyControls();
+    if (onTabSelected) onTabSelected(tab);
     InvalidateRect(Hwnd(), nullptr, FALSE);
     if (onTabChanged) onTabChanged(tab);
 }
@@ -629,8 +845,9 @@ void CommandPanel::PaintTabs(HDC dc) {
     };
     const int panelRight = rc.right > 0 ? (rc.right * 96 + static_cast<int>(Dpi()) - 1) / static_cast<int>(Dpi()) - 1 : 0;
 
-    // Body top edge (rows 28-29), from x 2 to the frame's right edge.
-    px(2, kBodyTop, panelRight - 3, kBodyTop, hi);
+    // Body top edge (rows 28-29), from x 1 to the frame's right edge (measured with the
+    // Modify tab selected; with Create selected, its tab covers x 1).
+    px(1, kBodyTop, panelRight - 3, kBodyTop, hi);
     px(2, kBodyTop + 1, panelRight - 3, kBodyTop + 1, lt);
 
     auto tab = [&](int t, bool selected) {
@@ -648,7 +865,9 @@ void CommandPanel::PaintTabs(HDC dc) {
         px(R, top + 2, R, sideBottom, dk);
         if (selected) {
             px(L + 2, kBodyTop, R - 2, kBodyTop, kTabJoin.Ref());
-            px(L + 2, kBodyTop + 1, R - 1, kBodyTop + 1, kTabJoin.Ref());
+            // Row 29 covers the tab's own side lines too (measured with Modify selected:
+            // x 29..60); x 0..1 belong to the panel's frame (Create selected: from x 2).
+            px(std::max(L, 2), kBodyTop + 1, R - 1, kBodyTop + 1, kTabJoin.Ref());
         }
     };
     for (int t = 0; t < kTabCount; ++t)
@@ -677,6 +896,11 @@ void CommandPanel::OnPaint() {
     PaintTabs(dc);
     if (selected_ == kCreate) PaintCategories(dc);
     if (ShowsRollouts()) PaintRollouts(dc);
+    if (InModify()) {
+        Box f{}, w{};
+        NameColorBoxes(f, w);
+        PaintNameColorBoxes(dc, f, w);
+    }
     EndPaint(Hwnd(), &ps);
 }
 
@@ -702,21 +926,34 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         const std::vector<int> ids = VisibleRollouts();
         const std::vector<rollup::Item> items = RolloutItems();
         // A title opens or closes its rollout.
-        const int title = rollup::TitleAt(items, scroll_, x, y);
+        const int title = rollup::TitleAt(items, scroll_, x, y, Container());
         if (title >= 0) {
             const int id = ids[static_cast<size_t>(title)];
             open_[id] = !open_[id];
-            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems()));
+            scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems(), Container()));
+            UpdateModifyControls();
             InvalidateRect(Hwnd(), nullptr, FALSE);
             return 0;
         }
         // The colour swatch opens the colour picker; the name field (when enabled) takes typing.
-        const int nameTop = TitleTopOf(kRollNameColor);
-        if (nameTop >= 0) {
-            const Box w = SwatchBox(nameTop);
-            if (x >= w.left && x <= w.right && y >= w.top && y <= w.bottom) { PickObjectColor(); return 0; }
-            const Box f = NameFieldBox(nameTop);
-            if (x >= f.left && x <= f.right && y >= f.top && y <= f.bottom) { BeginNameTyping(); return 0; }
+        {
+            Box f{}, w{};
+            if (NameColorBoxes(f, w)) {
+                if (x >= w.left && x <= w.right && y >= w.top && y <= w.bottom) { PickObjectColor(); return 0; }
+                if (x >= f.left && x <= f.right && y >= f.top && y <= f.bottom) { BeginNameTyping(); return 0; }
+            }
+        }
+        // The Modify tab's buttons.
+        if (InModify()) {
+            static const wchar_t* kNames[10] = {L"Bend", L"Taper", L"Twist", L"Noise", L"Extrude",
+                                                L"Lathe", L"UVW Map", L"Edit Patch", L"Mesh Select", L"Edit Spline"};
+            const int b = ModifierButtonAt(x, y);
+            if (b >= 0) {
+                if (b != 4 && b != 5 && b != 9 && onModifierButton) onModifierButton(kNames[b]);   // 4, 5, 9: disabled
+                return 0;
+            }
+            const int s = StackButtonAt(x, y);
+            if (s >= 0) { if (onStackButton) onStackButton(s); return 0; }
         }
         // A primitive button checks (or unchecks) its type.
         const int type = TypeButtonAt(x, y);
@@ -773,7 +1010,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         }
         // Anywhere else in the rollup: drag to scroll, if there is anything to scroll.
-        if (rollup::MaxScroll(items) > 0 && y > rollup::kContainer.top && y < rollup::kContainer.bottom) {
+        if (rollup::MaxScroll(items, Container()) > 0 && y > Container().top && y < Container().bottom) {
             dragging_ = true;
             dragStartY_ = GET_Y_LPARAM(lp);
             dragStartScroll_ = scroll_;
@@ -842,14 +1079,14 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_SETCURSOR:
         // The hand shows where the rollup can be dragged (R3: over its empty space).
-        if (LOWORD(lp) == HTCLIENT && ShowsRollouts() && rollup::MaxScroll(RolloutItems()) > 0) {
+        if (LOWORD(lp) == HTCLIENT && ShowsRollouts() && rollup::MaxScroll(RolloutItems(), Container()) > 0) {
             POINT pt;
             GetCursorPos(&pt);
             ScreenToClient(Hwnd(), &pt);
             const int x = pt.x * 96 / static_cast<int>(Dpi()), y = pt.y * 96 / static_cast<int>(Dpi());
             int row = -1;
-            if (dragging_ || (y > rollup::kContainer.top && y < rollup::kContainer.bottom &&
-                              rollup::TitleAt(RolloutItems(), scroll_, x, y) < 0 && TypeButtonAt(x, y) < 0 &&
+            if (dragging_ || (y > Container().top && y < Container().bottom &&
+                              rollup::TitleAt(RolloutItems(), scroll_, x, y, Container()) < 0 && TypeButtonAt(x, y) < 0 &&
                               ParamPartAt(x, y, row) == Part::None)) {
                 SetCursor(LoadCursorW(nullptr, IDC_HAND));
                 return TRUE;
@@ -857,6 +1094,11 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     case WM_COMMAND:
+        if (LOWORD(wp) == kDropdownId + 1 && HIWORD(wp) == CBN_SELCHANGE) {
+            const LRESULT i = SendMessageW(stackCombo_, CB_GETCURSEL, 0, 0);
+            if (i >= 0 && onStackSelect) onStackSelect(static_cast<int>(i));
+            return 0;
+        }
         if (LOWORD(wp) == kDropdownId && HIWORD(wp) == CBN_SELCHANGE && onSubcategoryChanged) {
             const LRESULT i = SendMessageW(dropdown_, CB_GETCURSEL, 0, 0);
             const auto items = Subcategories(category_);
@@ -866,7 +1108,10 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_SETFONT:
         font_ = reinterpret_cast<HFONT>(wp);
-        if (dropdown_) SendMessageW(dropdown_, WM_SETFONT, wp, lp);   // the dropdown uses the UI font
+        // The combos use the UI font (it also sets their closed height).
+        for (HWND combo : {dropdown_, stackCombo_, levelCombo_})
+            if (combo) SendMessageW(combo, WM_SETFONT, wp, lp);
+        UpdateModifyControls();
         return 0;
     case WM_GETFONT:
         return reinterpret_cast<LRESULT>(font_);
