@@ -242,6 +242,21 @@ the Create panel).
   active Sub-Object button: the checked-button outline around `#F0F080`. A Selection
   rollout (five level icons, "4 Vertices Selected"), Soft Selection (collapsed), Edit
   Geometry (not yet built).
+- Edit Mesh's rollouts (verified, 0 differing pixels): Selection (title 378, content 195)
+  with five level icons 25 px apart from x 27 (the active one in a 1-px sunken frame,
+  x 27–50, 23 rows), By Vertex / Ignore Backfacing / Ignore Visible Edges checkboxes at
+  +54 / +74 / +93 (x 18), Planar Thresh (field x 99–143, arrows 146) at +110, Hide /
+  Unhide All and Copy / Paste buttons (x 15–86, 92–163, 18 rows) at +131 and +170,
+  "Named Selections:" and the right-aligned count; Soft Selection collapsed (595); Edit
+  Geometry (615): button pairs at +23, +45, +68; unlabelled groups x 14–165 at +90…+157
+  and +163…+233 (Extrude / Chamfer with fields x 92–145 and arrows 149; Normal radios at
+  x 58 and 111; Slice Plane / Slice, Cut / Split, Refine Ends); the Weld group x 14–166
+  from +243 (gap 21–49). Disabled controls: embossed text; spinner fields with a face
+  interior and 2-px white margins; radios with a face interior. A checked box's tick:
+  the classic 7 × 7 pattern, 3 px inside the box (grey when disabled).
+- Modify container: bottom edge at row 884; content stops one row above it; an
+  overflowing column leaves x 174–177 for a scroll indicator (grey track, black part;
+  NOTE: not built).
 - More… dialog (`r3.1-modifiers-dialog.png`): a 308 × 646 window titled "Modifiers", a
   list with the headings "WORLD-SPACE MODIFIERS" and "OBJECT-SPACE MODIFIERS" (world-space
   entries prefixed "* "), OK and Cancel at the top right; it lists the modifiers not on

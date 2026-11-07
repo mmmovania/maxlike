@@ -14,7 +14,10 @@
 // (NOTE: unverified), laid out by the same rule.
 namespace ui::params {
 
-enum class Kind { Float, Int, Check, Radio };
+enum class Kind { Float, Int, Check, Radio,
+                  Button,     // a push button (left..right, height); clicking reports its label
+                  Label,      // static text from `left` (or right-aligned to `right`); "{selection}" is replaced
+                  Levels };   // the five sub-object level icons (Edit Mesh)
 
 // Measured geometry of a Parameters row (Create panel); rows may override the field,
 // checkbox and decimals (Bend's rollout: fields at x 81 and 87, one decimal).
@@ -36,29 +39,42 @@ struct Row {
     double min = 0, max = 0, step = 1;
     int top = 0;          // rows below the rollout's title top
     int fieldLeft = kFieldLeft;       // spinners: the number field's left; label ends 3 px before it
+    int fieldWidth = 54;              // spinners: the field's width (measured: 54, 45 or 56)
+    int arrowsLeft = -1;              // spinners: the arrows' left (-1: 3 px after the field)
+    bool enabled = true;              // drawn and handled as disabled when false
+    int left = 0, right = 0, height = 18;   // buttons and labels
+    bool alignRight = false;          // labels
     int decimals = kFloatDecimals;    // floats shown with this many decimals
     int checkLeft = kCheckLeft;       // checks: the box's left; the text starts 19 px after it
     std::vector<std::wstring> options;   // radios: labels, value = the option's index
     std::vector<int> optionLefts;        // radios: each circle's left (label 17 px after it)
 
-    int FieldRight() const { return fieldLeft + 53; }
-    int ArrowsLeft() const { return fieldLeft + 56; }
-    int ArrowsRight() const { return fieldLeft + 67; }
+    int FieldRight() const { return fieldLeft + fieldWidth - 1; }
+    int ArrowsLeft() const { return arrowsLeft >= 0 ? arrowsLeft : FieldRight() + 3; }
+    int ArrowsRight() const { return ArrowsLeft() + 11; }
     int LabelRight() const { return fieldLeft - 3; }
 };
 
 // An etched group box with a label breaking its top line (x 17..163; measured on Bend).
 struct Group {
     int top, bottom;      // rows below the title top (the shadow line)
-    std::wstring label;
-    int gapEnd;           // the top line is cleared from x 24 to here, around the label
+    std::wstring label;   // empty: no label and no gap
+    int gapEnd;           // the top line is cleared from gapStart to here, around the label
+    int left = 17, right = 163;           // the frame (Bend: 17..163; Edit Geometry: 14..165)
+    int gapStart = 24, labelLeft = 27;    // Weld: 21 and 23
 };
 
 struct Spec {
     std::vector<Row> rows;
     int contentHeight = 0;    // title bottom -> frame bottom
     std::vector<Group> groups;
+    std::wstring title = L"Parameters";
+    bool startsOpen = true;
 };
+
+// All rollouts a modifier shows below the Modifier Stack, in order (Bend: its
+// Parameters; Edit Mesh: Selection, Soft Selection, Edit Geometry).
+std::vector<Spec> ModifierRollouts(const std::string& className);
 
 // A modifier's Parameters rollout, by class name ("Bend", "Taper", "Twist"); empty for
 // others. Bend's is measured (r3.1-modify-bend.png); Taper's and Twist's follow the same

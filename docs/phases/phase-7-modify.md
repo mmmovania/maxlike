@@ -28,8 +28,12 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       selected, blue otherwise) from the stack evaluated up to the Edit Mesh; click /
       region / Ctrl / Alt vertex selection and Move drags of the selected vertices, each one
       undo step (`SelectVerticesCommand`, `MoveVerticesCommand`)
-- [ ] 7.4b Edit Mesh's rollouts (Selection with "N Vertices Selected", Soft Selection,
-      Edit Geometry) and the Face level
+- [x] **7.4b Edit Mesh's rollouts**, measured: Selection (level icons, checkboxes, Planar
+      Thresh, Hide / Unhide All, Copy / Paste, "N Vertices Selected"), Soft Selection
+      (collapsed), Edit Geometry down to the Weld group; new row kinds (buttons, labels,
+      level icons), disabled controls, several rollouts per modifier
+- [ ] 7.4c The rest of Edit Geometry and Soft Selection; their buttons' actions; Face level
+- [ ] The rollup's scroll indicator (x 174–177; seen with Edit Mesh)
 - [ ] 7.5 Wrap-up
 
 ## Step 7.1 verification
@@ -105,6 +109,23 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       has no window manager, so the dialog is not painted there)
 - [ ] Unverified: the dialog's layout and the entries after "STL-Check"; vertex pick
       tolerance; Rotate and Scale at vertex level (not implemented)
+
+## Step 7.4b verification
+- [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
+- [x] `test_parameters_spec`: Edit Mesh's three rollouts and their measured geometry
+- [x] Under Wine, compared with `r3.1-modify-editmesh-vertex.png`: the whole Modify panel
+      with Edit Mesh at Vertex level, 0 differing pixels of 78,099, down to the
+      container's bottom edge (text, icons, the swatch, the level combo and the scroll
+      indicator column masked); plain box still 58 (Wine's disabled combo), Bend 0; the
+      Create panel unchanged
+- [x] Found while comparing: the Modify container's bottom edge is row 884 (Create: 885);
+      content stops one row above it; with an overflowing column the container's lines
+      leave a 4-px column for the scroll indicator; a checked box's tick is the classic
+      7 × 7 pattern (Wine draws another; now drawn from the measured pattern)
+- [x] "N Vertices Selected" follows the selection; level icons enter sub-object mode
+- [ ] On Windows: the same; checked boxes' ticks (enabled: black, assumed)
+- [ ] Unverified: the level icons (original drawings), R3's wording for one or no
+      vertices, Edit Geometry below Weld and its content height, Soft Selection's contents
 
 ## Notes
 - No user interface yet: the modifiers are visible through the demo scene; the Modify

@@ -197,6 +197,76 @@ Spec ModifierParametersFor(const std::string& name) {
     return {};
 }
 
+std::vector<Spec> ModifierRollouts(const std::string& name) {
+    if (name != "Edit Mesh") {
+        Spec s = ModifierParametersFor(name);
+        if (s.rows.empty()) return {};
+        return {s};
+    }
+    // Measured (r3.1-modify-editmesh-vertex.png), title-relative: Selection at 378, Soft
+    // Selection (collapsed) at 595, Edit Geometry at 615. Edit Geometry is measured down
+    // to the Weld group, where the screenshot ends (NOTE: the rest is not built yet).
+    using scene::EditMeshModifier;
+    auto button = [](const wchar_t* label, int top, int left, int right, bool enabled = true) {
+        Row r{label, -1, Kind::Button, 0, 0, 0, top};
+        r.left = left; r.right = right; r.enabled = enabled;
+        return r;
+    };
+    auto check = [](const wchar_t* label, int index, int top, int left, bool enabled) {
+        Row r{label, index, Kind::Check, 0, 1, 1, top};
+        r.checkLeft = left; r.enabled = enabled;
+        return r;
+    };
+    auto spinner = [](const wchar_t* label, int index, int top, int fieldLeft, int width, int arrows, bool enabled,
+                      double min, double max) {
+        Row r{label, index, Kind::Float, min, max, 0.1, top};
+        r.fieldLeft = fieldLeft; r.fieldWidth = width; r.arrowsLeft = arrows; r.enabled = enabled; r.decimals = 1;
+        return r;
+    };
+    auto label = [](const wchar_t* text, int top, int left, int right, bool alignRight, bool enabled = true) {
+        Row r{text, -1, Kind::Label, 0, 0, 0, top};
+        r.left = left; r.right = right; r.alignRight = alignRight; r.enabled = enabled; r.height = 13;
+        return r;
+    };
+    Spec sel;
+    sel.title = L"Selection";
+    sel.rows = {{L"", -1, Kind::Levels, 0, 4, 1, 24},
+                check(L"By Vertex", -1, 54, 18, false),
+                check(L"Ignore Backfacing", EditMeshModifier::kIgnoreBackfacing, 74, 18, true),
+                check(L"Ignore Visible Edges", -1, 93, 18, false),
+                spinner(L"Planar Thresh:", EditMeshModifier::kPlanarThresh, 110, 99, 45, 146, false, 0, 180),
+                button(L"Hide", 131, 15, 86), button(L"Unhide All", 131, 92, 163),
+                label(L"Named Selections:", 153, 18, 170, false),
+                button(L"Copy", 170, 15, 86), button(L"Paste", 170, 92, 163, false),
+                label(L"{selection}", 192, 10, 164, true)};
+    sel.contentHeight = 195;                 // frame's shadow line at title + 209
+    Spec soft;
+    soft.title = L"Soft Selection";
+    soft.startsOpen = false;                 // NOTE: its contents are not built yet
+    soft.contentHeight = 40;
+    Spec geo;
+    geo.title = L"Edit Geometry";
+    geo.groups = {{90, 157, L"", 0, 14, 165}, {163, 233, L"", 0, 14, 165}, {243, 298, L"Weld", 49, 14, 166, 21, 23}};
+    geo.rows = {button(L"Create", 23, 15, 86), button(L"Delete", 23, 92, 163),
+                button(L"Attach", 45, 15, 86), button(L"Detach", 45, 92, 163),
+                button(L"Break", 68, 15, 86), button(L"Turn", 68, 92, 163, false),
+                button(L"Extrude", 96, 20, 87, false),
+                spinner(L"", EditMeshModifier::kExtrudeAmount, 97, 92, 54, 149, false, -1e6, 1e6),
+                button(L"Chamfer", 118, 20, 87),
+                spinner(L"", EditMeshModifier::kChamferAmount, 120, 92, 54, 149, true, 0, 1e6),
+                label(L"Normal:", 142, 21, 60, false, false),
+                [] { Row r{L"", EditMeshModifier::kNormalLocal, Kind::Radio, 0, 1, 1, 142};
+                     r.options = {L"Group", L"Local"}; r.optionLefts = {58, 111}; r.enabled = false; return r; }(),
+                button(L"Slice Plane", 170, 20, 87), button(L"Slice", 170, 92, 159, false),
+                button(L"Cut", 193, 20, 87, false),
+                check(L"Split", EditMeshModifier::kSplit, 196, 99, true),
+                check(L"Refine Ends", EditMeshModifier::kRefineEnds, 215, 23, false),
+                button(L"Selected", 252, 21, 83),
+                spinner(L"", EditMeshModifier::kWeldThreshold, 255, 92, 56, 150, true, 0, 1e6)};
+    geo.contentHeight = 300;                 // NOTE: estimated; the rest of the rollout is below the screenshot
+    return {sel, soft, geo};
+}
+
 Methods CreationMethodsFor(int type) {
     switch (type) {
     case 0:  return {L"Cube", L"Box", 1};                 // measured

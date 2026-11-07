@@ -157,6 +157,10 @@ void MainFrame::UpdateModifyPanel() {
         if (info.subObjectLevels.empty()) subObject_ = false;
         info.subObjectOn = subObject_;
         info.subObjectLevel = subLevel_;
+        if (const auto em = std::dynamic_pointer_cast<scene::EditMeshModifier>(mod)) {
+            // NOTE: R3's wording for one vertex or none is unverified.
+            info.selectionText = std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected";
+        }
     }
     commandPanel_.SetModifyInfo(info);
     // The views draw and pick vertices while an Edit Mesh is at Vertex level.
@@ -400,8 +404,12 @@ bool MainFrame::CreateRegions() {
         UpdateModifyPanel();
         viewports_.Redraw();
     };
+    commandPanel_.onRolloutButton = [this](const std::wstring& label) {
+        statusArea_.SetPrompt(1, label + L" (not implemented yet)");
+    };
     commandPanel_.onSubObjectLevel = [this](int level) {
         subLevel_ = level;
+        subObject_ = true;                                      // a level icon or the combo enters sub-object mode
         if (level != 0) statusArea_.SetPrompt(1, L"This sub-object level is not implemented yet");
         UpdateModifyPanel();
         viewports_.Redraw();
@@ -419,6 +427,7 @@ bool MainFrame::CreateRegions() {
         next.erase(std::unique(next.begin(), next.end()), next.end());
         if (next == mod->SelectedVertices()) return;
         undo_.Execute(std::make_unique<scene::SelectVerticesCommand>(mod, next), scene_);
+        UpdateModifyPanel();
         viewports_.Redraw();
     };
     commandPanel_.onStackButton = [this](int button) {

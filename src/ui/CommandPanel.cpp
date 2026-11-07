@@ -63,7 +63,19 @@ void CommandPanel::UpdateCreateControls() {
 void CommandPanel::SetModifyInfo(const ModifyInfo& info) {
     EndTyping(true);
     modify_ = info;
-    if (selected_ == kModify) spec_ = modify_.currentIsModifier ? params::ModifierParametersFor(modify_.currentClass) : params::ParametersFor(modify_.baseType);
+    {
+        // The rollouts below the stack: the base object's Parameters, or the modifier's.
+        std::vector<params::Spec> specs;
+        if (modify_.currentIsModifier) specs = params::ModifierRollouts(modify_.currentClass);
+        else if (!params::ParametersFor(modify_.baseType).rows.empty()) specs = {params::ParametersFor(modify_.baseType)};
+        bool same = specs.size() == modSpecs_.size();
+        for (size_t i = 0; same && i < specs.size(); ++i) same = specs[i].title == modSpecs_[i].title;
+        modSpecs_ = specs;
+        if (!same) {                         // new rollouts: their own open/closed defaults
+            modOpen_.clear();
+            for (const auto& sp : modSpecs_) modOpen_.push_back(sp.startsOpen);
+        }
+    }
     if (stackCombo_) {
         SendMessageW(stackCombo_, CB_RESETCONTENT, 0, 0);
         for (const std::wstring& e : modify_.stack) SendMessageW(stackCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(e.c_str()));
@@ -275,8 +287,9 @@ bool CommandPanel::ShowsRollouts() const {
 
 std::vector<int> CommandPanel::VisibleRollouts() const {
     if (InModify()) {
-        if (!spec_.rows.empty()) return {kRollModifiers, kRollStack, kRollParameters};
-        return {kRollModifiers, kRollStack};
+        std::vector<int> ids = {kRollModifiers, kRollStack};
+        for (size_t i = 0; i < modSpecs_.size(); ++i) ids.push_back(kRollDynamic + static_cast<int>(i));
+        return ids;
     }
     if (createType_ < 0) return {kRollObjectType, kRollNameColor};
     return {kRollObjectType, kRollNameColor, kRollCreationMethod, kRollKeyboardEntry, kRollParameters};
@@ -285,6 +298,11 @@ std::vector<int> CommandPanel::VisibleRollouts() const {
 std::vector<rollup::Item> CommandPanel::RolloutItems() const {
     std::vector<rollup::Item> items;
     for (int id : VisibleRollouts()) {
+        if (id >= kRollDynamic) {
+            const size_t k = static_cast<size_t>(id - kRollDynamic);
+            items.push_back({modSpecs_[k].contentHeight, modOpen_[k]});
+            continue;
+        }
         int content = 0;
         switch (id) {
         case kRollObjectType:     content = kObjectTypeContent; break;
@@ -352,7 +370,10 @@ void CommandPanel::PaintRollouts(HDC dc) {
     // With the creation rollouts showing, R3 leaves a 4-px column inside the right edge
     // (x 174..177): the container's top and bottom stop at x 173. Measured; NOTE: probably
     // a gutter for a scroll indicator, the exact condition is unverified.
-    const int gutter = createType_ >= 0 ? 4 : 0;
+    // In the Modify tab it appears when the column overflows (Edit Mesh; not with a box or
+    // Bend). NOTE: the scroll indicator drawn in it is not built yet.
+    const bool overflow = rollup::MaxScroll(RolloutItems(), k) > 0;
+    const int gutter = (InModify() ? overflow : createType_ >= 0) ? 4 : 0;
     px(k.left, k.top, k.right - 1 - gutter, k.top, sh);  // sunken: shadow top and left,
     px(k.left, k.top, k.left, k.bottom, sh);              // (down to the bottom row, measured)
     px(k.right, k.top, k.right, k.bottom, hi);          // highlight right and bottom
@@ -361,7 +382,8 @@ void CommandPanel::PaintRollouts(HDC dc) {
 
     // Everything else stays inside the container.
     const int saved = SaveDC(dc);
-    IntersectClipRect(dc, Scale(k.left + 1), Scale(k.top + 1), Scale(k.right), Scale(k.bottom));
+    // Content stops one row above the bottom edge (measured: Edit Mesh's column, row 883 empty).
+    IntersectClipRect(dc, Scale(k.left + 1), Scale(k.top + 1), Scale(k.right), Scale(k.bottom - 1));
     HGDIOBJ oldFont = SelectObject(dc, font_ ? font_ : GetStockObject(DEFAULT_GUI_FONT));
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(0, 0, 0));
@@ -390,10 +412,11 @@ void CommandPanel::PaintRollouts(HDC dc) {
                 if (id == kRollObjectType) PaintObjectType(dc, r.titleTop);
                 if (id == kRollNameColor) PaintNameAndColor(dc, r.titleTop);
                 if (id == kRollCreationMethod) PaintCreationMethod(dc, r.titleTop);
-                if (id == kRollParameters) PaintRows(dc, r.titleTop, false);
+                if (id == kRollParameters) PaintRows(dc, r.titleTop, 0);
+                if (id >= kRollDynamic) PaintRows(dc, r.titleTop, id - kRollDynamic);
                 if (id == kRollModifiers) PaintModifiers(dc, r.titleTop);
                 if (id == kRollStack) PaintStack(dc, r.titleTop);
-                if (id == kRollKeyboardEntry) PaintRows(dc, r.titleTop, true);
+                if (id == kRollKeyboardEntry) PaintRows(dc, r.titleTop, -1);
             }
         }
         // Title button over the frame's top edge.
@@ -410,7 +433,8 @@ void CommandPanel::PaintRollouts(HDC dc) {
             px(19, T + 5, 20, T + 11, RGB(0, 0, 0));
         }
         RECT text{Scale(L + 2), Scale(T + 2), Scale(R - 1), Scale(B - 1)};
-        DrawTextW(dc, kTitles[id], -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        const wchar_t* title = id >= kRollDynamic ? modSpecs_[static_cast<size_t>(id - kRollDynamic)].title.c_str() : kTitles[id];
+        DrawTextW(dc, title, -1, &text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
     SelectObject(dc, oldFont);
     RestoreDC(dc, saved);
@@ -512,7 +536,7 @@ void CommandPanel::PaintNameColorBoxes(HDC dc, const Box& f, const Box& w) {
 // Creation Method: two classic radio buttons (measured for Box at x 34 and 102, title + 22).
 // A classic radio button, drawn from its measured 12 x 12 pattern (Wine's
 // DrawFrameControl draws a different circle; this is Windows', pixel for pixel).
-void CommandPanel::DrawRadio(HDC dc, int x, int y, bool checked) {
+void CommandPanel::DrawRadio(HDC dc, int x, int y, bool checked, bool enabled) {
         // Drawn from the measured 12 x 12 pattern (Wine's DrawFrameControl draws a
         // different circle; this is the classic Windows radio button, pixel for pixel).
         static const char* const kRadio[12] = {
@@ -522,6 +546,8 @@ void CommandPanel::DrawRadio(HDC dc, int x, int y, bool checked) {
         for (int ry = 0; ry < 12; ++ry)
             for (int rx = 0; rx < 12; ++rx) {
                 char ch = kRadio[ry][rx];
+                // Disabled (measured: Edit Mesh's Normal radios): the white inside turns face.
+                if (!enabled && ch == 'W' && ry >= 2 && ry <= 9 && rx >= 2 && rx <= 9) ch = '.';
                 if (checked && ry >= 4 && ry < 8 && rx >= 3 && rx < 9 && kDot[ry - 4][rx - 3] == 'k') ch = 'k';
                 COLORREF c;
                 switch (ch) {
@@ -551,11 +577,12 @@ void CommandPanel::PaintCreationMethod(HDC dc, int titleTop) {
 // rows from kKeyBase. These hide the difference: Parameters edits the object (through
 // onParamChanged), Keyboard Entry keeps its own values until Create.
 const params::Row& CommandPanel::RowAt(int id) const {
-    return id >= kKeyBase ? keyboard_.fields.rows[static_cast<size_t>(id - kKeyBase)] : spec_.rows[static_cast<size_t>(id)];
+    if (id >= kKeyBase) return keyboard_.fields.rows[static_cast<size_t>(id - kKeyBase)];
+    return SpecAt(id / 100).rows[static_cast<size_t>(id % 100)];
 }
 
 int CommandPanel::RowTitleTop(int id) const {
-    return TitleTopOf(id >= kKeyBase ? kRollKeyboardEntry : kRollParameters);
+    return TitleTopOf(id >= kKeyBase ? kRollKeyboardEntry : RollIdForSlot(id / 100));
 }
 
 double CommandPanel::RowValue(int id) const {
@@ -582,49 +609,106 @@ double CommandPanel::ParamValue(const params::Row& r) const {
 // (1-px sunken edge, black inner top and left, face inner right and bottom, white
 // inside); the arrows x 146..157 split into up (rows 0..7) and down (8..15), each a
 // small raised button with a 5-px triangle; checkboxes: classic, 13 x 13 at x 18.
-void CommandPanel::PaintRows(HDC dc, int titleTop, bool keyboard) {
+void CommandPanel::PaintRows(HDC dc, int titleTop, int slot) {
+    const bool keyboard = slot < 0;
     auto px = [&](int x0, int y0, int x1, int y1, COLORREF c) {
         if (x1 < x0 || y1 < y0) return;
         FillSolid(dc, {Scale(x0), Scale(y0), Scale(x1 + 1), Scale(y1 + 1)}, c);
     };
     const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), face = theme::Face();
     const COLORREF k = RGB(0, 0, 0);
-    const std::vector<params::Row>& rows = keyboard ? keyboard_.fields.rows : spec_.rows;
+    const std::vector<params::Row>& rows = keyboard ? keyboard_.fields.rows : SpecAt(slot).rows;
     // Group boxes (measured on Bend): an etched frame x 17..163 drawn as two outlines,
     // the top line cleared around the label (x 24..gapEnd), the label 4 rows above it.
     if (!keyboard)
-        for (const params::Group& g : spec_.groups) {
-            const int top = titleTop + g.top, bottom = titleTop + g.bottom;
-            px(18, top + 1, 163, top + 1, hi);   px(18, top + 1, 18, bottom + 1, hi);
-            px(163, top, 163, bottom + 1, hi);     px(17, bottom + 1, 163, bottom + 1, hi);   // right edge from the top row
-            px(17, top, 162, top, sh);           px(17, top, 17, bottom, sh);
-            px(162, top, 162, bottom, sh);       px(17, bottom, 162, bottom, sh);
-            px(24, top, g.gapEnd, top + 1, face);
-            RECT text{Scale(27), Scale(top - 6), Scale(160), Scale(top + 7)};
-            DrawTextW(dc, g.label.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        for (const params::Group& g : SpecAt(slot).groups) {
+            const int top = titleTop + g.top, bottom = titleTop + g.bottom, L = g.left, R = g.right;
+            px(L + 1, top + 1, R, top + 1, hi);  px(L + 1, top + 1, L + 1, bottom + 1, hi);
+            px(R, top, R, bottom + 1, hi);       px(L, bottom + 1, R, bottom + 1, hi);   // right edge from the top row
+            px(L, top, R - 1, top, sh);          px(L, top, L, bottom, sh);
+            px(R - 1, top, R - 1, bottom, sh);   px(L, bottom, R - 1, bottom, sh);
+            if (!g.label.empty()) {
+                px(g.gapStart, top, g.gapEnd, top + 1, face);
+                RECT text{Scale(g.labelLeft), Scale(top - 6), Scale(160), Scale(top + 7)};
+                DrawTextW(dc, g.label.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            }
         }
     for (size_t i = 0; i < rows.size(); ++i) {
         const params::Row& row = rows[i];
-        const int id = static_cast<int>(i) + (keyboard ? kKeyBase : 0);
+        const int id = keyboard ? kKeyBase + static_cast<int>(i) : slot * 100 + static_cast<int>(i);
         const int T = titleTop + row.top;
         const double value = (id == spinRow_ && spinModel_) ? spinModel_->Value() : RowValue(id);
+        auto text = [&](const std::wstring& t, int L, int T0, int R, int B, UINT align, bool enabled) {
+            if (enabled) {
+                RECT rc{Scale(L), Scale(T0), Scale(R), Scale(B)};
+                DrawTextW(dc, t.c_str(), -1, &rc, align | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                return;
+            }
+            SIZE size{};
+            GetTextExtentPoint32W(dc, t.c_str(), static_cast<int>(t.size()), &size);
+            const int x = (align & DT_RIGHT) ? Scale(R) - size.cx : (align & DT_CENTER) ? (Scale(L) + Scale(R) - size.cx) / 2 : Scale(L);
+            DrawStateW(dc, nullptr, nullptr, reinterpret_cast<LPARAM>(t.c_str()), static_cast<int>(t.size()), x,
+                       (Scale(T0) + Scale(B) - size.cy) / 2, 0, 0, DST_TEXT | DSS_DISABLED);
+        };
+        if (row.kind == params::Kind::Button) {
+            // Drawn like the Object Type buttons (measured: Hide, Create, Extrude, ...).
+            const int L = row.left, R = row.right, B = T + row.height - 1;
+            px(L, T, R, B, face);
+            px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);
+            px(R, T, R, B, k);       px(L + 1, B, R, B, k);
+            px(R - 1, T + 1, R - 1, B - 1, sh);  px(L + 2, B - 1, R - 1, B - 1, sh);
+            text(row.label, L, T, R + 1, B, DT_CENTER, row.enabled);
+            continue;
+        }
+        if (row.kind == params::Kind::Label) {
+            std::wstring t = row.label;
+            const size_t at = t.find(L"{selection}");
+            if (at != std::wstring::npos) t.replace(at, 11, modify_.selectionText);
+            text(t, row.alignRight ? 10 : row.left, T - 2, row.right + 1, T + row.height, row.alignRight ? DT_RIGHT : DT_LEFT, row.enabled);
+            continue;
+        }
+        if (row.kind == params::Kind::Levels) {
+            // Five sub-object levels (Vertex, Edge, Face, Polygon, Element), 25 px apart from
+            // x 27; the active one in a 1-px sunken frame (measured: x 27..50, 23 rows).
+            // The icons are original drawings.
+            const int active = modify_.subObjectOn ? modify_.subObjectLevel : -1;
+            for (int o = 0; o < 5; ++o) {
+                const int L = 27 + 25 * o, R = L + 23, B = T + 22;
+                if (o == active) { px(L, T, R - 1, T, sh); px(L, T, L, B, sh); px(R, T, R, B, hi); px(L + 1, B, R, B, hi); }
+                const int cx = L + 11, cy = T + 11;
+                const COLORREF ic = RGB(0x20, 0x20, 0x90);
+                switch (o) {
+                case 0: for (int d : {-5, 5}) for (int e : {-4, 4}) px(cx + d - 1, cy + e - 1, cx + d + 1, cy + e + 1, ic); break;
+                case 1: for (int j = 0; j <= 8; ++j) { px(cx - 5 + j, cy + 4, cx - 5 + j, cy + 4, ic); px(cx - 5 + j / 2, cy + 4 - j, cx - 5 + j / 2, cy + 4 - j, ic); px(cx + 4 - j / 2, cy + 4 - j, cx + 4 - j / 2, cy + 4 - j, ic); } break;
+                case 2: for (int j = 0; j <= 8; ++j) px(cx - 4 + j / 2, cy + 4 - j, cx + 4 - j / 2, cy + 4 - j, ic); break;
+                case 3: px(cx - 5, cy - 4, cx + 5, cy + 4, ic); break;
+                default: px(cx - 5, cy - 2, cx + 2, cy + 5, ic); px(cx - 2, cy - 5, cx + 5, cy + 2, RGB(0x50, 0x50, 0xC0)); break;
+                }
+            }
+            continue;
+        }
         if (row.kind == params::Kind::Check) {
             RECT box{Scale(row.checkLeft), Scale(T), Scale(row.checkLeft + 13), Scale(T + 13)};
-            DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | (value != 0 ? DFCS_CHECKED : 0));
-            RECT text{Scale(row.checkLeft + 19), Scale(T - 2), Scale(170), Scale(T + 15)};
-            DrawTextW(dc, row.label.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | (row.enabled ? 0 : DFCS_INACTIVE));
+            if (value != 0) {
+                // The classic tick, from its measured 7 x 7 pattern (Refine Ends, disabled:
+                // grey); Wine's DrawFrameControl draws a different one.
+                static const char* const kTick[7] = {"......#", ".....##", "#...###", "##.###.", "#####..", ".###...", "..#...."};
+                for (int ty = 0; ty < 7; ++ty)
+                    for (int tx = 0; tx < 7; ++tx)
+                        if (kTick[ty][tx] == '#') px(row.checkLeft + 3 + tx, T + 3 + ty, row.checkLeft + 3 + tx, T + 3 + ty, row.enabled ? k : sh);
+            }
+            text(row.label, row.checkLeft + 19, T - 2, 170, T + 15, DT_LEFT, row.enabled);
             continue;
         }
         if (row.kind == params::Kind::Radio) {
             for (size_t o = 0; o < row.options.size() && o < row.optionLefts.size(); ++o) {
-                DrawRadio(dc, row.optionLefts[o], T, static_cast<int>(std::lround(value)) == static_cast<int>(o));
-                RECT text{Scale(row.optionLefts[o] + 17), Scale(T - 2), Scale(row.optionLefts[o] + 40), Scale(T + 14)};
-                DrawTextW(dc, row.options[o].c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                DrawRadio(dc, row.optionLefts[o], T, static_cast<int>(std::lround(value)) == static_cast<int>(o), row.enabled);
+                text(row.options[o], row.optionLefts[o] + 17, T - 2, row.optionLefts[o] + 40, T + 14, DT_LEFT, row.enabled);
             }
             continue;
         }
-        RECT label{Scale(10), Scale(T), Scale(row.LabelRight() + 1), Scale(T + params::kSpinnerHeight)};
-        DrawTextW(dc, row.label.c_str(), -1, &label, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        if (!row.label.empty()) text(row.label, 10, T, row.LabelRight() + 1, T + params::kSpinnerHeight, DT_RIGHT, row.enabled);
         // Field.
         const int L = row.fieldLeft, R = row.FieldRight(), B = T + params::kSpinnerHeight - 1;
         px(L, T, R - 1, T, sh);        px(L, T, L, B, sh);
@@ -632,11 +716,14 @@ void CommandPanel::PaintRows(HDC dc, int titleTop, bool keyboard) {
         px(L + 1, T + 1, R - 2, T + 1, k);   px(L + 1, T + 1, L + 1, B - 1, k);
         px(R - 1, T + 1, R - 1, B - 1, face); px(L + 2, B - 1, R - 1, B - 1, face);
         px(L + 2, T + 2, R - 2, B - 2, hi);
+        if (!row.enabled) {
+            // Disabled (measured: Planar Thresh): face inside, 2-px white margins left and right.
+            px(L + 4, T + 2, R - 4, B - 2, face);
+        }
         if (!(typing_ && typingRow_ == id)) {
             SpinnerModel shown(value, row.min, row.max, row.step, row.kind == params::Kind::Int, row.decimals);
-            const std::wstring text = shown.Text();
-            RECT tr{Scale(L + 4), Scale(T + 2), Scale(R - 1), Scale(B - 1)};
-            DrawTextW(dc, text.c_str(), -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            const std::wstring t = shown.Text();
+            text(t, L + 4, T + 2, R - 1, B - 1, DT_LEFT, row.enabled);
         }
         // Arrows.
         const int A = row.ArrowsLeft(), Z = row.ArrowsRight();
@@ -672,15 +759,29 @@ void CommandPanel::PaintRows(HDC dc, int titleTop, bool keyboard) {
 CommandPanel::Part CommandPanel::ParamPartAt(int x, int y, int& row) const {
     row = -1;
     if (!ShowsRollouts()) return Part::None;
-    for (int list = 0; list < 2; ++list) {
-        const bool keyboard = list == 1;
-        const int titleTop = TitleTopOf(keyboard ? kRollKeyboardEntry : kRollParameters);
+    // Slots to look in: the Modify tab's rollouts, or the Create panel's Parameters and
+    // Keyboard Entry (slot -1).
+    std::vector<int> slots;
+    if (InModify()) for (size_t i = 0; i < modSpecs_.size(); ++i) slots.push_back(static_cast<int>(i));
+    else slots = {0, -1};
+    for (int slot : slots) {
+        const int titleTop = TitleTopOf(slot < 0 ? kRollKeyboardEntry : RollIdForSlot(slot));
         if (titleTop < 0) continue;
-        const std::vector<params::Row>& rows = keyboard ? keyboard_.fields.rows : spec_.rows;
+        const std::vector<params::Row>& rows = slot < 0 ? keyboard_.fields.rows : SpecAt(slot).rows;
         for (size_t i = 0; i < rows.size(); ++i) {
             const params::Row& r = rows[i];
-            const int id = static_cast<int>(i) + (keyboard ? kKeyBase : 0);
+            const int id = slot < 0 ? kKeyBase + static_cast<int>(i) : slot * 100 + static_cast<int>(i);
             const int T = titleTop + r.top;
+            if (!r.enabled || r.kind == params::Kind::Label) continue;
+            if (r.kind == params::Kind::Button) {
+                if (y >= T && y < T + r.height && x >= r.left && x <= r.right) { row = id; return Part::Button; }
+                continue;
+            }
+            if (r.kind == params::Kind::Levels) {
+                for (int o = 0; o < 5; ++o)
+                    if (y >= T && y <= T + 22 && x >= 27 + 25 * o && x <= 50 + 25 * o) { row = id; radioOption_ = o; return Part::Level; }
+                continue;
+            }
             if (r.kind == params::Kind::Check) {
                 if (y >= T && y < T + 13 && x >= r.checkLeft && x < 170) { row = id; return Part::Check; }
                 continue;
@@ -868,7 +969,6 @@ void CommandPanel::SelectTab(int tab) {
     selected_ = tab;
     EndTyping(true);
     if (tab == kCreate) spec_ = params::ParametersFor(createType_);
-    if (tab == kModify) spec_ = modify_.currentIsModifier ? params::ModifierParametersFor(modify_.currentClass) : params::ParametersFor(modify_.baseType);
     scroll_ = 0;
     UpdateCreateControls();
     UpdateModifyControls();
@@ -981,7 +1081,8 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         const int title = rollup::TitleAt(items, scroll_, x, y, Container());
         if (title >= 0) {
             const int id = ids[static_cast<size_t>(title)];
-            open_[id] = !open_[id];
+            if (id >= kRollDynamic) modOpen_[static_cast<size_t>(id - kRollDynamic)] = !modOpen_[static_cast<size_t>(id - kRollDynamic)];
+            else open_[id] = !open_[id];
             scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems(), Container()));
             UpdateModifyControls();
             InvalidateRect(Hwnd(), nullptr, FALSE);
@@ -1053,7 +1154,11 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         const Part part = ParamPartAt(x, y, row);
         if (part != Part::None) {
             const params::Row& r = RowAt(row);
-            if (part == Part::Check) {
+            if (part == Part::Button) {
+                if (onRolloutButton) onRolloutButton(r.label);
+            } else if (part == Part::Level) {
+                if (onSubObjectLevel) onSubObjectLevel(radioOption_);
+            } else if (part == Part::Check) {
                 RowChanged(row, RowValue(row) != 0 ? 0 : 1, true);
             } else if (part == Part::Radio) {
                 if (static_cast<int>(std::lround(RowValue(row))) != radioOption_) RowChanged(row, radioOption_, true);

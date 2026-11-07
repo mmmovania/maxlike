@@ -74,8 +74,11 @@ class EditMeshModifier : public Modifier {
 public:
     struct Move { uint32_t vertex; math::Vec3 delta; };
 
-    EditMeshModifier(size_t expectedVertexCount, std::vector<Move> moves)
-        : expected_(expectedVertexCount), moves_(std::move(moves)) {}
+    // Settings shown in Edit Mesh's rollouts (maxlike's own indices: R3 keeps these
+    // outside a parameter block).
+    enum { kIgnoreBackfacing = 0, kPlanarThresh, kExtrudeAmount, kChamferAmount, kSplit, kRefineEnds,
+           kWeldThreshold, kNormalLocal };
+    EditMeshModifier(size_t expectedVertexCount, std::vector<Move> moves);
     std::string ClassName() const override { return "Edit Mesh"; }
     bool Apply(Mesh& mesh) const override;
     const std::vector<Move>& Moves() const { return moves_; }

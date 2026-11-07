@@ -4,6 +4,18 @@
 
 namespace scene {
 
+EditMeshModifier::EditMeshModifier(size_t expectedVertexCount, std::vector<Move> moves)
+    : expected_(expectedVertexCount), moves_(std::move(moves)) {
+    params_.Define(kIgnoreBackfacing, ParamType::Bool, 0);
+    params_.Define(kPlanarThresh, ParamType::Float, 45);
+    params_.Define(kExtrudeAmount, ParamType::Float, 0);
+    params_.Define(kChamferAmount, ParamType::Float, 0);
+    params_.Define(kSplit, ParamType::Bool, 0);
+    params_.Define(kRefineEnds, ParamType::Bool, 1);
+    params_.Define(kWeldThreshold, ParamType::Float, 0.1);
+    params_.Define(kNormalLocal, ParamType::Int, 0);
+}
+
 bool EditMeshModifier::Apply(Mesh& mesh) const {
     if (mesh.verts.size() != expected_) return false;   // indices would point elsewhere
     for (const Move& m : moves_)

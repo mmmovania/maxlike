@@ -54,6 +54,24 @@ int main() {
     }
     // The Create panel's rows keep the original geometry (field x 90, three decimals).
     CHECK(box.rows[0].fieldLeft == 90 && box.rows[0].FieldRight() == 143 && box.rows[0].ArrowsLeft() == 146 && box.rows[0].decimals == 3);
+    // Edit Mesh's rollouts, measured (r3.1-modify-editmesh-vertex.png): Selection (content
+    // 195), Soft Selection collapsed, Edit Geometry; Planar Thresh's field x 99..143 with
+    // arrows at 146; Hide x 15..86; the second unlabelled group's shadow at title + 233;
+    // the Weld group's frame one column wider (x 14..166).
+    {
+        const auto r = ModifierRollouts("Edit Mesh");
+        CHECK(r.size() == 3 && r[0].title == L"Selection" && r[1].title == L"Soft Selection" && !r[1].startsOpen);
+        CHECK(r[0].contentHeight == 195 && r[2].title == L"Edit Geometry");
+        const Row& planar = r[0].rows[4];
+        CHECK(planar.fieldLeft == 99 && planar.FieldRight() == 143 && planar.ArrowsLeft() == 146 && !planar.enabled);
+        CHECK(r[0].rows[5].kind == Kind::Button && r[0].rows[5].left == 15 && r[0].rows[5].right == 86);
+        CHECK(r[2].groups[1].bottom == 233 && r[2].groups[2].right == 166 && r[2].groups[2].label == L"Weld");
+        CHECK(ModifierRollouts("Bend").size() == 1 && ModifierRollouts("Noise").empty());
+        auto em = std::make_shared<scene::EditMeshModifier>(8, std::vector<scene::EditMeshModifier::Move>{});
+        for (const auto& spec : r)
+            for (const Row& row : spec.rows)
+                if (row.paramIndex >= 0) CHECK(em->Params().Has(static_cast<size_t>(row.paramIndex)));
+    }
     CHECK(ParametersFor(42).rows.empty());
     // Keyboard Entry: X, Y, Z, then the sizes, then the Create button below them.
     const KeyboardSpec kb = KeyboardEntryFor(0);
