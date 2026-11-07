@@ -199,3 +199,5 @@ maxlike_add_test(test_move_math tests/test_move_math.cpp src/scene/MoveMath.cpp 
 maxlike_add_test(test_cfb tests/test_cfb.cpp src/io/Cfb.cpp)
 target_compile_definitions(test_cfb PRIVATE MAXLIKE_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
 maxlike_add_test(test_chunks tests/test_chunks.cpp src/io/Chunks.cpp)
+maxlike_add_test(test_samples tests/test_samples.cpp src/io/Cfb.cpp src/io/Chunks.cpp)
+target_compile_definitions(test_samples PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")

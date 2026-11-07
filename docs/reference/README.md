@@ -11,6 +11,9 @@
   `r3.1-modify-editmesh-vertex.png`, `r3.1-modifiers-dialog.png` — R3.1's Modify tab with
   a box, with Bend 30.5°, with Edit Mesh at Vertex level, and the Modifiers list
   (Phase 7; Bend's geometry verified against the second).
+- `samples/*.max` — seventeen R3.1 sample scenes (box, box_editmesh, boxes, cone,
+  cylinder, geosphere, instances, parent_child_link, pivot, plane, pyramid, sphere, teapot,
+  teapot_edit_mesh, teapot_smoothinggroups, torus, tube); `test_samples` reads them all.
 - `screenshots/r3.1-modify-editmesh-scrolled.png` — R3.1's Edit Mesh panel scrolled down by
   270: the rest of Edit Geometry and the scroll indicator in a second position (step 7.4c).
 - `screenshots/r3.1-move-selected.png` — R3.1 with Box01 selected and Select and Move
@@ -38,9 +41,9 @@ Still to add:
 - For later steps: R3's Object Color dialog (click the swatch); the Geometry dropdown
   open; Edit Mesh's Soft Selection opened; Surface Properties (scrolled to the end); an
   Edit Mesh at Face level; a modifier's gizmo up close.
-- **For Phase 8**: the `.max` samples themselves (below).
-- The sample `.max` files (in `docs/reference/samples/`; `.max` is marked binary in
-  `.gitattributes`); Summary Info of box, plane and pyramid; wireframe screenshots at the
-  default zoom (pixel-comparable); a shaded Perspective view.
+- For Phase 8: R3.1's Summary Info (File > Properties) for box, plane and pyramid; the
+  scene each sample shows when opened (object names and positions), to compare imports.
+- Wireframe screenshots of the samples at the default zoom (pixel-comparable); a shaded
+  Perspective view.
 
 Screenshots: full screen, Max maximised at 1920 × 1080, as the reference.
