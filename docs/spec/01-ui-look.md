@@ -229,9 +229,14 @@ the Create panel).
   right (x 29–60 for Modify); with Create selected these are hidden by the tab.
 - Verified: the Modify panel with a box, 58 differing pixels of 59,367, all in the
   disabled level combo's drop button (Wine draws its highlight white).
-- Bend's Parameters: group boxes "Bend:" (Angle, Direction), "Bend Axis:" (X / Y / Z
-  radios), "Limits" (Limit Effect checkbox, Upper Limit, Lower Limit); angles shown with
-  one decimal ("30.5", "0.0"). In the views, the gizmo is orange.
+- Bend's Parameters (title-relative; verified, 0 differing pixels): group boxes x 17–163
+  (shadow outline 17–162, white outline 18–163 whose right edge starts on the top row,
+  white bottom from x 17), "Bend:" T+25…T+84, "Bend Axis:" T+97…T+135, "Limits"
+  T+149…T+227, the top line cleared from x 24 to 55 / 77 / 53 around the label (text at
+  x 27, 4 rows above the line); Angle and Direction spinners at T+36 and T+57 with the
+  field at x 81; X / Y / Z radios at T+113, circles at x 40, 81, 120, labels 17 px after;
+  Limit Effect at T+160 (box x 87); Upper and Lower Limit at T+180 and T+201 with the
+  field at x 87; one decimal; content height 223. In the views, the gizmo is orange.
 - Edit Mesh at Vertex level: vertices drawn as dots, selected red, others blue; a
   Selection rollout (five level icons, "4 Vertices Selected"), Soft Selection
   (collapsed), Edit Geometry.

@@ -141,6 +141,7 @@ void MainFrame::UpdateModifyPanel() {
         info.current = modifyIndex_;
         const auto mod = CurrentModifier();
         info.currentIsModifier = mod != nullptr;
+        if (mod) info.currentClass = mod->ClassName();
         info.currentEnabled = mod ? mod->Enabled() : true;
         info.params = mod ? &mod->Params() : (base ? &base->Params() : nullptr);
         for (int t = 0; t < 10 && base; ++t)

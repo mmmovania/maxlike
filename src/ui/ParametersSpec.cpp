@@ -1,5 +1,6 @@
 #include "ui/ParametersSpec.h"
 #include "scene/Primitives.h"
+#include "scene/Modifier.h"
 
 namespace ui::params {
 
@@ -107,7 +108,7 @@ Spec ParametersFor(int type) {
         b.Count(L"Length Segs:", PlaneObject::kLengthSegs, 1, 200); b.Count(L"Width Segs:", PlaneObject::kWidthSegs, 1, 200);
         break;
     default:
-        return {{}, 0};
+        return Spec{};
     }
     return b.Done();
 }
@@ -133,6 +134,67 @@ KeyboardSpec KeyboardEntryFor(int type) {
     k.buttonTop = y + 5;
     k.fields.contentHeight = k.buttonTop + kCreateButtonHeight + 8 - 15;
     return k;
+}
+
+Spec ModifierParametersFor(const std::string& name) {
+    using scene::BendModifier; using scene::TaperModifier; using scene::TwistModifier;
+    auto spinner = [](const wchar_t* label, int index, int top, int fieldLeft, double min, double max, double step) {
+        Row r{label, index, Kind::Float, min, max, step, top};
+        r.fieldLeft = fieldLeft;
+        r.decimals = 1;                                    // measured: "30.5", "0.0"
+        return r;
+    };
+    auto radios = [](int index, int top, std::vector<std::wstring> labels, std::vector<int> lefts) {
+        Row r{L"", index, Kind::Radio, 0, static_cast<double>(labels.size() - 1), 1, top};
+        r.options = std::move(labels);
+        r.optionLefts = std::move(lefts);
+        return r;
+    };
+    auto check = [](const wchar_t* label, int index, int top, int left) {
+        Row r{label, index, Kind::Check, 0, 1, 1, top};
+        r.checkLeft = left;
+        return r;
+    };
+    // The measured Bend layout, shared: a first group with two spinners, an axis group
+    // with X / Y / Z, a Limits group with Limit Effect and two limits.
+    auto standard = [&](const wchar_t* first, const wchar_t* a, int ia, double aMin, double aMax, double aStep,
+                        const wchar_t* b, int ib, double bMin, double bMax, double bStep,
+                        const wchar_t* axisGroup, int iAxis, int iLimit, int iUpper, int iLower, int firstGap, int axisGap) {
+        Spec s;
+        s.groups = {{25, 84, first, firstGap}, {97, 135, axisGroup, axisGap}, {149, 227, L"Limits", 53}};
+        s.rows = {spinner(a, ia, 36, 81, aMin, aMax, aStep), spinner(b, ib, 57, 81, bMin, bMax, bStep),
+                  radios(iAxis, 113, {L"X", L"Y", L"Z"}, {40, 81, 120}),
+                  check(L"Limit Effect", iLimit, 160, 87),
+                  spinner(L"Upper Limit:", iUpper, 180, 87, 0, kBig, 0.1),
+                  spinner(L"Lower Limit:", iLower, 201, 87, -kBig, 0, 0.1)};
+        s.contentHeight = 223;                             // measured: frame's shadow line at title + 237
+        return s;
+    };
+    if (name == "Bend")
+        return standard(L"Bend:", L"Angle:", BendModifier::kAngle, -kBig, kBig, 0.5, L"Direction:", BendModifier::kDirection,
+                        -kBig, kBig, 0.5, L"Bend Axis:", BendModifier::kAxis, BendModifier::kLimit, BendModifier::kUpper,
+                        BendModifier::kLower, 55, 77);
+    if (name == "Twist")
+        return standard(L"Twist:", L"Angle:", TwistModifier::kAngle, -kBig, kBig, 0.5, L"Bias:", TwistModifier::kBias,
+                        -100, 100, 0.5, L"Twist Axis:", TwistModifier::kAxis, TwistModifier::kLimit, TwistModifier::kUpper,
+                        TwistModifier::kLower, 56, 80);
+    if (name == "Taper") {
+        // Taper's axis group holds Primary (X / Y / Z), Effect (X / Y / XY) and Symmetry:
+        // two more rows than Bend's, so it and Limits are 42 rows taller / lower.
+        Spec s = standard(L"Taper:", L"Amount:", TaperModifier::kAmount, -10, 10, 0.01, L"Curve:", TaperModifier::kCurve,
+                          -10, 10, 0.01, L"Taper Axis:", TaperModifier::kAxis, TaperModifier::kLimit, TaperModifier::kUpper,
+                          TaperModifier::kLower, 57, 79);
+        s.rows[0].decimals = s.rows[1].decimals = 2;
+        s.groups[1].bottom += 42;
+        s.groups[2].top += 42;
+        s.groups[2].bottom += 42;
+        for (size_t i = 3; i < s.rows.size(); ++i) s.rows[i].top += 42;
+        s.rows.insert(s.rows.begin() + 3, radios(TaperModifier::kEffect, 134, {L"X", L"Y", L"XY"}, {40, 81, 120}));
+        s.rows.insert(s.rows.begin() + 4, check(L"Symmetry", TaperModifier::kSymmetry, 155, 40));
+        s.contentHeight += 42;
+        return s;
+    }
+    return {};
 }
 
 Methods CreationMethodsFor(int type) {

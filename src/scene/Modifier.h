@@ -51,7 +51,8 @@ public:
 class TaperModifier : public Modifier {
 public:
     enum { kAmount = 0, kCurve, kAxis, kEffect, kSymmetry, kLimit, kLower, kUpper };
-    // kEffect: which perpendicular axes are scaled: 0 both, 1 the first, 2 the second.
+    // kEffect: which perpendicular axes are scaled: 0 the first, 1 the second, 2 both (as
+    // the rollout's X / Y / XY radios; R3's default is both).
     TaperModifier();
     std::string ClassName() const override { return "Taper"; }
     bool Apply(Mesh& mesh) const override;

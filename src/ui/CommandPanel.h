@@ -37,6 +37,7 @@ public:
         int current = 0;                          // the entry being shown
         int baseType = -1;                        // the base's Standard Primitive type, or -1
         bool currentIsModifier = false, currentEnabled = true;
+        std::string currentClass;                 // the current modifier's class ("Bend"), else empty
         const scene::ParamBlock* params = nullptr;   // the current entry's parameters
     };
     void SetModifyInfo(const ModifyInfo& info);
@@ -84,6 +85,7 @@ private:
     void PaintObjectType(HDC dc, int titleTop);
     void PaintNameAndColor(HDC dc, int titleTop);
     void PaintCreationMethod(HDC dc, int titleTop);
+    void DrawRadio(HDC dc, int x, int y, bool checked);
     void PaintRows(HDC dc, int titleTop, bool keyboard);   // Parameters or Keyboard Entry
 
     // Rollouts shown now: Object Type, Name and Color, and while a primitive is active,
@@ -104,7 +106,8 @@ private:
     int TitleTopOf(int id) const;             // -1 if not shown or closed
 
     // Parameters interaction.
-    enum class Part { None, Field, Up, Down, Check };
+    enum class Part { None, Field, Up, Down, Check, Radio };
+    mutable int radioOption_ = 0;               // the option ParamPartAt found (Part::Radio)
     Part ParamPartAt(int x, int y, int& row) const;
     double ParamValue(const params::Row& r) const;
     static constexpr int kKeyBase = 1000;     // Keyboard Entry row ids start here

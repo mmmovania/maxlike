@@ -6,6 +6,7 @@
 #include <windowsx.h>
 #include <commdlg.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 
 namespace ui {
@@ -62,7 +63,7 @@ void CommandPanel::UpdateCreateControls() {
 void CommandPanel::SetModifyInfo(const ModifyInfo& info) {
     EndTyping(true);
     modify_ = info;
-    if (selected_ == kModify) spec_ = modify_.currentIsModifier ? params::Spec{} : params::ParametersFor(modify_.baseType);
+    if (selected_ == kModify) spec_ = modify_.currentIsModifier ? params::ModifierParametersFor(modify_.currentClass) : params::ParametersFor(modify_.baseType);
     if (stackCombo_) {
         SendMessageW(stackCombo_, CB_RESETCONTENT, 0, 0);
         for (const std::wstring& e : modify_.stack) SendMessageW(stackCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(e.c_str()));
@@ -494,11 +495,9 @@ void CommandPanel::PaintNameColorBoxes(HDC dc, const Box& f, const Box& w) {
 }
 
 // Creation Method: two classic radio buttons (measured for Box at x 34 and 102, title + 22).
-void CommandPanel::PaintCreationMethod(HDC dc, int titleTop) {
-    const params::Methods m = params::CreationMethodsFor(createType_);
-    const std::wstring labels[2] = {m.first, m.second};
-    for (int i = 0; i < 2; ++i) {
-        const int x = params::kMethodRadioLeft[i], y = titleTop + params::kMethodTop;
+// A classic radio button, drawn from its measured 12 x 12 pattern (Wine's
+// DrawFrameControl draws a different circle; this is Windows', pixel for pixel).
+void CommandPanel::DrawRadio(HDC dc, int x, int y, bool checked) {
         // Drawn from the measured 12 x 12 pattern (Wine's DrawFrameControl draws a
         // different circle; this is the classic Windows radio button, pixel for pixel).
         static const char* const kRadio[12] = {
@@ -508,7 +507,7 @@ void CommandPanel::PaintCreationMethod(HDC dc, int titleTop) {
         for (int ry = 0; ry < 12; ++ry)
             for (int rx = 0; rx < 12; ++rx) {
                 char ch = kRadio[ry][rx];
-                if (method_ == i && ry >= 4 && ry < 8 && rx >= 3 && rx < 9 && kDot[ry - 4][rx - 3] == 'k') ch = 'k';
+                if (checked && ry >= 4 && ry < 8 && rx >= 3 && rx < 9 && kDot[ry - 4][rx - 3] == 'k') ch = 'k';
                 COLORREF c;
                 switch (ch) {
                 case 's': c = theme::kButtonShadow.Ref(); break;
@@ -520,6 +519,14 @@ void CommandPanel::PaintCreationMethod(HDC dc, int titleTop) {
                 }
                 FillSolid(dc, {Scale(x + rx), Scale(y + ry), Scale(x + rx + 1), Scale(y + ry + 1)}, c);
             }
+}
+
+void CommandPanel::PaintCreationMethod(HDC dc, int titleTop) {
+    const params::Methods m = params::CreationMethodsFor(createType_);
+    const std::wstring labels[2] = {m.first, m.second};
+    for (int i = 0; i < 2; ++i) {
+        const int x = params::kMethodRadioLeft[i], y = titleTop + params::kMethodTop;
+        DrawRadio(dc, x, y, method_ == i);
         RECT text{Scale(x + params::kRadioSize + 4), Scale(y - 2), Scale(x + 66), Scale(y + params::kRadioSize + 2)};
         DrawTextW(dc, labels[i].c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
@@ -568,35 +575,56 @@ void CommandPanel::PaintRows(HDC dc, int titleTop, bool keyboard) {
     const COLORREF hi = theme::kButtonHighlight.Ref(), sh = theme::kButtonShadow.Ref(), face = theme::Face();
     const COLORREF k = RGB(0, 0, 0);
     const std::vector<params::Row>& rows = keyboard ? keyboard_.fields.rows : spec_.rows;
+    // Group boxes (measured on Bend): an etched frame x 17..163 drawn as two outlines,
+    // the top line cleared around the label (x 24..gapEnd), the label 4 rows above it.
+    if (!keyboard)
+        for (const params::Group& g : spec_.groups) {
+            const int top = titleTop + g.top, bottom = titleTop + g.bottom;
+            px(18, top + 1, 163, top + 1, hi);   px(18, top + 1, 18, bottom + 1, hi);
+            px(163, top, 163, bottom + 1, hi);     px(17, bottom + 1, 163, bottom + 1, hi);   // right edge from the top row
+            px(17, top, 162, top, sh);           px(17, top, 17, bottom, sh);
+            px(162, top, 162, bottom, sh);       px(17, bottom, 162, bottom, sh);
+            px(24, top, g.gapEnd, top + 1, face);
+            RECT text{Scale(27), Scale(top - 6), Scale(160), Scale(top + 7)};
+            DrawTextW(dc, g.label.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        }
     for (size_t i = 0; i < rows.size(); ++i) {
         const params::Row& row = rows[i];
         const int id = static_cast<int>(i) + (keyboard ? kKeyBase : 0);
         const int T = titleTop + row.top;
         const double value = (id == spinRow_ && spinModel_) ? spinModel_->Value() : RowValue(id);
         if (row.kind == params::Kind::Check) {
-            RECT box{Scale(params::kCheckLeft), Scale(T), Scale(params::kCheckLeft + 13), Scale(T + 13)};
+            RECT box{Scale(row.checkLeft), Scale(T), Scale(row.checkLeft + 13), Scale(T + 13)};
             DrawFrameControl(dc, &box, DFC_BUTTON, DFCS_BUTTONCHECK | (value != 0 ? DFCS_CHECKED : 0));
-            RECT text{Scale(params::kCheckTextLeft), Scale(T - 2), Scale(170), Scale(T + 15)};
+            RECT text{Scale(row.checkLeft + 19), Scale(T - 2), Scale(170), Scale(T + 15)};
             DrawTextW(dc, row.label.c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             continue;
         }
-        RECT label{Scale(10), Scale(T), Scale(params::kLabelRight + 1), Scale(T + params::kSpinnerHeight)};
+        if (row.kind == params::Kind::Radio) {
+            for (size_t o = 0; o < row.options.size() && o < row.optionLefts.size(); ++o) {
+                DrawRadio(dc, row.optionLefts[o], T, static_cast<int>(std::lround(value)) == static_cast<int>(o));
+                RECT text{Scale(row.optionLefts[o] + 17), Scale(T - 2), Scale(row.optionLefts[o] + 40), Scale(T + 14)};
+                DrawTextW(dc, row.options[o].c_str(), -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            }
+            continue;
+        }
+        RECT label{Scale(10), Scale(T), Scale(row.LabelRight() + 1), Scale(T + params::kSpinnerHeight)};
         DrawTextW(dc, row.label.c_str(), -1, &label, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         // Field.
-        const int L = params::kFieldLeft, R = params::kFieldRight, B = T + params::kSpinnerHeight - 1;
+        const int L = row.fieldLeft, R = row.FieldRight(), B = T + params::kSpinnerHeight - 1;
         px(L, T, R - 1, T, sh);        px(L, T, L, B, sh);
         px(R, T, R, B, hi);            px(L + 1, B, R, B, hi);
         px(L + 1, T + 1, R - 2, T + 1, k);   px(L + 1, T + 1, L + 1, B - 1, k);
         px(R - 1, T + 1, R - 1, B - 1, face); px(L + 2, B - 1, R - 1, B - 1, face);
         px(L + 2, T + 2, R - 2, B - 2, hi);
         if (!(typing_ && typingRow_ == id)) {
-            SpinnerModel shown(value, row.min, row.max, row.step, row.kind == params::Kind::Int, params::kFloatDecimals);
+            SpinnerModel shown(value, row.min, row.max, row.step, row.kind == params::Kind::Int, row.decimals);
             const std::wstring text = shown.Text();
             RECT tr{Scale(L + 4), Scale(T + 2), Scale(R - 1), Scale(B - 1)};
             DrawTextW(dc, text.c_str(), -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         }
         // Arrows.
-        const int A = params::kArrowsLeft, Z = params::kArrowsRight;
+        const int A = row.ArrowsLeft(), Z = row.ArrowsRight();
         px(A, T, A, B, hi);
         px(Z, T, Z, B, k);
         // Up half: rows 0..7 (shadow on row 7). Down half: rows 8..14 (shadow on row 14),
@@ -610,8 +638,8 @@ void CommandPanel::PaintRows(HDC dc, int titleTop, bool keyboard) {
             px(A + 2, last, Z - 1, last, sh);            // bottom shadow
         }
         px(A + 1, B, Z, B, k);                           // bottom: dark
-        px(151, T + 3, 151, T + 3, k); px(150, T + 4, 152, T + 4, k); px(149, T + 5, 153, T + 5, k);     // up
-        px(149, T + 10, 153, T + 10, k); px(150, T + 11, 152, T + 11, k); px(151, T + 12, 151, T + 12, k); // down
+        px(A + 5, T + 3, A + 5, T + 3, k); px(A + 4, T + 4, A + 6, T + 4, k); px(A + 3, T + 5, A + 7, T + 5, k);     // up
+        px(A + 3, T + 10, A + 7, T + 10, k); px(A + 4, T + 11, A + 6, T + 11, k); px(A + 5, T + 12, A + 5, T + 12, k); // down
     }
     if (keyboard) {
         // The Create button, drawn like the Object Type buttons. NOTE: position unverified.
@@ -639,12 +667,21 @@ CommandPanel::Part CommandPanel::ParamPartAt(int x, int y, int& row) const {
             const int id = static_cast<int>(i) + (keyboard ? kKeyBase : 0);
             const int T = titleTop + r.top;
             if (r.kind == params::Kind::Check) {
-                if (y >= T && y < T + 13 && x >= params::kCheckLeft && x < 170) { row = id; return Part::Check; }
+                if (y >= T && y < T + 13 && x >= r.checkLeft && x < 170) { row = id; return Part::Check; }
+                continue;
+            }
+            if (r.kind == params::Kind::Radio) {
+                for (size_t o = 0; o < r.optionLefts.size(); ++o)
+                    if (y >= T - 2 && y < T + 14 && x >= r.optionLefts[o] && x < r.optionLefts[o] + 34) {
+                        row = id;
+                        radioOption_ = static_cast<int>(o);
+                        return Part::Radio;
+                    }
                 continue;
             }
             if (y < T || y >= T + params::kSpinnerHeight) continue;
-            if (x >= params::kFieldLeft && x <= params::kFieldRight) { row = id; return Part::Field; }
-            if (x >= params::kArrowsLeft && x <= params::kArrowsRight) { row = id; return y < T + 8 ? Part::Up : Part::Down; }
+            if (x >= r.fieldLeft && x <= r.FieldRight()) { row = id; return Part::Field; }
+            if (x >= r.ArrowsLeft() && x <= r.ArrowsRight()) { row = id; return y < T + 8 ? Part::Up : Part::Down; }
         }
     }
     return Part::None;
@@ -666,9 +703,9 @@ void CommandPanel::BeginTyping(int row) {
     if (titleTop < 0) return;
     const params::Row& r = RowAt(row);
     const int T = titleTop + r.top;
-    SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+    SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, r.decimals);
     typing_ = CreateWindowExW(0, L"EDIT", m.Text().c_str(), WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL,
-                              Scale(params::kFieldLeft + 2), Scale(T + 2), Scale(params::kFieldRight - params::kFieldLeft - 3),
+                              Scale(r.fieldLeft + 2), Scale(T + 2), Scale(r.FieldRight() - r.fieldLeft - 3),
                               Scale(params::kSpinnerHeight - 4), Hwnd(), nullptr, win::App::Instance(), nullptr);
     if (!typing_) return;
     typingRow_ = row;
@@ -711,7 +748,7 @@ void CommandPanel::EndTyping(bool commit) {
         wchar_t buf[64] = {};
         GetWindowTextW(edit, buf, 64);
         const params::Row& r = RowAt(row);
-        SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+        SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, r.decimals);
         if (m.SetText(buf)) RowChanged(row, m.Value(), true);
     }
     DestroyWindow(edit);
@@ -816,7 +853,7 @@ void CommandPanel::SelectTab(int tab) {
     selected_ = tab;
     EndTyping(true);
     if (tab == kCreate) spec_ = params::ParametersFor(createType_);
-    if (tab == kModify) spec_ = modify_.currentIsModifier ? params::Spec{} : params::ParametersFor(modify_.baseType);
+    if (tab == kModify) spec_ = modify_.currentIsModifier ? params::ModifierParametersFor(modify_.currentClass) : params::ParametersFor(modify_.baseType);
     scroll_ = 0;
     UpdateCreateControls();
     UpdateModifyControls();
@@ -995,6 +1032,8 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             const params::Row& r = RowAt(row);
             if (part == Part::Check) {
                 RowChanged(row, RowValue(row) != 0 ? 0 : 1, true);
+            } else if (part == Part::Radio) {
+                if (static_cast<int>(std::lround(RowValue(row))) != radioOption_) RowChanged(row, radioOption_, true);
             } else if (part == Part::Field) {
                 BeginTyping(row);
             } else {
@@ -1003,7 +1042,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
                 spinPressY_ = GET_Y_LPARAM(lp);
                 spinMoved_ = false;
                 spinModel_ = std::make_unique<SpinnerModel>(RowValue(row), r.min, r.max, r.step,
-                                                            r.kind == params::Kind::Int, params::kFloatDecimals);
+                                                            r.kind == params::Kind::Int, r.decimals);
                 spinModel_->BeginDrag();
                 SetCapture(Hwnd());
             }
@@ -1065,7 +1104,7 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         const Part part = ParamPartAt(x, y, row);
         if (part == Part::Up || part == Part::Down) {   // right-click on the arrows: reset
             const params::Row& r = RowAt(row);
-            SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, params::kFloatDecimals);
+            SpinnerModel m(RowValue(row), r.min, r.max, r.step, r.kind == params::Kind::Int, r.decimals);
             m.Reset();
             RowChanged(row, m.Value(), true);
         }

@@ -98,7 +98,7 @@ TaperModifier::TaperModifier() {
     params_.Define(kAmount, ParamType::Float, 0);
     params_.Define(kCurve, ParamType::Float, 0);
     params_.Define(kAxis, ParamType::Int, 2);
-    params_.Define(kEffect, ParamType::Int, 0);
+    params_.Define(kEffect, ParamType::Int, 2);
     params_.Define(kSymmetry, ParamType::Bool, 0);
     LimitDefaults(params_, kLimit, kLower, kUpper);
 }
@@ -117,8 +117,8 @@ bool TaperModifier::Apply(Mesh& mesh) const {
         double t = h / L;
         if (symmetry) t = std::fabs(t);
         const double scale = 1 + amount * t + curve * 4 * t * (1 - t);
-        if (effect != 2) At(v, f.a) *= scale;
-        if (effect != 1) At(v, f.b) *= scale;
+        if (effect != 1) At(v, f.a) *= scale;
+        if (effect != 0) At(v, f.b) *= scale;
     }
     return true;
 }

@@ -18,7 +18,11 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       on/off, remove, Sub-Object), the base object's Parameters; every change undoable
       (`AddModifierCommand`, `RemoveModifierCommand`, `EnableModifierCommand`,
       `SetParamCommand` for modifiers)
-- [ ] 7.3 Bend, Taper, Twist rollouts; adding and removing modifiers through undo
+- [x] **7.3 Bend, Taper, Twist rollouts**: rows with their own field, checkbox and
+      decimals, radio rows and group boxes (`params::Row`, `params::Group`); Bend's rollout
+      measured (`ModifierParametersFor`), Taper's and Twist's in the same layout; every
+      change undoable
+- [ ] 7.3b The modifier gizmo in the views (orange in R3)
 - [ ] 7.4 Edit Mesh at vertex and face level (sub-object selection, moving vertices)
 - [ ] 7.5 Wrap-up
 
@@ -61,6 +65,22 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
 - [ ] On Windows: the same; the disabled combo's button should match R3 there
 - [ ] Unverified: the stack icons (original drawings, approximate positions), the icon
       button's icon, what More... and Sets open (not implemented)
+
+## Step 7.3 verification
+- [x] Builds warning-free (clean rebuild; `Row` got a constructor so brace lists keep
+      their new defaults without MinGW's missing-initializer warnings); twenty-four test
+      programs pass (MinGW + Wine)
+- [x] `test_parameters_spec`: Bend's measured groups, spinner fields (x 81 and 87),
+      radios (x 40, 81, 120), checkbox (x 87), one decimal, content height; every row of
+      Bend, Twist and Taper refers to a real parameter; Create rows unchanged
+- [x] Under Wine, compared with `r3.1-modify-bend.png`: the whole Modify panel with Bend,
+      0 differing pixels of 67,108 (text, icons, the swatch and the disabled level combo
+      masked); the plain-box panel still 58 (Wine's disabled combo button); the default
+      window unchanged
+- [x] Under Wine: Angle 90 bends a box; Bend Axis X changes the bend; Undo restores it
+- [ ] On Windows: edit Bend, Taper and Twist with spinners, radios and Limit Effect; undo
+- [ ] Unverified: Taper's and Twist's rollouts (laid out like Bend's: labels, the axis
+      group's extra rows, label gaps), spinner speeds
 
 ## Notes
 - No user interface yet: the modifiers are visible through the demo scene; the Modify
