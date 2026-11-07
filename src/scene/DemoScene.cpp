@@ -34,8 +34,36 @@ static void BuildInstances(Scene& s) {
     }
 }
 
+// Bend, Twist and Taper (Phase 7) on three tall boxes with enough segments to show the
+// curves: Bend 90 degrees, Twist 90 degrees, Taper inwards with a slight curve.
+static void BuildDeform(Scene& s) {
+    auto tall = [] {
+        auto b = std::make_shared<BoxObject>(20, 20, 100);
+        b->Params().Set(BoxObject::kHeightSegs, 20);
+        b->Params().Set(BoxObject::kLengthSegs, 4);
+        b->Params().Set(BoxObject::kWidthSegs, 4);
+        return b;
+    };
+    auto bend = std::make_shared<BendModifier>();
+    bend->Params().Set(BendModifier::kAngle, 90);
+    auto twist = std::make_shared<TwistModifier>();
+    twist->Params().Set(TwistModifier::kAngle, 90);
+    auto taper = std::make_shared<TaperModifier>();
+    taper->Params().Set(TaperModifier::kAmount, -0.6);
+    taper->Params().Set(TaperModifier::kCurve, 0.3);
+    const std::shared_ptr<Modifier> mods[3] = {bend, twist, taper};
+    const char* names[3] = {"Bend", "Twist", "Taper"};
+    const uint32_t colours[3] = {0x1AB194, 0xB1581A, 0x8A1AB1};
+    for (int i = 0; i < 3; ++i) {
+        auto d = std::make_shared<DerivedObject>(tall());
+        d->AddModifier(mods[i]);
+        Add(s, names[i], d, colours[i], {-90.0 + 90.0 * i, 0, 0});
+    }
+}
+
 bool BuildDemoScene(Scene& s, const std::string& which) {
     if (which == "instances") { BuildInstances(s); return true; }
+    if (which == "deform") { BuildDeform(s); return true; }
     struct Sample { const char* name; const char* base; uint32_t colour; double allX;
                     std::shared_ptr<Object> (*make)(); double allY = 0; };
     static const Sample kSamples[] = {

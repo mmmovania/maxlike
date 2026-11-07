@@ -7,6 +7,7 @@
 #include "scene/ParamBlock.h"
 #include <memory>
 #include <string>
+#include <vector>
 #include <functional>
 
 namespace ui {
@@ -28,6 +29,30 @@ public:
     std::function<void(int method)> onCreationMethodChanged;
     // The name field was edited (Enter or leaving it); Esc cancels without a call.
     std::function<void(const std::wstring& name)> onNameChanged;
+
+    // The Modify tab (Phase 7): what it shows for the one selected object.
+    struct ModifyInfo {
+        bool valid = false;                       // exactly one object selected
+        std::vector<std::wstring> stack;          // top first; the last entry is the base object
+        int current = 0;                          // the entry being shown
+        int baseType = -1;                        // the base's Standard Primitive type, or -1
+        bool currentIsModifier = false, currentEnabled = true;
+        std::string currentClass;                 // the current modifier's class ("Bend"), else empty
+        std::vector<std::wstring> subObjectLevels;   // e.g. Edit Mesh: Vertex, Edge, Face, Polygon, Element
+        bool subObjectOn = false;                 // the Sub-Object button pressed
+        int subObjectLevel = 0;
+        std::wstring selectionText;               // e.g. "4 Vertices Selected" (Edit Mesh)
+        const scene::ParamBlock* params = nullptr;   // the current entry's parameters
+    };
+    void SetModifyInfo(const ModifyInfo& info);
+    bool InModify() const { return selected_ == cmdpanel::kModify && modify_.valid; }
+    std::function<void(int tab)> onTabSelected;
+    std::function<void(const std::wstring& button)> onModifierButton;   // "Bend", "More...", ...
+    std::function<void(int index)> onStackSelect;                       // 0 = top of the stack
+    std::function<void(int button)> onStackButton;   // 0 on/off, 1 end result, 2 unique, 3 remove, 4 edit
+    std::function<void(bool on)> onSubObject;          // the Sub-Object button
+    std::function<void(int level)> onSubObjectLevel;   // the level combo or a level icon
+    std::function<void(const std::wstring& label)> onRolloutButton;   // a push button in a rollout
     // Keyboard Entry's Create: world position and the typed sizes (Max indices).
     std::function<void(double x, double y, double z, const std::vector<std::pair<int, double>>& sizes)> onKeyboardCreate;
 
@@ -67,17 +92,38 @@ private:
     void PaintObjectType(HDC dc, int titleTop);
     void PaintNameAndColor(HDC dc, int titleTop);
     void PaintCreationMethod(HDC dc, int titleTop);
-    void PaintRows(HDC dc, int titleTop, bool keyboard);   // Parameters or Keyboard Entry
+    void DrawRadio(HDC dc, int x, int y, bool checked, bool enabled = true);
+    // Rows of one rollout: slot -1 = Keyboard Entry; otherwise slot 0 = the Create
+    // panel's Parameters, or slot n = the Modify tab's n-th rollout. Row ids: Keyboard
+    // Entry kKeyBase + i, others slot * 100 + i.
+    void PaintRows(HDC dc, int titleTop, int slot);
+    const params::Spec& SpecAt(int slot) const { return InModify() ? modSpecs_[static_cast<size_t>(slot)] : spec_; }
+    int RollIdForSlot(int slot) const { return InModify() ? kRollDynamic + slot : kRollParameters; }
+    static constexpr int kRollDynamic = 100;   // Modify-tab rollouts: kRollDynamic + slot
 
     // Rollouts shown now: Object Type, Name and Color, and while a primitive is active,
     // Creation Method, Keyboard Entry and Parameters.
-    enum RolloutId { kRollObjectType, kRollNameColor, kRollCreationMethod, kRollKeyboardEntry, kRollParameters, kRollCount };
+    enum RolloutId { kRollObjectType, kRollNameColor, kRollCreationMethod, kRollKeyboardEntry, kRollParameters,
+                     kRollModifiers, kRollStack, kRollCount };
+    rollup::Box Container() const { return InModify() ? rollup::kModifyContainer : rollup::kContainer; }
+    // The name field and swatch now shown (Create: in Name and Color; Modify: above the rollup).
+    bool NameColorBoxes(cmdpanel::Box& field, cmdpanel::Box& swatch) const;
+    void PaintNameColorBoxes(HDC dc, const cmdpanel::Box& field, const cmdpanel::Box& swatch);
+    void PaintModifiers(HDC dc, int titleTop);
+    void PaintStack(HDC dc, int titleTop);
+    void UpdateModifyControls();                 // place / show the stack and level combos
+    int ModifierButtonAt(int x, int y) const;    // index into the ten buttons, or -1
+    int StackButtonAt(int x, int y) const;       // 0..4, or -1
     std::vector<int> VisibleRollouts() const;
     std::vector<rollup::Item> RolloutItems() const;
-    int TitleTopOf(int id) const;             // -1 if not shown or closed
+    // A rollout's title row (negative when scrolled above the container), or kNoTitle
+    // if it is not shown or closed.
+    static constexpr int kNoTitle = -1000000;
+    int TitleTopOf(int id) const;
 
     // Parameters interaction.
-    enum class Part { None, Field, Up, Down, Check };
+    enum class Part { None, Field, Up, Down, Check, Radio, Button, Level };
+    mutable int radioOption_ = 0;               // the option ParamPartAt found (Part::Radio)
     Part ParamPartAt(int x, int y, int& row) const;
     double ParamValue(const params::Row& r) const;
     static constexpr int kKeyBase = 1000;     // Keyboard Entry row ids start here
@@ -100,7 +146,11 @@ private:
     HBITMAP categoryIcons_ = nullptr;    // res/panel_category_icons.bmp, 16 x 16 cells
     int category_ = cmdpanel::kGeometry; // the reference shows Geometry pressed
     HWND dropdown_ = nullptr;            // classic COMBOBOX (draws R3's look itself)
-    bool open_[kRollCount] = {true, true, true, false, true};   // R3: Keyboard Entry starts collapsed
+    bool open_[kRollCount] = {true, true, true, false, true, true, true};   // R3: Keyboard Entry starts collapsed
+    ModifyInfo modify_;
+    std::vector<params::Spec> modSpecs_;      // the Modify tab's rollouts below the stack
+    std::vector<bool> modOpen_;
+    HWND stackCombo_ = nullptr, levelCombo_ = nullptr;
     params::Spec spec_;                  // Parameters of the active primitive
     params::KeyboardSpec keyboard_;      // Keyboard Entry of the active primitive
     std::vector<double> keValues_;       // its typed values (X, Y, Z, sizes)

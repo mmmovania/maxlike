@@ -161,7 +161,71 @@ static void SelectionAndDelete() {
     CHECK(!s.IsSelected(ia) && s.Selection().size() == 1);
 }
 
+static void ModifierCommands() {
+    Scene s;
+    UndoStack u;
+    Node* n = s.CreateNode("Box01");
+    auto box = std::make_shared<BoxObject>(20, 20, 100);
+    n->SetObject(box);
+    const Node::Id id = n->GetId();
+    // Adding a modifier to a plain object wraps it in a stack; undo unwraps it.
+    auto bend = std::make_shared<BendModifier>();
+    u.Execute(std::make_unique<AddModifierCommand>(id, bend), s);
+    auto d = std::dynamic_pointer_cast<DerivedObject>(s.FindById(id)->GetObject());
+    CHECK(d && d->Base() == box && d->Modifiers().size() == 1 && u.UndoName() == "Add Modifier");
+    CHECK(u.Undo(s) && s.FindById(id)->GetObject() == box);
+    CHECK(u.Redo(s) && std::dynamic_pointer_cast<DerivedObject>(s.FindById(id)->GetObject()));
+    // A second modifier goes on top of the same stack, without wrapping again.
+    auto twist = std::make_shared<TwistModifier>();
+    u.Execute(std::make_unique<AddModifierCommand>(id, twist), s);
+    d = std::dynamic_pointer_cast<DerivedObject>(s.FindById(id)->GetObject());
+    CHECK(d && d->Modifiers().size() == 2 && d->Modifiers()[1] == twist);
+    // Changing a modifier's parameter, then undoing it.
+    u.Execute(std::make_unique<SetParamCommand>(std::shared_ptr<Modifier>(bend), BendModifier::kAngle, 45.0), s);
+    CHECK(bend->Params().Float(BendModifier::kAngle) == 45);
+    CHECK(u.Undo(s) && bend->Params().Float(BendModifier::kAngle) == 0);
+    // Removing the bottom modifier (Bend), then undoing: it returns at the same place.
+    u.Execute(std::make_unique<RemoveModifierCommand>(id, 0), s);
+    CHECK(d->Modifiers().size() == 1 && d->Modifiers()[0] == twist && u.UndoName() == "Delete Modifier");
+    CHECK(u.Undo(s) && d->Modifiers().size() == 2 && d->Modifiers()[0] == bend);
+    // Turning a modifier off and on.
+    u.Execute(std::make_unique<EnableModifierCommand>(twist, false), s);
+    CHECK(!twist->Enabled());
+    CHECK(u.Undo(s) && twist->Enabled());
+}
+
+static void EditMeshVertices() {
+    Scene s;
+    UndoStack u;
+    Node* n = s.CreateNode("Box01");
+    auto d = std::make_shared<DerivedObject>(std::make_shared<BoxObject>(10, 10, 10));
+    auto bend = std::make_shared<BendModifier>();
+    d->AddModifier(std::make_shared<EditMeshModifier>(8, std::vector<EditMeshModifier::Move>{}));
+    d->AddModifier(bend);
+    n->SetObject(d);
+    auto em = std::dynamic_pointer_cast<EditMeshModifier>(d->Modifiers()[0]);
+    // Selecting vertices is an undo step; the selection is kept sorted and unique.
+    u.Execute(std::make_unique<SelectVerticesCommand>(em, std::vector<uint32_t>{6, 4, 6, 5, 7}), s);
+    CHECK(em->SelectedVertices() == (std::vector<uint32_t>{4, 5, 6, 7}) && u.UndoName() == "Select");
+    // Moving them: one step; the moves accumulate per vertex.
+    auto moves = EditMeshModifier::AddToMoves(em->Moves(), em->SelectedVertices(), {0, 0, 5});
+    moves = EditMeshModifier::AddToMoves(moves, {4}, {1, 0, 0});
+    u.Execute(std::make_unique<MoveVerticesCommand>(em, moves), s);
+    CHECK(em->Moves().size() == 4);
+    // Edit Mesh shows the mesh at its own level: vertex 4 moved, Bend above not applied.
+    const Mesh atEditMesh = d->EvaluateUpTo(1), before = d->EvaluateUpTo(0);
+    CHECK(atEditMesh.verts[4].x == before.verts[4].x + 1 && atEditMesh.verts[4].z == before.verts[4].z + 5);
+    CHECK(atEditMesh.verts[0].z == before.verts[0].z);
+    bend->Params().Set(BendModifier::kAngle, 45);
+    CHECK(d->Evaluate().verts[4].x != atEditMesh.verts[4].x && d->EvaluateUpTo(1).verts[4].x == atEditMesh.verts[4].x);
+    // Undo the move, then the selection.
+    CHECK(u.Undo(s) && em->Moves().empty() && d->EvaluateUpTo(1).verts[4].z == before.verts[4].z);
+    CHECK(u.Undo(s) && em->SelectedVertices().empty());
+}
+
 int main() {
+    EditMeshVertices();
+    ModifierCommands();
     SelectionAndDelete();
     CreateUndoRedo();
     DeleteRestoresHierarchyExactly();

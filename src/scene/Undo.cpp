@@ -90,12 +90,46 @@ void TransformCommand::Undo(Scene& scene) {
 }
 
 void SetParamCommand::Do(Scene&) {
-    before_ = object_->Params().Float(index_);
-    object_->Params().Set(index_, after_);
+    before_ = block_->Float(index_);
+    block_->Set(index_, after_);
 }
 
 void SetParamCommand::Undo(Scene&) {
-    object_->Params().Set(index_, before_);
+    block_->Set(index_, before_);
+}
+
+void AddModifierCommand::Do(Scene& scene) {
+    Node* n = scene.FindById(node_);
+    if (!n) return;
+    derived_ = std::dynamic_pointer_cast<DerivedObject>(n->GetObject());
+    original_.reset();
+    if (!derived_) {
+        original_ = n->GetObject();
+        derived_ = std::make_shared<DerivedObject>(original_);
+        n->SetObject(derived_);
+    }
+    derived_->AddModifier(modifier_);
+}
+
+void AddModifierCommand::Undo(Scene& scene) {
+    if (!derived_) return;
+    const auto& mods = derived_->Modifiers();
+    for (size_t i = mods.size(); i-- > 0;)
+        if (mods[i] == modifier_) { derived_->RemoveModifierAt(i); break; }
+    if (original_)
+        if (Node* n = scene.FindById(node_)) n->SetObject(original_);
+}
+
+void RemoveModifierCommand::Do(Scene& scene) {
+    Node* n = scene.FindById(node_);
+    derived_ = n ? std::dynamic_pointer_cast<DerivedObject>(n->GetObject()) : nullptr;
+    if (!derived_ || index_ >= derived_->Modifiers().size()) { derived_.reset(); return; }
+    removed_ = derived_->Modifiers()[index_];
+    derived_->RemoveModifierAt(index_);
+}
+
+void RemoveModifierCommand::Undo(Scene&) {
+    if (derived_ && removed_) derived_->InsertModifier(index_, removed_);
 }
 
 void LinkCommand::Do(Scene& scene) {

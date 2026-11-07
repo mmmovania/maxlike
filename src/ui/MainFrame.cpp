@@ -1,5 +1,7 @@
 #include "ui/MainFrame.h"
+#include "ui/ModifiersDialog.h"
 #include <cwchar>
+#include <algorithm>
 #include "ui/FrameLayout.h"
 #include "ui/Bevel.h"
 #include "scene/DemoScene.h"
@@ -74,6 +76,7 @@ void MainFrame::DeleteSelection() {
     if (scene_.Selection().empty()) return;
     undo_.Execute(std::make_unique<scene::DeleteSelectionCommand>(), scene_);
     UpdateSelectionStatus();
+    UpdateModifyPanel();
     UpdateCreatePanel();
     viewports_.Redraw();
 }
@@ -99,12 +102,79 @@ static std::string ToUtf8(const std::wstring& w) {
 // one selected object (none with zero or several selected; NOTE: R3's look with several
 // selected is unverified).
 scene::Node* MainFrame::NameColorTarget() const {
-    if (commandPanel_.CreateType() >= 0) {
+    if (commandPanel_.SelectedTab() == cmdpanel::kCreate && commandPanel_.CreateType() >= 0) {
         const std::string name = creation_.TargetName();
         return name.empty() ? nullptr : scene_.Find(name);
     }
     const auto& sel = scene_.Selection();
     return sel.size() == 1 ? scene_.FindById(sel[0]) : nullptr;
+}
+
+std::shared_ptr<scene::DerivedObject> MainFrame::SelectedStack(scene::Node** nodeOut) const {
+    const auto& sel = scene_.Selection();
+    scene::Node* node = sel.size() == 1 ? scene_.FindById(sel[0]) : nullptr;
+    if (nodeOut) *nodeOut = node;
+    return node ? std::dynamic_pointer_cast<scene::DerivedObject>(node->GetObject()) : nullptr;
+}
+
+std::shared_ptr<scene::EditMeshModifier> MainFrame::VertexEditingMod() const {
+    if (!subObject_ || subLevel_ != 0 || !commandPanel_.InModify()) return nullptr;
+    return std::dynamic_pointer_cast<scene::EditMeshModifier>(CurrentModifier());
+}
+
+std::shared_ptr<scene::Modifier> MainFrame::CurrentModifier() const {
+    const auto stack = SelectedStack();
+    if (!stack) return nullptr;
+    const auto& mods = stack->Modifiers();
+    if (modifyIndex_ < 0 || static_cast<size_t>(modifyIndex_) >= mods.size()) return nullptr;
+    return mods[mods.size() - 1 - static_cast<size_t>(modifyIndex_)];   // the list shows the top first
+}
+
+// The Modify tab shows the one selected object: its stack (modifiers top first, then
+// the base object), the entry chosen in the list, and that entry's parameters.
+void MainFrame::UpdateModifyPanel() {
+    ui::CommandPanel::ModifyInfo info;
+    scene::Node* node = nullptr;
+    const auto stack = SelectedStack(&node);
+    if (node && node->GetObject()) {
+        info.valid = true;
+        const std::shared_ptr<scene::Object> base = stack ? stack->Base() : node->GetObject();
+        if (stack)
+            for (auto it = stack->Modifiers().rbegin(); it != stack->Modifiers().rend(); ++it)
+                info.stack.push_back(FromUtf8((*it)->ClassName()));
+        info.stack.push_back(FromUtf8(base ? base->ClassName() : std::string("Object")));
+        modifyIndex_ = std::clamp(modifyIndex_, 0, static_cast<int>(info.stack.size()) - 1);
+        info.current = modifyIndex_;
+        const auto mod = CurrentModifier();
+        info.currentIsModifier = mod != nullptr;
+        if (mod) info.currentClass = mod->ClassName();
+        info.currentEnabled = mod ? mod->Enabled() : true;
+        info.params = mod ? &mod->Params() : (base ? &base->Params() : nullptr);
+        for (int t = 0; t < 10 && base; ++t)
+            if (base->ClassName() == scene::PrimitiveBaseName(t)) info.baseType = t;
+        if (std::dynamic_pointer_cast<scene::EditMeshModifier>(mod))
+            info.subObjectLevels = {L"Vertex", L"Edge", L"Face", L"Polygon", L"Element"};
+        if (info.subObjectLevels.empty()) subObject_ = false;
+        info.subObjectOn = subObject_;
+        info.subObjectLevel = subLevel_;
+        if (const auto em = std::dynamic_pointer_cast<scene::EditMeshModifier>(mod)) {
+            // NOTE: R3's wording for one vertex or none is unverified.
+            info.selectionText = std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected";
+        }
+    }
+    commandPanel_.SetModifyInfo(info);
+    // The views draw and pick vertices while an Edit Mesh is at Vertex level.
+    ui::Viewport::VertexEditing editing;
+    if (const auto em = VertexEditingMod()) {
+        editing.on = true;
+        editing.node = node->GetId();
+        editing.stack = stack;
+        editing.mod = em;
+        const auto& mods = stack->Modifiers();
+        for (size_t i = 0; i < mods.size(); ++i)
+            if (mods[i] == em) editing.upTo = i + 1;
+    }
+    viewports_.SetVertexEditing(editing);
 }
 
 void MainFrame::UpdateCreatePanel() {
@@ -206,8 +276,32 @@ bool MainFrame::CreateRegions() {
     // Parameters: while building, changes go straight to the object; afterwards a spinner
     // drag previews live and becomes one undo step when released.
     commandPanel_.onParamChanged = [this](int index, double value, bool final) {
-        std::shared_ptr<scene::Object> obj = creation_.TargetObject();
         const auto i = static_cast<size_t>(index);
+        if (commandPanel_.InModify()) {
+            // The Modify tab: the shown stack entry's parameters, one undo step per change
+            // (a drag previews live and is recorded once, from where it started).
+            const auto mod = CurrentModifier();
+            scene::Node* node = nullptr;
+            const auto stack = SelectedStack(&node);
+            std::shared_ptr<scene::Object> base = stack ? stack->Base() : (node ? node->GetObject() : nullptr);
+            scene::ParamBlock* block = mod ? &mod->Params() : (base ? &base->Params() : nullptr);
+            if (!block) return;
+            if (!final) {
+                if (!paramDragging_) { paramDragging_ = true; paramDragStart_ = block->Float(i); }
+                block->Set(i, value);
+            } else {
+                if (paramDragging_) block->Set(i, paramDragStart_);
+                paramDragging_ = false;
+                if (block->Float(i) != value) {
+                    if (mod) undo_.Execute(std::make_unique<scene::SetParamCommand>(mod, i, value), scene_);
+                    else undo_.Execute(std::make_unique<scene::SetParamCommand>(base, i, value), scene_);
+                }
+            }
+            viewports_.Redraw();
+            commandPanel_.Refresh();
+            return;
+        }
+        std::shared_ptr<scene::Object> obj = creation_.TargetObject();
         if (!obj || creation_.Busy()) {
             if (panelObject_) panelObject_->Params().Set(i, value);
         } else if (!final) {
@@ -254,13 +348,117 @@ bool MainFrame::CreateRegions() {
         if (next == scene_.Selection()) return;
         undo_.Execute(std::make_unique<scene::SelectCommand>(next), scene_);
         UpdateSelectionStatus();
+        modifyIndex_ = 0;
+        subObject_ = false;
+        UpdateModifyPanel();
         UpdateCreatePanel();
         viewports_.Redraw();
     };
     viewports_.onDeleteKey = [this] { DeleteSelection(); };
+
+    // The Modify tab (Phase 7).
+    commandPanel_.onTabSelected = [this](int tab) {
+        if (tab == cmdpanel::kModify && commandPanel_.CreateType() >= 0) commandPanel_.SetCreateType(-1);  // R3 leaves creation
+        modifyIndex_ = 0;
+        subObject_ = false;
+        UpdateModifyPanel();
+        UpdateCreatePanel();
+    };
+    commandPanel_.onModifierButton = [this](const std::wstring& button) {
+        scene::Node* node = nullptr;
+        SelectedStack(&node);
+        std::shared_ptr<scene::Modifier> m;
+        std::wstring name = button;
+        if (button == L"More...") {
+            name = ui::ShowModifiersDialog(Hwnd());
+            if (name.empty()) return;                           // cancelled
+        }
+        if (name == L"Edit Mesh" && node) {
+            // Edit Mesh records the vertex count below it: its edits only apply while
+            // the mesh keeps that count (as in R3 files).
+            const auto stack = SelectedStack();
+            const size_t count = stack ? stack->Evaluate().verts.size() : node->GetObject()->Evaluate().verts.size();
+            m = std::make_shared<scene::EditMeshModifier>(count, std::vector<scene::EditMeshModifier::Move>{});
+        }
+        if (button == L"Bend") m = std::make_shared<scene::BendModifier>();
+        if (button == L"Taper") m = std::make_shared<scene::TaperModifier>();
+        if (button == L"Twist") m = std::make_shared<scene::TwistModifier>();
+        if (!m || !node) {
+            statusArea_.SetPrompt(1, name + L" (not implemented yet)");
+            return;
+        }
+        undo_.Execute(std::make_unique<scene::AddModifierCommand>(node->GetId(), m), scene_);
+        modifyIndex_ = 0;                                       // the new modifier is shown
+        subObject_ = false;
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
+    commandPanel_.onStackSelect = [this](int index) {
+        modifyIndex_ = index;
+        subObject_ = false;                                     // R3 leaves sub-object mode
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
+    commandPanel_.onSubObject = [this](bool on) {
+        subObject_ = on;
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
+    commandPanel_.onRolloutButton = [this](const std::wstring& label) {
+        statusArea_.SetPrompt(1, label + L" (not implemented yet)");
+    };
+    commandPanel_.onSubObjectLevel = [this](int level) {
+        subLevel_ = level;
+        subObject_ = true;                                      // a level icon or the combo enters sub-object mode
+        if (level != 0) statusArea_.SetPrompt(1, L"This sub-object level is not implemented yet");
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
+    // Vertex selection: a click replaces it (Ctrl adds, Alt removes); one "Select" step.
+    viewports_.onVertexSelect = [this](const std::vector<uint32_t>& verts, bool, bool ctrl, bool alt) {
+        const auto mod = VertexEditingMod();
+        if (!mod) return;
+        std::vector<uint32_t> next = mod->SelectedVertices();
+        if (ctrl) next.insert(next.end(), verts.begin(), verts.end());
+        else if (alt) next.erase(std::remove_if(next.begin(), next.end(), [&](uint32_t v) {
+                                     return std::find(verts.begin(), verts.end(), v) != verts.end(); }), next.end());
+        else next = verts;
+        std::sort(next.begin(), next.end());
+        next.erase(std::unique(next.begin(), next.end()), next.end());
+        if (next == mod->SelectedVertices()) return;
+        undo_.Execute(std::make_unique<scene::SelectVerticesCommand>(mod, next), scene_);
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
+    commandPanel_.onStackButton = [this](int button) {
+        scene::Node* node = nullptr;
+        const auto stack = SelectedStack(&node);
+        const auto mod = CurrentModifier();
+        if (button == 0 && mod) {
+            undo_.Execute(std::make_unique<scene::EnableModifierCommand>(mod, !mod->Enabled()), scene_);
+        } else if (button == 3 && mod && stack && node) {
+            const size_t bottomIndex = stack->Modifiers().size() - 1 - static_cast<size_t>(modifyIndex_);
+            undo_.Execute(std::make_unique<scene::RemoveModifierCommand>(node->GetId(), bottomIndex), scene_);
+            modifyIndex_ = 0;
+        } else if (button != 0 && button != 3) {
+            static const wchar_t* kNames[5] = {L"", L"Show End Result", L"Make Unique", L"", L"Edit Stack"};
+            statusArea_.SetPrompt(1, std::wstring(kNames[button]) + L" (not implemented yet)");
+            return;
+        } else {
+            return;
+        }
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
     // Moving: a live preview from the starting positions, then one "Move" undo step.
     viewports_.onMoveBegin = [this] {
         moving_.clear();
+        if (const auto mod = VertexEditingMod()) {
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            vertexMove_ = {true, mod, mod->Moves(), mod->SelectedVertices(), math::AffineInverse(node->ObjectMatrix())};
+            return;
+        }
         for (scene::Node::Id id : scene_.Selection()) {
             scene::Node* n = scene_.FindById(id);
             if (!n) continue;
@@ -278,6 +476,17 @@ bool MainFrame::CreateRegions() {
     // Move follows the mouse in the world; Rotate and Scale follow its vertical movement,
     // each object about its own pivot (NOTE: R3's pivot options are not implemented yet).
     viewports_.onMoveDrag = [this](const math::Vec3& delta, int up) {
+        if (vertexMove_.active) {
+            // Vertices move in the object's own space (NOTE: Rotate and Scale at vertex
+            // level are not implemented; only Move drags vertices).
+            if (tool_ != Tool::Move) return;
+            const math::Vec3 d = math::TransformPoint(vertexMove_.worldToObject, delta) -
+                                 math::TransformPoint(vertexMove_.worldToObject, {0, 0, 0});
+            vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, d));
+            ShowCoordinates(delta);
+            viewports_.Redraw();
+            return;
+        }
         const int axis = scene::move::RotationAxis(constraint_);
         const math::Quat turn = scene::move::DragRotation(axis, up);
         const math::Vec3 factors = scene::move::DragScale(scaleMode_, constraint_, up);
@@ -303,11 +512,22 @@ bool MainFrame::CreateRegions() {
     // The status bar's X/Y/Z: the cursor's world position, or (below) the amount of the
     // transform being dragged. NOTE: R3's display rules and format are unverified.
     viewports_.onCursorWorld = [this](bool ok, const math::Vec3& p) {
-        if (!moving_.empty()) return;
+        if (!moving_.empty() || vertexMove_.active) return;
         if (ok) ShowCoordinates(p);
         else statusArea_.SetCoordinates(L"", L"", L"");
     };
     viewports_.onMoveEnd = [this](bool commit) {
+        if (vertexMove_.active) {
+            vertexMove_.active = false;
+            const auto after = vertexMove_.mod->Moves();
+            vertexMove_.mod->SetMoves(vertexMove_.before);      // so the command records the real "before"
+            bool changed = after.size() != vertexMove_.before.size();
+            for (size_t i = 0; !changed && i < after.size(); ++i)
+                changed = math::Length(after[i].delta - vertexMove_.before[i].delta) > 1e-12;
+            if (commit && changed) undo_.Execute(std::make_unique<scene::MoveVerticesCommand>(vertexMove_.mod, after), scene_);
+            viewports_.Redraw();
+            return;
+        }
         const char* name = tool_ == Tool::Rotate ? "Rotate" : tool_ == Tool::Scale ? "Scale" : "Move";
         auto macro = std::make_unique<scene::MacroCommand>(name);
         bool changed = false;
@@ -450,7 +670,7 @@ void MainFrame::OnCommand(const std::string& command) {
 
     if (command == "edit.undo" || command == "edit.redo") {
         const bool ok = command == "edit.undo" ? undo_.Undo(scene_) : undo_.Redo(scene_);
-        if (ok) { viewports_.Redraw(); UpdateCreatePanel(); UpdateSelectionStatus(); }
+        if (ok) { viewports_.Redraw(); UpdateModifyPanel(); UpdateCreatePanel(); UpdateSelectionStatus(); }
         return;
     }
 

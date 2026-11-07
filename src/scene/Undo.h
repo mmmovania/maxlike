@@ -1,5 +1,6 @@
 #pragma once
 #include "scene/Scene.h"
+#include "scene/Modifier.h"
 #include <cstddef>
 #include <deque>
 #include <memory>
@@ -106,19 +107,95 @@ private:
     std::string name_;
 };
 
-// Change one parameter of an object (e.g. a Box's height); affects every instance.
+// Change one parameter of an object (e.g. a Box's height) or of a modifier (a Bend's
+// angle); affects every instance.
 class SetParamCommand : public Command {
 public:
     SetParamCommand(std::shared_ptr<Object> object, size_t index, double after)
-        : object_(std::move(object)), index_(index), after_(after) {}
+        : block_(&object->Params()), owner_(std::move(object)), index_(index), after_(after) {}
+    SetParamCommand(std::shared_ptr<Modifier> modifier, size_t index, double after)
+        : block_(&modifier->Params()), owner_(std::move(modifier)), index_(index), after_(after) {}
     std::string Name() const override { return "Parameter Change"; }
     void Do(Scene& scene) override;
     void Undo(Scene& scene) override;
 
 private:
-    std::shared_ptr<Object> object_;
+    ParamBlock* block_;                 // owned by owner_, which this command keeps alive
+    std::shared_ptr<void> owner_;
     size_t index_;
     double before_ = 0, after_;
+};
+
+// Add a modifier on top of a node's stack. A plain object first becomes the base of a new
+// Derived Object (undo restores the plain object).
+class AddModifierCommand : public Command {
+public:
+    AddModifierCommand(Node::Id node, std::shared_ptr<Modifier> modifier) : node_(node), modifier_(std::move(modifier)) {}
+    std::string Name() const override { return "Add Modifier"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    Node::Id node_;
+    std::shared_ptr<Modifier> modifier_;
+    std::shared_ptr<DerivedObject> derived_;
+    std::shared_ptr<Object> original_;   // set when Do wrapped a plain object
+};
+
+// Remove the modifier at `index` (0 = bottom of the stack) from a node's stack.
+class RemoveModifierCommand : public Command {
+public:
+    RemoveModifierCommand(Node::Id node, size_t index) : node_(node), index_(index) {}
+    std::string Name() const override { return "Delete Modifier"; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    Node::Id node_;
+    size_t index_;
+    std::shared_ptr<DerivedObject> derived_;
+    std::shared_ptr<Modifier> removed_;
+};
+
+// Edit Mesh at Vertex level: change the vertex selection.
+class SelectVerticesCommand : public Command {
+public:
+    SelectVerticesCommand(std::shared_ptr<EditMeshModifier> mod, std::vector<uint32_t> after)
+        : mod_(std::move(mod)), after_(std::move(after)) {}
+    std::string Name() const override { return "Select"; }
+    void Do(Scene&) override { before_ = mod_->SelectedVertices(); mod_->SetSelectedVertices(after_); }
+    void Undo(Scene&) override { mod_->SetSelectedVertices(before_); }
+
+private:
+    std::shared_ptr<EditMeshModifier> mod_;
+    std::vector<uint32_t> before_, after_;
+};
+
+// Edit Mesh at Vertex level: replace the vertex moves (one drag of the selection).
+class MoveVerticesCommand : public Command {
+public:
+    MoveVerticesCommand(std::shared_ptr<EditMeshModifier> mod, std::vector<EditMeshModifier::Move> after)
+        : mod_(std::move(mod)), after_(std::move(after)) {}
+    std::string Name() const override { return "Move"; }
+    void Do(Scene&) override { before_ = mod_->Moves(); mod_->SetMoves(after_); }
+    void Undo(Scene&) override { mod_->SetMoves(before_); }
+
+private:
+    std::shared_ptr<EditMeshModifier> mod_;
+    std::vector<EditMeshModifier::Move> before_, after_;
+};
+
+// Turn a modifier on or off (the stack's light bulb).
+class EnableModifierCommand : public Command {
+public:
+    EnableModifierCommand(std::shared_ptr<Modifier> modifier, bool on) : modifier_(std::move(modifier)), on_(on) {}
+    std::string Name() const override { return "Modifier On/Off"; }
+    void Do(Scene&) override { before_ = modifier_->Enabled(); modifier_->SetEnabled(on_); }
+    void Undo(Scene&) override { modifier_->SetEnabled(before_); }
+
+private:
+    std::shared_ptr<Modifier> modifier_;
+    bool on_, before_ = true;
 };
 
 // Link a node under a parent (0 = unlink), keeping its world placement.

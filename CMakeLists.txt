@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(maxlike VERSION 0.6.0 LANGUAGES C CXX RC)
+project(maxlike VERSION 0.7.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -41,6 +41,8 @@ add_executable(maxlike WIN32
     src/ui/SpinnerModel.h
     src/ui/ParametersSpec.cpp
     src/ui/ParametersSpec.h
+    src/ui/ModifiersDialog.cpp
+    src/ui/ModifiersDialog.h
     src/ui/CommandTable.cpp
     src/ui/CommandTable.h
     src/ui/MenuSpec.cpp
@@ -180,13 +182,13 @@ maxlike_add_test(test_navigation tests/test_navigation.cpp src/view/Navigation.c
 maxlike_add_test(test_scene tests/test_scene.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_primitives tests/test_primitives.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp)
 maxlike_add_test(test_modifiers tests/test_modifiers.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
-maxlike_add_test(test_undo tests/test_undo.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_undo tests/test_undo.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_command_panel_layout tests/test_command_panel_layout.cpp src/ui/CommandPanelLayout.cpp)
 maxlike_add_test(test_rollup tests/test_rollup.cpp src/ui/Rollup.cpp)
 maxlike_add_test(test_creation tests/test_creation.cpp src/scene/Creation.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/math/Quat.cpp src/math/Mat4.cpp)
-maxlike_add_test(test_creation_tool tests/test_creation_tool.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_creation_tool tests/test_creation_tool.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_spinner tests/test_spinner.cpp src/ui/SpinnerModel.cpp)
-maxlike_add_test(test_parameters_spec tests/test_parameters_spec.cpp src/ui/ParametersSpec.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_parameters_spec tests/test_parameters_spec.cpp src/ui/ParametersSpec.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 maxlike_add_test(test_picking tests/test_picking.cpp src/view/Picking.cpp)
 maxlike_add_test(test_transform_axes tests/test_transform_axes.cpp src/view/TransformAxes.cpp)
 maxlike_add_test(test_move_math tests/test_move_math.cpp src/scene/MoveMath.cpp src/scene/Node.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/math/Quat.cpp src/math/Mat4.cpp)

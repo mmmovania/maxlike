@@ -36,7 +36,10 @@ letters still need checking: press Alt in R3.1 and compare.
 - `help.about` shows an About box with the version.
 - `edit.undo` / `edit.redo` undo and redo scene changes (Phase 3). Before the Edit menu
   opens, their text becomes "Undo <name>" / "Redo <name>", greyed when there is nothing
-  to undo or redo (R3's exact wording unverified). Nothing in the UI creates undoable
-  changes until Phase 5.
+  to undo or redo (R3's exact wording unverified). Undoable changes so far: creating
+  objects (Phase 5), parameter edits, selecting, deleting, renaming, recolouring, Move /
+  Rotate / Scale (Phase 6), adding, removing and switching off modifiers, modifier
+  parameters, vertex selection and vertex moves (Phase 7).
+- `edit.delete` deletes the selection as one undo step (Phase 6; also the Delete key).
 - Every other command shows "<command>  (not implemented yet)" on the status area's
   second prompt line.

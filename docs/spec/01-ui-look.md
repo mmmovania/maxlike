@@ -204,6 +204,73 @@ Render type combo (`View`), Render last.
 Main Toolbar, Objects, Shapes, Compounds, Lights & Cameras, Particles, Helpers,
 SpaceWarps, Modifiers, Modeling, Rendering.
 
+## Modify panel (measured, step 7.2a)
+Screenshots `r3.1-modify-box.png`, `r3.1-modify-bend.png`,
+`r3.1-modify-editmesh-vertex.png`, `r3.1-modifiers-dialog.png` (panel coordinates as for
+the Create panel).
+- Name field above the rollup: x 16–149, rows 35–54 (wider than the Create panel's
+  15–146); swatch x 152–168, same rows.
+- Rollup container from row 59 (Create: 94); same rollout rules (first title +5, frame
+  +8, next title 7 after a frame).
+- Modifiers (title 64, content 164): "Use Pivot Points" checkbox (disabled with one
+  object) at title + 22; More… x 17–70 (dark-grey bottom edge) and Sets x 80–133 at rows
+  104–121; an icon button x 141–161, rows 101–121; ten buttons in two columns, x 17–88
+  and 92–163, 20 rows tall at rows 127, 150, 173, 195, 218: Bend, Taper / Twist, Noise /
+  Extrude, Lathe (disabled for meshes) / UVW Map, Edit Patch / Mesh Select, Edit Spline
+  (disabled).
+- Modifier Stack (title 250, content 106): pin icon x 15–31; stack dropdown x 36–166,
+  rows 271–294 ("Box", "Bend", "* Edit Mesh"); five icon buttons from x 36, rows
+  302–324 (the second shown pressed); "Selection Level:" at row 331; Sub-Object button
+  x 12–74 and level combo x 78–167, rows 344–364 (disabled for a base object; with Bend
+  the combo shows "Gizmo"; with Edit Mesh at Vertex, Sub-Object is yellow).
+- Parameters (title 378): the same layout as the Create panel's.
+- Tab row with Modify selected: the body's top edge (row 28) starts at x 1; the join's
+  second row (29) spans the selected tab from its left edge to one pixel short of its
+  right (x 29–60 for Modify); with Create selected these are hidden by the tab.
+- Verified: the Modify panel with a box, 58 differing pixels of 59,367, all in the
+  disabled level combo's drop button (Wine draws its highlight white).
+- Bend's Parameters (title-relative; verified, 0 differing pixels): group boxes x 17–163
+  (shadow outline 17–162, white outline 18–163 whose right edge starts on the top row,
+  white bottom from x 17), "Bend:" T+25…T+84, "Bend Axis:" T+97…T+135, "Limits"
+  T+149…T+227, the top line cleared from x 24 to 55 / 77 / 53 around the label (text at
+  x 27, 4 rows above the line); Angle and Direction spinners at T+36 and T+57 with the
+  field at x 81; X / Y / Z radios at T+113, circles at x 40, 81, 120, labels 17 px after;
+  Limit Effect at T+160 (box x 87); Upper and Lower Limit at T+180 and T+201 with the
+  field at x 87; one decimal; content height 223. In the views, the gizmo is orange.
+- Edit Mesh at Vertex level (measured): each vertex a 5-px diamond (rows of 1, 3, 5, 3, 1
+  pixels) centred on it, `#FF0000` selected, `#0000FF` otherwise, red drawn last; the
+  active Sub-Object button: the checked-button outline around `#F0F080`. A Selection
+  rollout (five level icons, "4 Vertices Selected"), Soft Selection (collapsed), Edit
+  Geometry (built in steps 7.4b–c; below).
+- Edit Mesh's rollouts (verified, 0 differing pixels): Selection (title 378, content 195)
+  with five level icons 25 px apart from x 27 (the active one in a 1-px sunken frame,
+  x 27–50, 23 rows), By Vertex / Ignore Backfacing / Ignore Visible Edges checkboxes at
+  +54 / +74 / +93 (x 18), Planar Thresh (field x 99–143, arrows 146) at +110, Hide /
+  Unhide All and Copy / Paste buttons (x 15–86, 92–163, 18 rows) at +131 and +170,
+  "Named Selections:" and the right-aligned count; Soft Selection collapsed (595); Edit
+  Geometry (615): button pairs at +23, +45, +68; unlabelled groups x 14–165 at +90…+157
+  and +163…+233 (Extrude / Chamfer with fields x 92–145 and arrows 149; Normal radios at
+  x 58 and 111; Slice Plane / Slice, Cut / Split, Refine Ends); the Weld group x 14–166
+  from +243 (gap 21–49). Disabled controls: embossed text; spinner fields with a face
+  interior and 2-px white margins; radios with a face interior. A checked box's tick:
+  the classic 7 × 7 pattern, 3 px inside the box (grey when disabled).
+- Modify container: bottom edge at row 884; content stops one row above it; an
+  overflowing column leaves x 174–177 for the scroll indicator: rows 60–883 black, the
+  visible part of the column grey, from 60 + floor(scroll·H/C) to 60 + ceil((scroll+H)·H/C) − 1
+  (H = 824, C = H + the maximum scroll); the container's top line runs across it, the
+  bottom line stops at x 173 (verified at scroll 0 and 270).
+- Edit Geometry below the Weld group (verified, `r3.1-modify-editmesh-scrolled.png`):
+  Target x 21–83 with a 29-wide field (x 92–120, arrows 123) and "pixels" (a label whose
+  background starts at x 134); Tessellate and Explode groups (x 14–165, G+303…+345 and
+  G+350…+392) with disabled buttons, spinners and "by:" / "to:" radios (circles at x 39
+  and 87 / 100; disabled radios show a grey dot); wide buttons x 15–163 at G+401, +424,
+  +447; View Align / Grid Align and Make Planar / Collapse; content height 503; Surface
+  Properties' title at 1140.
+- More… dialog (`r3.1-modifiers-dialog.png`): a 308 × 646 window titled "Modifiers", a
+  list with the headings "WORLD-SPACE MODIFIERS" and "OBJECT-SPACE MODIFIERS" (world-space
+  entries prefixed "* "), OK and Cancel at the top right; it lists the modifiers not on
+  the button set.
+
 ## Transform display at the selection's pivot (measured, step 6.4a)
 Screenshots `r3.1-box-created.png`, `r3.1-create-tripod-z.png`, `r3.1-move-selected.png`.
 - Axis tripod (Select, creation): the object's own axes; lines from the pivot to 84 px,
@@ -292,7 +359,8 @@ Code: `src/ui/Rollup.*` (layout, unit-tested), `CommandPanel::PaintRollouts`.
 - Name and Color: title rows 248–263, frame to row 299 (content height 36).
   - Name field x 15–146, rows 271–290 (title + 23 … + 42): 1-px sunken edge; inside it
     black top and left, face right and bottom; then white (one row on top, two columns
-    each side); face inside while disabled (nothing selected). Enabled look: Phase 6.
+    each side); face inside while disabled (nothing selected). Enabled: white inside,
+    the name in black (measured in step 5.3b).
   - Colour swatch x 150–166, same rows: 1-px sunken edge filled with the colour; the
     reference shows `#8D073A` (R3 picks the next object's colour at random). Clicking it
     opens Windows' colour dialog for now (R3's own "Object Color" dialog: later).
@@ -329,9 +397,14 @@ MAXScript mini-listener (pink), prompt line 1 (`None Selected`), prompt line 2
 ## Custom controls
 | Control | Behaviour | State |
 |---|---|---|
-| Rollout | Bevelled title bar with `-`/`+`, collapses; stacked in a rollup that scrolls by hand-drag | ✔ Phase 4 (`Rollup.*`; "+" and scrolling details unverified) |
+| Rollout | Bevelled title bar with `-`/`+`, collapses; stacked in a rollup that scrolls by hand-drag or wheel | ✔ Phase 4 (`Rollup.*`); "+" and the collapsed frame measured (5.3b); scroll indicator measured (7.4c); the wheel step (30 px) unverified |
 | Spinner | Edit + tiny up/down arrows; drag to change, Ctrl accelerates, Alt slows, right-click resets (from memory) | ✔ Phase 5 (look measured; behaviour `SpinnerModel`) |
 | Colour swatch | Sunken fill; click opens picker | ✔ Phase 4 (Windows' colour dialog stands in for R3's) |
-| Check button | Looks pressed when on | ✔ Phase 4 (Object Type buttons; checked look unverified) |
+| Check button | Looks pressed when on | ✔ Pressed outline around `#C0FFC0` (Object Type, measured 5.3b) or `#F0F080` (Sub-Object, measured 7.4) |
 | Flyout button | Corner triangle; hold to open strip of alternatives | ✔ Phase 1 (toolbar, status area) |
-| Dropdown | Classic combo box | ✔ Phase 4 (real `COMBOBOX`) |
+| Dropdown | Classic combo box | ✔ Phase 4 (real `COMBOBOX`; the disabled one's drop button differs under Wine only) |
+| Radio button | Classic circle | ✔ Phase 5, from the measured 12 × 12 pattern; disabled: face inside, grey dot (7.4c) |
+| Checkbox | Classic box and tick | ✔ box by `DrawFrameControl`, tick from the measured 7 × 7 pattern (7.4b) |
+| Group box | Etched frame, label breaking the top line | ✔ Phase 7 (Bend, Edit Mesh; per-group frame and gap) |
+| Push button / label | Raised button; static text painting its own background | ✔ Phase 7 (Edit Mesh) |
+| Scroll indicator | Black column with the visible part grey | ✔ Phase 7 (measured at two scroll positions) |

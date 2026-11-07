@@ -7,6 +7,12 @@
 - `screenshots/r3.1-cylinder-selected-zoomed.png`, `r3.1-cone-selected-zoomed.png` —
   wireframes in R3.1 (views zoomed, so not pixel-comparable): cap spokes hidden, rings
   start at +X, selected objects drawn white.
+- `screenshots/r3.1-modify-box.png`, `r3.1-modify-bend.png`,
+  `r3.1-modify-editmesh-vertex.png`, `r3.1-modifiers-dialog.png` — R3.1's Modify tab with
+  a box, with Bend 30.5°, with Edit Mesh at Vertex level, and the Modifiers list
+  (Phase 7; Bend's geometry verified against the second).
+- `screenshots/r3.1-modify-editmesh-scrolled.png` — R3.1's Edit Mesh panel scrolled down by
+  270: the rest of Edit Geometry and the scroll indicator in a second position (step 7.4c).
 - `screenshots/r3.1-move-selected.png` — R3.1 with Box01 selected and Select and Move
   active: the Move gizmo in all four views (step 6.4a).
 - `screenshots/r3.1-create-tripod-z.png` — R3.1 creating a Box (built in the Front view)
@@ -28,10 +34,11 @@ Still to add:
 - Keyboard Entry opened (Box clicked) to measure its contents; one screenshot
   mid-creation; the tab panel's other tabs (Shapes, Lights & Cameras, Helpers) when
   their features come.
-- **For Phase 6**: an object selected with Select and Rotate, and with Select and
-  Uniform Scale active (their pivot figures); a selection with several objects.
+- A selection with several objects (Name and Color, the transform figure).
 - For later steps: R3's Object Color dialog (click the swatch); the Geometry dropdown
-  open; the name field with an object selected.
+  open; Edit Mesh's Soft Selection opened; Surface Properties (scrolled to the end); an
+  Edit Mesh at Face level; a modifier's gizmo up close.
+- **For Phase 8**: the `.max` samples themselves (below).
 - The sample `.max` files (in `docs/reference/samples/`; `.max` is marked binary in
   `.gitattributes`); Summary Info of box, plane and pyramid; wireframe screenshots at the
   default zoom (pixel-comparable); a shaded Perspective view.
