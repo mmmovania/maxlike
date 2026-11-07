@@ -31,6 +31,17 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       over ~7 MB) and 4096-byte sectors; zlib-compressed streams (not in R3 files;
       deferred)
 
+## Step 8.1b verification (a fix found on Windows)
+- [x] MSVC's Debug build caught an out-of-bounds read in `test_cfb` (a truncated file:
+      the directory's sectors were followed without checking they lie inside the file);
+      reproduced here with bounds-checked containers (`_GLIBCXX_DEBUG`) and the address
+      and undefined-behaviour sanitizers; every whole-sector read (FAT, DIFAT, directory,
+      mini FAT) is now checked
+- [x] A robustness sweep under those checks: the seventeen R3.1 samples truncated every
+      997 bytes and randomly corrupted (300 each, fixed seed), 7,067 runs: no crash, no
+      out-of-bounds access (5,072 still open, 1,995 cleanly rejected)
+- [ ] On Windows: `ctest` (Debug)
+
 ## Notes
 - Compression: none of the R3.1 samples were compressed (`max-format.md` §1); zlib is
   needed only for files from much later Max versions, so it is deferred.

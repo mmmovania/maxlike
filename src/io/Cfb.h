@@ -38,6 +38,9 @@ private:
     bool ReadRegular(uint32_t start, uint64_t size, std::vector<uint8_t>& out, std::string& error) const;
     bool ReadMini(uint32_t start, uint64_t size, std::vector<uint8_t>& out, std::string& error) const;
     void CollectChildren(uint32_t id, std::vector<uint32_t>& out, int depth) const;
+    // Sector s lies entirely inside the file (checked before any whole-sector read:
+    // FAT, DIFAT, directory, mini FAT).
+    bool WholeSector(uint32_t s) const { return (static_cast<uint64_t>(s) + 2) * sectorSize_ <= bytes_.size(); }
 
     std::vector<uint8_t> bytes_;
     uint32_t sectorSize_ = 512, miniSectorSize_ = 64, miniCutoff_ = 4096;

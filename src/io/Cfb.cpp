@@ -51,14 +51,14 @@ bool CompoundFile::Open(std::vector<uint8_t> bytes, std::string& error) {
     for (uint32_t i = 0; i < 109 && fatSectorList.size() < fatSectors; ++i) fatSectorList.push_back(U32(bytes_, 0x4C + 4 * i));
     const uint32_t perDifat = sectorSize_ / 4 - 1;
     while (fatSectorList.size() < fatSectors && difat < kEndOfChain && difatSectors-- > 0) {
-        if (difat >= sectorCount) { error = "DIFAT sector outside the file"; return false; }
+        if (!WholeSector(difat)) { error = "DIFAT sector outside the file"; return false; }
         const size_t base = (static_cast<size_t>(difat) + 1) * sectorSize_;
         for (uint32_t i = 0; i < perDifat && fatSectorList.size() < fatSectors; ++i) fatSectorList.push_back(U32(bytes_, base + 4 * i));
         difat = U32(bytes_, base + 4 * perDifat);
     }
     if (fatSectorList.size() < fatSectors) { error = "incomplete FAT sector list"; return false; }
     for (uint32_t s : fatSectorList) {
-        if (s >= sectorCount) { error = "FAT sector outside the file"; return false; }
+        if (!WholeSector(s)) { error = "FAT sector outside the file"; return false; }
         const size_t base = (static_cast<size_t>(s) + 1) * sectorSize_;
         for (uint32_t i = 0; i < sectorSize_ / 4; ++i) fat_.push_back(U32(bytes_, base + 4 * i));
     }
@@ -67,6 +67,7 @@ bool CompoundFile::Open(std::vector<uint8_t> bytes, std::string& error) {
     std::vector<uint32_t> dirChain;
     if (!Chain(fat_, firstDir, dirChain, error)) return false;
     for (uint32_t s : dirChain) {
+        if (!WholeSector(s)) { error = "directory sector outside the file"; return false; }
         const size_t base = (static_cast<size_t>(s) + 1) * sectorSize_;
         for (uint32_t e = 0; e < sectorSize_ / 128; ++e) {
             const size_t o = base + 128 * e;
@@ -92,6 +93,7 @@ bool CompoundFile::Open(std::vector<uint8_t> bytes, std::string& error) {
     if (miniFatSectors > 0) {
         if (!Chain(fat_, firstMiniFat, miniFatChain, error)) return false;
         for (uint32_t s : miniFatChain) {
+            if (!WholeSector(s)) { error = "mini FAT sector outside the file"; return false; }
             const size_t base = (static_cast<size_t>(s) + 1) * sectorSize_;
             for (uint32_t i = 0; i < sectorSize_ / 4; ++i) miniFat_.push_back(U32(bytes_, base + 4 * i));
         }
