@@ -194,7 +194,37 @@ static void ModifierCommands() {
     CHECK(u.Undo(s) && twist->Enabled());
 }
 
+static void EditMeshVertices() {
+    Scene s;
+    UndoStack u;
+    Node* n = s.CreateNode("Box01");
+    auto d = std::make_shared<DerivedObject>(std::make_shared<BoxObject>(10, 10, 10));
+    auto bend = std::make_shared<BendModifier>();
+    d->AddModifier(std::make_shared<EditMeshModifier>(8, std::vector<EditMeshModifier::Move>{}));
+    d->AddModifier(bend);
+    n->SetObject(d);
+    auto em = std::dynamic_pointer_cast<EditMeshModifier>(d->Modifiers()[0]);
+    // Selecting vertices is an undo step; the selection is kept sorted and unique.
+    u.Execute(std::make_unique<SelectVerticesCommand>(em, std::vector<uint32_t>{6, 4, 6, 5, 7}), s);
+    CHECK(em->SelectedVertices() == (std::vector<uint32_t>{4, 5, 6, 7}) && u.UndoName() == "Select");
+    // Moving them: one step; the moves accumulate per vertex.
+    auto moves = EditMeshModifier::AddToMoves(em->Moves(), em->SelectedVertices(), {0, 0, 5});
+    moves = EditMeshModifier::AddToMoves(moves, {4}, {1, 0, 0});
+    u.Execute(std::make_unique<MoveVerticesCommand>(em, moves), s);
+    CHECK(em->Moves().size() == 4);
+    // Edit Mesh shows the mesh at its own level: vertex 4 moved, Bend above not applied.
+    const Mesh atEditMesh = d->EvaluateUpTo(1), before = d->EvaluateUpTo(0);
+    CHECK(atEditMesh.verts[4].x == before.verts[4].x + 1 && atEditMesh.verts[4].z == before.verts[4].z + 5);
+    CHECK(atEditMesh.verts[0].z == before.verts[0].z);
+    bend->Params().Set(BendModifier::kAngle, 45);
+    CHECK(d->Evaluate().verts[4].x != atEditMesh.verts[4].x && d->EvaluateUpTo(1).verts[4].x == atEditMesh.verts[4].x);
+    // Undo the move, then the selection.
+    CHECK(u.Undo(s) && em->Moves().empty() && d->EvaluateUpTo(1).verts[4].z == before.verts[4].z);
+    CHECK(u.Undo(s) && em->SelectedVertices().empty());
+}
+
 int main() {
+    EditMeshVertices();
     ModifierCommands();
     SelectionAndDelete();
     CreateUndoRedo();

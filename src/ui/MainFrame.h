@@ -72,6 +72,18 @@ private:
     // The Modify tab: the stack entry shown (0 = top) and filling the panel from the
     // selected object.
     int modifyIndex_ = 0;
+    // Sub-object editing (Phase 7): the Sub-Object button and level; a vertex drag in
+    // progress (the Edit Mesh's moves before it, the vertices, the object's inverse matrix).
+    bool subObject_ = false;
+    int subLevel_ = 0;                                  // 0 Vertex (others not implemented)
+    struct VertexMove {
+        bool active = false;
+        std::shared_ptr<scene::EditMeshModifier> mod;
+        std::vector<scene::EditMeshModifier::Move> before;
+        std::vector<uint32_t> vertices;
+        math::Mat4 worldToObject;
+    } vertexMove_;
+    std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices
     void UpdateModifyPanel();
     // The selected object's stack: its Derived Object (or null) and the entry shown.
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;

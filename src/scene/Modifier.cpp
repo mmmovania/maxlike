@@ -11,14 +11,36 @@ bool EditMeshModifier::Apply(Mesh& mesh) const {
     return true;
 }
 
-Mesh DerivedObject::Evaluate() const {
+Mesh DerivedObject::Evaluate() const { return EvaluateUpTo(modifiers_.size()); }
+
+Mesh DerivedObject::EvaluateUpTo(size_t count) const {
     skipped_.clear();
     Mesh mesh = base_ ? base_->Evaluate() : Mesh{};
-    for (const auto& mod : modifiers_) {
+    for (size_t i = 0; i < modifiers_.size() && i < count; ++i) {
+        const auto& mod = modifiers_[i];
         if (!mod || !mod->Enabled()) continue;
         if (!mod->Apply(mesh)) skipped_.push_back(mod->ClassName());
     }
     return mesh;
+}
+
+void EditMeshModifier::SetSelectedVertices(std::vector<uint32_t> v) {
+    std::sort(v.begin(), v.end());
+    v.erase(std::unique(v.begin(), v.end()), v.end());
+    selected_ = std::move(v);
+}
+
+std::vector<EditMeshModifier::Move> EditMeshModifier::AddToMoves(const std::vector<Move>& moves,
+                                                                 const std::vector<uint32_t>& vertices,
+                                                                 const math::Vec3& delta) {
+    std::vector<Move> out = moves;
+    for (uint32_t v : vertices) {
+        bool found = false;
+        for (Move& m : out)
+            if (m.vertex == v) { m.delta = m.delta + delta; found = true; break; }
+        if (!found) out.push_back({v, delta});
+    }
+    return out;
 }
 
 

@@ -70,12 +70,18 @@ void CommandPanel::SetModifyInfo(const ModifyInfo& info) {
         SendMessageW(stackCombo_, CB_SETCURSEL, static_cast<WPARAM>(modify_.current), 0);
     }
     if (levelCombo_) {
-        // NOTE: modifiers' sub-object levels arrive with their rollouts (Bend: "Gizmo").
+        // Edit Mesh lists its levels (enabled); Bend shows "Gizmo" (NOTE: its gizmo
+        // sub-object is not implemented, so the combo stays disabled there).
         SendMessageW(levelCombo_, CB_RESETCONTENT, 0, 0);
-        if (modify_.currentIsModifier) {
+        if (!modify_.subObjectLevels.empty()) {
+            for (const std::wstring& l : modify_.subObjectLevels)
+                SendMessageW(levelCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(l.c_str()));
+            SendMessageW(levelCombo_, CB_SETCURSEL, static_cast<WPARAM>(modify_.subObjectLevel), 0);
+        } else if (modify_.currentIsModifier) {
             SendMessageW(levelCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Gizmo"));
             SendMessageW(levelCombo_, CB_SETCURSEL, 0, 0);
         }
+        EnableWindow(levelCombo_, !modify_.subObjectLevels.empty());
     }
     scroll_ = std::clamp(scroll_, 0, rollup::MaxScroll(RolloutItems(), Container()));
     UpdateModifyControls();
@@ -226,15 +232,24 @@ void CommandPanel::PaintStack(HDC dc, int t) {
     {
         const int L = 12, T = t + 94, R = 74, B = t + 114;
         px(L, T, R, B, theme::Face());
-        px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);
-        px(R, T, R, B, dk);      px(L + 1, B, R, B, dk);
-        px(R - 1, T + 1, R - 1, B - 1, sh);
-        px(L + 2, B - 1, R - 1, B - 1, sh);
+        if (modify_.subObjectOn) {
+            // Measured (r3.1-modify-editmesh-vertex.png): the checked-button outline around
+            // pale yellow #F0F080.
+            px(L, T, R - 1, T, sh);          px(L, T, L, B, sh);
+            px(R, T, R, B, hi);              px(R - 1, T + 1, R - 1, B, hi);
+            px(L + 1, B, R, B, hi);          px(L + 2, B - 1, R, B - 1, hi);
+            px(L + 2, T + 2, R - 2, B - 2, RGB(0xF0, 0xF0, 0x80));
+        } else {
+            px(L, T, R - 1, T, hi);  px(L, T, L, B, hi);
+            px(R, T, R, B, dk);      px(L + 1, B, R, B, dk);
+            px(R - 1, T + 1, R - 1, B - 1, sh);
+            px(L + 2, B - 1, R - 1, B - 1, sh);
+        }
         SIZE size{};
         GetTextExtentPoint32W(dc, L"Sub-Object", 10, &size);
         DrawStateW(dc, nullptr, nullptr, reinterpret_cast<LPARAM>(L"Sub-Object"), 10,
                    Scale(L) + (Scale(R - L + 1) - size.cx) / 2, Scale(T) + (Scale(B - T + 1) - size.cy) / 2, 0, 0,
-                   DST_TEXT | (modifier ? DSS_NORMAL : DSS_DISABLED));
+                   DST_TEXT | (modifier || !modify_.subObjectLevels.empty() ? DSS_NORMAL : DSS_DISABLED));
     }
 }
 
@@ -982,8 +997,11 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         // The Modify tab's buttons.
         if (InModify()) {
-            static const wchar_t* kNames[10] = {L"Bend", L"Taper", L"Twist", L"Noise", L"Extrude",
-                                                L"Lathe", L"UVW Map", L"Edit Patch", L"Mesh Select", L"Edit Spline"};
+            // ModifierButtonAt: the ten modifier buttons, then More... (10), Sets (11) and
+            // the icon button (12).
+            static const wchar_t* kNames[13] = {L"Bend", L"Taper", L"Twist", L"Noise", L"Extrude",
+                                                L"Lathe", L"UVW Map", L"Edit Patch", L"Mesh Select", L"Edit Spline",
+                                                L"More...", L"Sets", L"Configure Button Sets"};
             const int b = ModifierButtonAt(x, y);
             if (b >= 0) {
                 if (b != 4 && b != 5 && b != 9 && onModifierButton) onModifierButton(kNames[b]);   // 4, 5, 9: disabled
@@ -991,6 +1009,11 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             }
             const int s = StackButtonAt(x, y);
             if (s >= 0) { if (onStackButton) onStackButton(s); return 0; }
+            const int st = TitleTopOf(kRollStack);
+            if (st >= 0 && x >= 12 && x <= 74 && y >= st + 94 && y <= st + 114 && !modify_.subObjectLevels.empty()) {
+                if (onSubObject) onSubObject(!modify_.subObjectOn);
+                return 0;
+            }
         }
         // A primitive button checks (or unchecks) its type.
         const int type = TypeButtonAt(x, y);
@@ -1133,6 +1156,11 @@ LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     case WM_COMMAND:
+        if (reinterpret_cast<HWND>(lp) == levelCombo_ && HIWORD(wp) == CBN_SELCHANGE) {
+            const LRESULT i = SendMessageW(levelCombo_, CB_GETCURSEL, 0, 0);
+            if (i >= 0 && onSubObjectLevel) onSubObjectLevel(static_cast<int>(i));
+            return 0;
+        }
         if (LOWORD(wp) == kDropdownId + 1 && HIWORD(wp) == CBN_SELCHANGE) {
             const LRESULT i = SendMessageW(stackCombo_, CB_GETCURSEL, 0, 0);
             if (i >= 0 && onStackSelect) onStackSelect(static_cast<int>(i));

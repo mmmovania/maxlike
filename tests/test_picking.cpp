@@ -44,6 +44,14 @@ int main() {
     r = PickRegion(objects, 0, 0, 200, 200);              // everything inside
     CHECK(r.size() == 2);
 
+    // Points: the nearest within the tolerance wins; rectangles in any direction.
+    const std::vector<Point2> pts = {{10, 10}, {13, 10}, {50, 50}};
+    CHECK(PickNearestPoint(pts, 12, 10, 4) == 1 && PickNearestPoint(pts, 9, 11, 4) == 0);
+    CHECK(PickNearestPoint(pts, 30, 30, 4) == -1);
+    auto in = PickPointsInRect(pts, 60, 60, 5, 5);
+    CHECK(in.size() == 3);
+    in = PickPointsInRect(pts, 0, 0, 20, 20);
+    CHECK(in.size() == 2 && in[0] == 0 && in[1] == 1);
     if (failures == 0) std::printf("picking: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

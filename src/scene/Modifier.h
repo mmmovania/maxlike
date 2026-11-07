@@ -79,10 +79,21 @@ public:
     std::string ClassName() const override { return "Edit Mesh"; }
     bool Apply(Mesh& mesh) const override;
     const std::vector<Move>& Moves() const { return moves_; }
+    void SetMoves(std::vector<Move> moves) { moves_ = std::move(moves); }
+    size_t ExpectedVertexCount() const { return expected_; }
+
+    // Sub-object selection at Vertex level (Phase 7): vertex indices, sorted, unique.
+    const std::vector<uint32_t>& SelectedVertices() const { return selected_; }
+    void SetSelectedVertices(std::vector<uint32_t> v);
+
+    // The moves after adding `delta` (object space) to every vertex in `vertices`.
+    static std::vector<Move> AddToMoves(const std::vector<Move>& moves, const std::vector<uint32_t>& vertices,
+                                        const math::Vec3& delta);
 
 private:
     size_t expected_;
     std::vector<Move> moves_;
+    std::vector<uint32_t> selected_;
 };
 
 // A base object with a stack of modifiers. Index 0 is the bottom of the stack (applied
@@ -93,6 +104,9 @@ public:
 
     std::string ClassName() const override { return base_ ? base_->ClassName() : "Derived Object"; }
     Mesh Evaluate() const override;
+    // The mesh after the base and the first `count` modifiers (Edit Mesh edits the mesh as
+    // it is at its own level, whatever is above it).
+    Mesh EvaluateUpTo(size_t count) const;
 
     const std::shared_ptr<Object>& Base() const { return base_; }
     void AddModifier(std::shared_ptr<Modifier> modifier) { modifiers_.push_back(std::move(modifier)); }

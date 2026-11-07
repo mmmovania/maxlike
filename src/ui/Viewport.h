@@ -9,6 +9,7 @@
 #include "scene/Node.h"
 #include "view/Picking.h"
 #include "view/TransformAxes.h"
+#include "scene/Modifier.h"
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
@@ -76,6 +77,18 @@ public:
 
     // What to draw at the selection's pivot (set by the panel from the toolbar's tool and
     // constraint buttons).
+    // Edit Mesh at Vertex level (Phase 7): the node, its stack evaluated up to the Edit
+    // Mesh, and the Edit Mesh holding the vertex selection.
+    struct VertexEditing {
+        bool on = false;
+        scene::Node::Id node = 0;
+        std::shared_ptr<scene::DerivedObject> stack;
+        size_t upTo = 0;
+        std::shared_ptr<scene::EditMeshModifier> mod;
+    };
+    void SetVertexEditing(const VertexEditing& v) { vertexEditing_ = v; InvalidateRect(Hwnd(), nullptr, FALSE); }
+    std::function<void(const std::vector<uint32_t>& vertices, bool region, bool ctrl, bool alt)> onVertexSelect;
+
     // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
     void SetTransformTool(bool on) { transformTool_ = on; }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
@@ -136,6 +149,9 @@ private:
     bool selecting_ = false;             // left button held for a selection click or region
     bool moving_ = false;                // dragging the selection with a transform tool
     bool transformTool_ = false;
+    VertexEditing vertexEditing_;
+    std::vector<view::Point2> VertexPixels(std::vector<math::Vec3>* world = nullptr) const;
+    void DrawVertices(int width, int height);
     POINT moveStart_{};
     math::Vec3 movePivot_{};
     math::Vec3 SelectionPivot() const;

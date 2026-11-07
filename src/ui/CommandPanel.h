@@ -38,6 +38,9 @@ public:
         int baseType = -1;                        // the base's Standard Primitive type, or -1
         bool currentIsModifier = false, currentEnabled = true;
         std::string currentClass;                 // the current modifier's class ("Bend"), else empty
+        std::vector<std::wstring> subObjectLevels;   // e.g. Edit Mesh: Vertex, Edge, Face, Polygon, Element
+        bool subObjectOn = false;                 // the Sub-Object button pressed
+        int subObjectLevel = 0;
         const scene::ParamBlock* params = nullptr;   // the current entry's parameters
     };
     void SetModifyInfo(const ModifyInfo& info);
@@ -46,6 +49,8 @@ public:
     std::function<void(const std::wstring& button)> onModifierButton;   // "Bend", "More...", ...
     std::function<void(int index)> onStackSelect;                       // 0 = top of the stack
     std::function<void(int button)> onStackButton;   // 0 on/off, 1 end result, 2 unique, 3 remove, 4 edit
+    std::function<void(bool on)> onSubObject;          // the Sub-Object button
+    std::function<void(int level)> onSubObjectLevel;   // the level combo
     // Keyboard Entry's Create: world position and the typed sizes (Max indices).
     std::function<void(double x, double y, double z, const std::vector<std::pair<int, double>>& sizes)> onKeyboardCreate;
 

@@ -157,6 +157,34 @@ private:
     std::shared_ptr<Modifier> removed_;
 };
 
+// Edit Mesh at Vertex level: change the vertex selection.
+class SelectVerticesCommand : public Command {
+public:
+    SelectVerticesCommand(std::shared_ptr<EditMeshModifier> mod, std::vector<uint32_t> after)
+        : mod_(std::move(mod)), after_(std::move(after)) {}
+    std::string Name() const override { return "Select"; }
+    void Do(Scene&) override { before_ = mod_->SelectedVertices(); mod_->SetSelectedVertices(after_); }
+    void Undo(Scene&) override { mod_->SetSelectedVertices(before_); }
+
+private:
+    std::shared_ptr<EditMeshModifier> mod_;
+    std::vector<uint32_t> before_, after_;
+};
+
+// Edit Mesh at Vertex level: replace the vertex moves (one drag of the selection).
+class MoveVerticesCommand : public Command {
+public:
+    MoveVerticesCommand(std::shared_ptr<EditMeshModifier> mod, std::vector<EditMeshModifier::Move> after)
+        : mod_(std::move(mod)), after_(std::move(after)) {}
+    std::string Name() const override { return "Move"; }
+    void Do(Scene&) override { before_ = mod_->Moves(); mod_->SetMoves(after_); }
+    void Undo(Scene&) override { mod_->SetMoves(before_); }
+
+private:
+    std::shared_ptr<EditMeshModifier> mod_;
+    std::vector<EditMeshModifier::Move> before_, after_;
+};
+
 // Turn a modifier on or off (the stack's light bulb).
 class EnableModifierCommand : public Command {
 public:

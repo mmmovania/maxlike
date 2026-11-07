@@ -51,6 +51,7 @@ void Viewport::Render(HDC dc) {
             DrawOrthoGrid(rc.right, rc.bottom);
     }
     DrawScene(rc.right, rc.bottom);
+    DrawVertices(rc.right, rc.bottom);
     DrawTransformAxes(rc.right, rc.bottom);
     DrawLabelAndTripod(rc.right, rc.bottom);
     if (regionVisible_) DrawRegionRectangle(rc.right, rc.bottom);
@@ -370,6 +371,48 @@ void Viewport::DrawTransformAxes(int w, int h) {
         run.insert(run.end(), {p.x + 0.5f, p.y + 0.5f, 0.0f});
     }
     flush();
+}
+
+// The Edit Mesh's vertices in window pixels (and world space), as the mesh is at the Edit
+// Mesh's level. Points behind the camera are placed far outside the view.
+std::vector<view::Point2> Viewport::VertexPixels(std::vector<math::Vec3>* worldOut) const {
+    std::vector<view::Point2> out;
+    if (!vertexEditing_.on || !vertexEditing_.stack || !scene_) return out;
+    const scene::Node* node = scene_->FindById(vertexEditing_.node);
+    if (!node) return out;
+    const scene::Mesh mesh = vertexEditing_.stack->EvaluateUpTo(vertexEditing_.upTo);
+    const math::Mat4 m = node->ObjectMatrix();
+    for (const auto& v : mesh.verts) {
+        const math::Vec3 w = math::TransformPoint(m, v);
+        if (worldOut) worldOut->push_back(w);
+        double x = 0, y = 0, depth = 0;
+        if (WorldToWindow(w, x, y, depth)) out.push_back({x, y});
+        else out.push_back({-1e9, -1e9});
+    }
+    return out;
+}
+
+// Measured (r3.1-modify-editmesh-vertex.png): each vertex a 5-px diamond (rows 1, 3, 5, 3,
+// 1) centred on its pixel, red #FF0000 when selected, blue #0000FF otherwise; red is
+// drawn last.
+void Viewport::DrawVertices(int w, int h) {
+    const auto pts = VertexPixels();
+    if (pts.empty()) return;
+    const auto& sel = vertexEditing_.mod ? vertexEditing_.mod->SelectedVertices() : std::vector<uint32_t>{};
+    const math::Mat4 toClip = math::PixelToClip(w, h);
+    for (int pass = 0; pass < 2; ++pass) {
+        std::vector<float> run;
+        for (size_t i = 0; i < pts.size(); ++i) {
+            const bool selected = std::binary_search(sel.begin(), sel.end(), static_cast<uint32_t>(i));
+            if (selected != (pass == 1)) continue;
+            const int cx = static_cast<int>(std::floor(pts[i].x)), cy = static_cast<int>(std::floor(pts[i].y));
+            static const int kHalf[5] = {0, 1, 2, 1, 0};
+            for (int dy = -2; dy <= 2; ++dy)
+                for (int dx = -kHalf[dy + 2]; dx <= kHalf[dy + 2]; ++dx)
+                    run.insert(run.end(), {cx + dx + 0.5f, cy + dy + 0.5f, 0.0f});
+        }
+        if (!run.empty()) lines_->DrawPoints(run, toClip, pass == 1 ? 1.0f : 0.0f, 0.0f, pass == 1 ? 0.0f : 1.0f);
+    }
 }
 
 math::Vec3 Viewport::SelectionPivot() const {
@@ -759,6 +802,27 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (vertexEditing_.on && onVertexSelect) {
+            // Vertex level: with a transform tool, pressing on a vertex drags the vertex
+            // selection (selecting that vertex first); otherwise a click or region selects.
+            std::vector<math::Vec3> world;
+            const auto pts = VertexPixels(&world);
+            const int hit = view::PickNearestPoint(pts, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, 4.0);
+            if (transformTool_ && hit >= 0) {
+                const auto& sel = vertexEditing_.mod->SelectedVertices();
+                if (!std::binary_search(sel.begin(), sel.end(), static_cast<uint32_t>(hit)))
+                    onVertexSelect({static_cast<uint32_t>(hit)}, false, (wp & MK_CONTROL) != 0, false);
+                moving_ = true;
+                moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+                movePivot_ = world[static_cast<size_t>(hit)];
+                SetCapture(Hwnd());
+                if (onMoveBegin) onMoveBegin();
+            } else {
+                selecting_ = true;
+                dragStart_ = dragLast_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+                regionVisible_ = false;
+                SetCapture(Hwnd());
+            }
         } else if (onSelect && transformTool_ && PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) != 0) {
             // Select and Move / Rotate / Scale on an object: select it if needed, then drag
             // the selection.
@@ -848,6 +912,20 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             regionVisible_ = false;
             ReleaseCapture();
             const bool ctrl = (wp & MK_CONTROL) != 0, alt = GetKeyState(VK_MENU) < 0;
+            if (vertexEditing_.on && onVertexSelect) {
+                const auto pts = VertexPixels();
+                std::vector<uint32_t> verts;
+                if (region) {
+                    for (int i : view::PickPointsInRect(pts, dragStart_.x + 0.5, dragStart_.y + 0.5, dragLast_.x + 0.5, dragLast_.y + 0.5))
+                        verts.push_back(static_cast<uint32_t>(i));
+                } else {
+                    const int hit = view::PickNearestPoint(pts, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, 4.0);
+                    if (hit >= 0) verts.push_back(static_cast<uint32_t>(hit));
+                }
+                InvalidateRect(Hwnd(), nullptr, FALSE);
+                onVertexSelect(verts, region, ctrl, alt);
+                return 0;
+            }
             std::vector<scene::Node::Id> ids;
             if (region) {
                 ids = PickRect(dragStart_.x, dragStart_.y, dragLast_.x, dragLast_.y);

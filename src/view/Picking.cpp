@@ -69,4 +69,23 @@ std::vector<int> PickRegion(const std::vector<std::vector<Segment2>>& outlines,
     return picked;
 }
 
+int PickNearestPoint(const std::vector<Point2>& points, double x, double y, double tolerance) {
+    int best = -1;
+    double bestDist = tolerance;
+    for (size_t i = 0; i < points.size(); ++i) {
+        const double d = std::hypot(points[i].x - x, points[i].y - y);
+        if (d <= bestDist) { bestDist = d; best = static_cast<int>(i); }
+    }
+    return best;
+}
+
+std::vector<int> PickPointsInRect(const std::vector<Point2>& points, double x0, double y0, double x1, double y1) {
+    if (x1 < x0) std::swap(x0, x1);
+    if (y1 < y0) std::swap(y0, y1);
+    std::vector<int> out;
+    for (size_t i = 0; i < points.size(); ++i)
+        if (points[i].x >= x0 && points[i].x <= x1 && points[i].y >= y0 && points[i].y <= y1) out.push_back(static_cast<int>(i));
+    return out;
+}
+
 } // namespace view

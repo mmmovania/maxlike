@@ -41,6 +41,8 @@ add_executable(maxlike WIN32
     src/ui/SpinnerModel.h
     src/ui/ParametersSpec.cpp
     src/ui/ParametersSpec.h
+    src/ui/ModifiersDialog.cpp
+    src/ui/ModifiersDialog.h
     src/ui/CommandTable.cpp
     src/ui/CommandTable.h
     src/ui/MenuSpec.cpp

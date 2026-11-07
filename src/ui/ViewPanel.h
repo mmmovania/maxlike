@@ -33,6 +33,8 @@ public:
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
     void SetTransformTool(bool on) { for (auto& v : views_) v.SetTransformTool(on); }
+    void SetVertexEditing(const Viewport::VertexEditing& e) { for (auto& v : views_) v.SetVertexEditing(e); }
+    std::function<void(const std::vector<uint32_t>&, bool, bool, bool)> onVertexSelect;
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     int  Active() const { return active_; }

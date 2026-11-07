@@ -237,9 +237,15 @@ the Create panel).
   field at x 81; X / Y / Z radios at T+113, circles at x 40, 81, 120, labels 17 px after;
   Limit Effect at T+160 (box x 87); Upper and Lower Limit at T+180 and T+201 with the
   field at x 87; one decimal; content height 223. In the views, the gizmo is orange.
-- Edit Mesh at Vertex level: vertices drawn as dots, selected red, others blue; a
-  Selection rollout (five level icons, "4 Vertices Selected"), Soft Selection
-  (collapsed), Edit Geometry.
+- Edit Mesh at Vertex level (measured): each vertex a 5-px diamond (rows of 1, 3, 5, 3, 1
+  pixels) centred on it, `#FF0000` selected, `#0000FF` otherwise, red drawn last; the
+  active Sub-Object button: the checked-button outline around `#F0F080`. A Selection
+  rollout (five level icons, "4 Vertices Selected"), Soft Selection (collapsed), Edit
+  Geometry (not yet built).
+- More… dialog (`r3.1-modifiers-dialog.png`): a 308 × 646 window titled "Modifiers", a
+  list with the headings "WORLD-SPACE MODIFIERS" and "OBJECT-SPACE MODIFIERS" (world-space
+  entries prefixed "* "), OK and Cancel at the top right; it lists the modifiers not on
+  the button set.
 
 ## Transform display at the selection's pivot (measured, step 6.4a)
 Screenshots `r3.1-box-created.png`, `r3.1-create-tripod-z.png`, `r3.1-move-selected.png`.

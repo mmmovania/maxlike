@@ -23,7 +23,13 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
       measured (`ModifierParametersFor`), Taper's and Twist's in the same layout; every
       change undoable
 - [ ] 7.3b The modifier gizmo in the views (orange in R3)
-- [ ] 7.4 Edit Mesh at vertex and face level (sub-object selection, moving vertices)
+- [x] **7.4 Edit Mesh at Vertex level**: More... dialog (R3's list; Edit Mesh works);
+      Sub-Object (pressed yellow) and its levels; vertices drawn as R3's diamonds (red
+      selected, blue otherwise) from the stack evaluated up to the Edit Mesh; click /
+      region / Ctrl / Alt vertex selection and Move drags of the selected vertices, each one
+      undo step (`SelectVerticesCommand`, `MoveVerticesCommand`)
+- [ ] 7.4b Edit Mesh's rollouts (Selection with "N Vertices Selected", Soft Selection,
+      Edit Geometry) and the Face level
 - [ ] 7.5 Wrap-up
 
 ## Step 7.1 verification
@@ -81,6 +87,24 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
 - [ ] On Windows: edit Bend, Taper and Twist with spinners, radios and Limit Effect; undo
 - [ ] Unverified: Taper's and Twist's rollouts (laid out like Bend's: labels, the axis
       group's extra rows, label gaps), spinner speeds
+
+## Step 7.4 verification
+- [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
+- [x] `test_undo`: vertex selection sorted and unique, undoable; moves accumulate per
+      vertex and undo in one step; the stack evaluated up to the Edit Mesh ignores modifiers
+      above it
+- [x] `test_picking`: nearest point within the tolerance; points in a rectangle, any direction
+- [x] Under Wine: More... → Edit Mesh; Sub-Object (yellow, "Vertex"); four 13-px diamonds
+      at the box's corners; a rectangle selects the right-hand corners (red); a Move drag
+      of 50 px moves exactly those vertices 50 px; Undo restores them
+- [x] A crash found and fixed while testing: More..., Sets and the icon button reported
+      indices 10–12 into a ten-name table
+- [x] No regressions: default window unchanged; the Modify panel with Bend still 0
+      differing pixels against R3.1
+- [ ] On Windows: the same, including the dialog's look (not compared: this test display
+      has no window manager, so the dialog is not painted there)
+- [ ] Unverified: the dialog's layout and the entries after "STL-Check"; vertex pick
+      tolerance; Rotate and Scale at vertex level (not implemented)
 
 ## Notes
 - No user interface yet: the modifiers are visible through the demo scene; the Modify
