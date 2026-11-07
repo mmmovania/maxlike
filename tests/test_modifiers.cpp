@@ -7,15 +7,16 @@
 #include "scene/Scene.h"
 #include <cmath>
 #include <cstdio>
+#include <memory>
 
 static int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { ++failures; std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); } } while (0)
 static bool Near(const math::Vec3& a, const math::Vec3& b, double eps = 1e-9) {
     return std::fabs(a.x - b.x) < eps && std::fabs(a.y - b.y) < eps && std::fabs(a.z - b.z) < eps;
 }
-static constexpr double kPi = 3.14159265358979323846;
 
 using namespace scene;
+static constexpr double kPi = 3.14159265358979323846;
 
 // An Edit Mesh that turns the top four vertices of a 1x1x1 box about Z.
 static std::shared_ptr<EditMeshModifier> TwistTop(const Mesh& box, double degrees) {
@@ -113,7 +114,111 @@ static void SmoothingNormals() {
     CHECK(Near(fnorm[4 * 3 + 0], flat.FaceNormal(4)));
 }
 
+// ---------------------------------------------------------------- Bend / Taper / Twist
+static bool Close(const math::Vec3& a, const math::Vec3& b, double eps = 1e-9) {
+    return std::fabs(a.x - b.x) < eps && std::fabs(a.y - b.y) < eps && std::fabs(a.z - b.z) < eps;
+}
+// A column of points along Z from 0 to 100 (an object standing on its pivot).
+static scene::Mesh Column() {
+    scene::Mesh m;
+    for (int i = 0; i <= 10; ++i) m.verts.push_back({0, 0, 10.0 * i});
+    return m;
+}
+
+static void Deformers() {
+    // Zero settings leave the mesh unchanged.
+    {
+        scene::Mesh m = Column(), ref = Column();
+        scene::BendModifier b; scene::TwistModifier t; scene::TaperModifier p;
+        CHECK(b.Apply(m) && t.Apply(m) && p.Apply(m));
+        bool same = true;
+        for (size_t i = 0; i < m.verts.size(); ++i) same = same && Close(m.verts[i], ref.verts[i]);
+        CHECK(same);
+    }
+    // Bend 90 degrees: the base stays; the top turns to point along +X at (r, 0, r),
+    // r = L / angle; every point stays on the arc and the arc keeps its length.
+    {
+        scene::Mesh m = Column();
+        scene::BendModifier b;
+        b.Params().Set(scene::BendModifier::kAngle, 90);
+        CHECK(b.Apply(m));
+        const double r = 100 / (kPi / 2);
+        CHECK(Close(m.verts[0], {0, 0, 0}) && Close(m.verts[10], {r, 0, r}));
+        double length = 0;
+        for (size_t i = 1; i < m.verts.size(); ++i) {
+            CHECK(std::fabs(math::Length(m.verts[i] - math::Vec3{r, 0, 0}) - r) < 1e-9);   // on the arc
+            const double chord = math::Length(m.verts[i] - m.verts[i - 1]), phi = 10 / r;
+            length += r * 2 * std::asin(chord / (2 * r)) * (phi > 0 ? 1 : 1);
+        }
+        CHECK(std::fabs(length - 100) < 1e-6);                                         // arc length kept
+        // Direction 90: the same bend towards +Y.
+        scene::Mesh d = Column();
+        b.Params().Set(scene::BendModifier::kDirection, 90);
+        b.Apply(d);
+        CHECK(Close(d.verts[10], {0, r, r}));
+    }
+    // Bend with limits: above the upper limit the column continues straight on.
+    {
+        scene::Mesh m = Column();
+        scene::BendModifier b;
+        b.Params().Set(scene::BendModifier::kAngle, 90);
+        b.Params().Set(scene::BendModifier::kLimit, 1);
+        b.Params().Set(scene::BendModifier::kUpper, 50);
+        b.Apply(m);
+        const math::Vec3 d1 = m.verts[8] - m.verts[7], d2 = m.verts[10] - m.verts[9];
+        CHECK(Close(d1, d2) && std::fabs(math::Length(d1) - 10) < 1e-9);               // straight, unstretched
+        CHECK(Close(m.verts[3], [] { scene::Mesh c = Column(); scene::BendModifier u;
+                                     u.Params().Set(scene::BendModifier::kAngle, 90); u.Apply(c); return c.verts[3]; }()));
+    }
+    // Twist 90 degrees: the top's corner (10, 0, 100) turns to (0, 10, 100); the base stays.
+    {
+        scene::Mesh m;
+        m.verts = {{10, 0, 0}, {10, 0, 100}, {10, 0, 50}};
+        scene::TwistModifier t;
+        t.Params().Set(scene::TwistModifier::kAngle, 90);
+        t.Apply(m);
+        CHECK(Close(m.verts[0], {10, 0, 0}) && Close(m.verts[1], {0, 10, 100}));
+        CHECK(Close(m.verts[2], {10 * std::cos(kPi / 4), 10 * std::sin(kPi / 4), 50}));
+    }
+    // Taper amount 1: the top doubles, the middle grows by half; Curve bows the middle only.
+    {
+        scene::Mesh m;
+        m.verts = {{10, 10, 0}, {10, 10, 100}, {10, 10, 50}};
+        scene::TaperModifier p;
+        p.Params().Set(scene::TaperModifier::kAmount, 1);
+        p.Apply(m);
+        CHECK(Close(m.verts[0], {10, 10, 0}) && Close(m.verts[1], {20, 20, 100}) && Close(m.verts[2], {15, 15, 50}));
+        scene::Mesh c;
+        c.verts = {{10, 10, 0}, {10, 10, 100}, {10, 10, 50}};
+        scene::TaperModifier q;
+        q.Params().Set(scene::TaperModifier::kCurve, 1);
+        q.Apply(c);
+        CHECK(Close(c.verts[0], {10, 10, 0}) && Close(c.verts[1], {10, 10, 100}) && Close(c.verts[2], {20, 20, 50}));
+    }
+    // Another axis: Bend along X turns a row along X towards +Y.
+    {
+        scene::Mesh m;
+        for (int i = 0; i <= 4; ++i) m.verts.push_back({25.0 * i, 0, 0});
+        scene::BendModifier b;
+        b.Params().Set(scene::BendModifier::kAngle, 90);
+        b.Params().Set(scene::BendModifier::kAxis, 0);
+        b.Apply(m);
+        const double r = 100 / (kPi / 2);
+        CHECK(Close(m.verts[4], {r, r, 0}));
+    }
+    // On a real object through the stack: a box keeps its vertex count; bending changes it.
+    {
+        auto d = std::make_shared<scene::DerivedObject>(std::make_shared<scene::BoxObject>(20, 20, 100));
+        auto bend = std::make_shared<scene::BendModifier>();
+        bend->Params().Set(scene::BendModifier::kAngle, 60);
+        d->AddModifier(bend);
+        const scene::Mesh m = d->Evaluate();
+        CHECK(m.verts.size() == 8 && m.faces.size() == 12 && d->Skipped().empty());
+    }
+}
+
 int main() {
+    Deformers();
     EditMeshMovesVertices();
     MismatchedCountIsSkipped();
     StackOrderAndDisable();

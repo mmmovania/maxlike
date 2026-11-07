@@ -1,5 +1,6 @@
 #pragma once
 #include "scene/Object.h"
+#include "scene/ParamBlock.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,8 +21,46 @@ public:
     bool Enabled() const { return enabled_; }
     void SetEnabled(bool on) { enabled_ = on; }
 
+    // Parameters, addressed by index like a primitive's (empty for modifiers without).
+    ParamBlock& Params() { return params_; }
+    const ParamBlock& Params() const { return params_; }
+
+protected:
+    ParamBlock params_;
+
 private:
     bool enabled_ = true;
+};
+
+// Bend, Taper and Twist (Phase 7). They deform the mesh in object space about the
+// object's pivot, along a chosen axis (0 X, 1 Y, 2 Z); h is a vertex's coordinate along
+// that axis and L the mesh's extent along it. With limits on, the effect stops at the
+// lower and upper limits (h values) and the rest follows rigidly.
+// NOTE: the parameter indices follow memory of R3's parameter blocks, and the Twist
+// bias and Taper curve formulas are approximations; all unverified.
+class BendModifier : public Modifier {
+public:
+    enum { kAngle = 0, kDirection, kAxis, kLimit, kLower, kUpper };
+    BendModifier();
+    std::string ClassName() const override { return "Bend"; }
+    bool Apply(Mesh& mesh) const override;
+};
+
+class TaperModifier : public Modifier {
+public:
+    enum { kAmount = 0, kCurve, kAxis, kEffect, kSymmetry, kLimit, kLower, kUpper };
+    // kEffect: which perpendicular axes are scaled: 0 both, 1 the first, 2 the second.
+    TaperModifier();
+    std::string ClassName() const override { return "Taper"; }
+    bool Apply(Mesh& mesh) const override;
+};
+
+class TwistModifier : public Modifier {
+public:
+    enum { kAngle = 0, kBias, kAxis, kLimit, kLower, kUpper };
+    TwistModifier();
+    std::string ClassName() const override { return "Twist"; }
+    bool Apply(Mesh& mesh) const override;
 };
 
 // Edit Mesh, vertex moves only (local data 0x4000: 0x0100 vertex count, 0x0140 moves).
