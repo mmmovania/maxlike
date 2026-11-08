@@ -140,7 +140,7 @@ A node is a scene-list object whose class has GUID `0x1` and superclass `0x1` (c
 |---|---|---|
 | `0x0960` | `i32 parentIndex` (scene-list index; the RootNode for top-level nodes), then `u32` flags | ✔ (`parent_child_link.max`: Box01's parent is Sphere01's node) |
 | `0x0962` | Node name (UTF-16) | ✔ |
-| `0x096A` | Pivot (object-offset) position, `f32 × 3` | ✔ `pivot.max`: (0, 0, −20.16222) with the node at z = 20.16222 |
+| `0x096A` | Pivot (object-offset) position, `f32 × 3` | ✔ `pivot.max`: (0, 0, −20.16222) with the node at z = 20.16222: half the Box's height (40.3244), the pivot centred on the object |
 | `0x096B` | Pivot rotation, quaternion `f32 × 4` (x, y, z, w; Max handedness, §5.2) | ◐ only identity values seen |
 | `0x096C` | Pivot scale `f32 × 3`, then scale-axis quaternion `f32 × 4` | ◐ only identity values seen |
 | `0x0974` | Wire colour: bytes **R, G, B**, 0 | ✔ e.g. `1A B1 94 00` = teal |
@@ -243,16 +243,20 @@ All primitives build in object space with Max's Z-up axes. Unless noted, they si
 |---|---|---|---|---|
 | Box | `0x10` | old | 0 length (Y), 1 width (X), 2 height (Z), 3 width segs, 4 length segs, 5 height segs, 6 mapping | ✔ |
 | Sphere | `0x11` | old | 0 radius, 1 segments, 2 smooth, 3 hemisphere, 4 chop/squash, 5 base to pivot, 6 mapping, 7 slice on, 8 slice from, 9 slice to | ✔; centred on pivot unless *base to pivot* |
-| GeoSphere | `0x7F9E` | PB2 | 0 radius, 1 segments, 2 base type (0 tetra, 1 octa, 2 icosa), 3 hemisphere, 4 smooth, 5 base to pivot, 6 mapping | ✔; segments = geodesic frequency |
+| GeoSphere | `0x00000000, 0x00007F9E` (the second word) | PB2 | 0 radius, 1 segments, 2 base type (0 tetra, 1 octa, 2 icosa), 3 hemisphere, 4 smooth, 5 base to pivot, 6 mapping | ✔; segments = geodesic frequency |
 | Cylinder | `0x12` | old | 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides, 5 smooth | ◐ visually checked; mesh ✔ (§7.6) |
 | Cone | `0xA86C23DD` | old | 0 radius 1 (base), 1 radius 2 (top), 2 height, 3 height segs, 4 cap segs, 5 sides, 6 smooth, 7 slice on, 8 slice from, 9 slice to, 10 mapping | ✔ |
 | Tube | `0x7B21` | old | 0 radius 1, 1 radius 2, 2 height, **3 sides, 4 cap segs, 5 height segs**, 6 smooth, 7–9 slice, 10 mapping | ✔; note the order differs from Cone |
-| Torus | `0x20` ○ | old | 0 radius 1, 1 radius 2, 2 rotation, 3 twist, 4 segments, 5 sides | ◐ visually checked; mesh counts ✔ (§7.6) |
+| Torus | `0x20` | old | 0 radius 1, 1 radius 2, 2 rotation, 3 twist, 4 segments, 5 sides, 6 smooth (int) | ✔ class ID from `torus.max`; mesh counts ✔ (§7.6) |
 | Pyramid | `0x76BF318A, 0x4BF37B10` | old | 0 width (X), 1 depth (Y), 2 height, 3 width segs, 4 depth segs, 5 height segs, 6 mapping | ✔ |
 | Teapot | `0xACAD13D3, 0xACAD26D9` | old | 0 radius, 1 segments, 2 smooth, 3 unused (−1), 4 body, 5 handle, 6 spout, 7 lid, 8 mapping | ✔; Utah teapot, Radius = body radius |
 | Plane | `0x081F1DFC, 0x77566F65` | PB2 | 0 length (Y), 1 width (X), 2 length segs ◐, 3 width segs ◐, 4 render scale, 5 render density, 6 mapping | ✔; centred, facing +Z |
 
 Teapot proportions (Blinn-scaled Utah data, in units of the radius): height 1.575, handle reach 1.5, spout reach ≈ 1.71.
+
+*Verified by maxlike (step 8.4a):* every class ID above as the samples record it, matched
+on both words; importing each sample's parameters into maxlike's primitives reproduces
+R3.1's Summary Info counts for all seven samples in §7.6.
 
 ### 7.2 Box vertex order ✔ verified
 

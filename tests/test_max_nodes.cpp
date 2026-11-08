@@ -36,7 +36,8 @@ int main() {
         io::MaxScene s;
         const auto n = Nodes("pivot", s);
         CHECK(n.size() == 1 && n[0].notes.empty());
-        // Equal and opposite heights: the pivot was moved up by 20.16222 (8.4: the Box's height?).
+        // Equal and opposite: the pivot was moved up by 20.16222, half the Box's height
+        // (40.3244, read in 8.4): R3's "Center to Object".
         CHECK(Near(n[0].objectOffset.position, {0, 0, -20.16222}, 1e-4));
         CHECK(Near(n[0].transform.position, {-0.9269981, 0.4634991, 20.16222}, 1e-4));
         const math::Vec3 pivot = math::TransformPoint(io::WorldMatrix(n, 0), {0, 0, 0});

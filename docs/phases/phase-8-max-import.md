@@ -13,8 +13,11 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] **8.3 Nodes**: `io::ReadNodes` (names, parents, wire colours, PRS values with the
       quaternion conjugate, object offsets; unsupported controllers reported as notes) and
       `WorldMatrix` / `ObjectMatrix` in `scene::Node`'s order
-- [ ] 8.4 Objects: old ParamBlock and ParamBlock2 → primitives; Derived Objects with Edit
-      Mesh and Bend / Taper / Twist (checks Phase 7's parameter indices)
+- [x] **8.4a Primitives**: `io::ReadParamBlock` (old ParamBlock and ParamBlock2),
+      `io::ReadPrimitive` (class → `scene::MakePrimitive`, parameters by index, radii
+      clamped, Slice reported)
+- [ ] 8.4b Editable Mesh; Derived Objects with Edit Mesh and Bend / Taper / Twist (checks
+      Phase 7's parameter indices)
 - [ ] 8.5 File > Open (and drag-and-drop) into the scene, with a report of what was skipped
 - [ ] 8.6 The samples: R3.1's vertex/face counts, transforms, colours and instances
       (needs the `.max` files)
@@ -77,6 +80,20 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       either open in R3.1)
 - Not in any sample: non-identity object-offset rotation or scale, scale axes, controller
   types other than Bezier Position / TCB Rotation / Bezier Scale (reported as notes)
+
+## Step 8.4a verification
+- [x] Builds warning-free; thirty test programs pass (MinGW + Wine)
+- [x] `test_max_objects`: cone, tube, cylinder, torus, sphere, geosphere and teapot,
+      imported and built by maxlike, give exactly R3.1's Summary Info vertex and face
+      counts; values from both block formats (Box 60³, Plane 42 × 40 with 4 × 4 segments,
+      GeoSphere's out-of-order entries, Tube's own order); the Cone's stored radius 2 of
+      −20 becomes 0; not-a-primitive and not-a-block give notes
+- [x] Found: `pivot.max`'s object offset is minus half the Box's height (the pivot was
+      centred, not moved to the top as 8.3 guessed); GeoSphere's class ID is in the second
+      word; Torus's class ID confirmed
+- [x] Under sanitizers; 2,040 corrupted samples through the readers and the builders: no
+      crash, no out-of-bounds access (the builders' clamps bound damaged counts)
+- [ ] On Windows: `ctest` (Debug)
 
 ## Notes
 - Compression: none of the R3.1 samples were compressed (`max-format.md` §1); zlib is
