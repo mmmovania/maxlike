@@ -11,8 +11,16 @@ public:
     // Standard message loop; returns the WM_QUIT exit code.
     static int Run();
 
+    // Keyboard shortcuts for `target`: `always` (Ctrl / Alt / function keys) work
+    // everywhere; `plain` (single keys, Shift+key) not while a text field has focus, so
+    // typing a name or a value is never taken for a shortcut.
+    static void SetAccelerators(HWND target, HACCEL always, HACCEL plain) { target_ = target; always_ = always; plain_ = plain; }
+
 private:
+    static bool FocusIsTextField();
     static inline HINSTANCE instance_ = nullptr;
+    static inline HWND target_ = nullptr;
+    static inline HACCEL always_ = nullptr, plain_ = nullptr;
 };
 
 } // namespace win

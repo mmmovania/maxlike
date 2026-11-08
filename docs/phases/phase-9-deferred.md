@@ -13,6 +13,10 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
       All / None / Invert (undoable); Views > Redraw All; asking to save a modified scene
       before New, Reset, Open, dropping a file, and closing; the Phase 7 checklist's stale
       duplicate line
+- [x] **9.2** The menus checked against R3.1 item by item (eleven screenshots): labels,
+      separators, ticked items; the shortcut column with working keyboard shortcuts (not
+      while typing); R3's greying; recent files; Views > Show Transform Gizmo, Save /
+      Restore Active View
 - [ ] Edit > Clone (copy / instance); File > Save Selected; File > Summary Info
 - [ ] Views: Undo / Redo view change, Save / Restore Active View, Show Home Grid
 - [ ] Edit Mesh: Face / Edge / Polygon / Element selection; Delete, Hide / Unhide All,
@@ -26,7 +30,8 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
 - [ ] Picking: whether culled (back-facing) edges can be clicked — R3.1's behaviour to check
 
 ## B. Need R3.1 evidence (screenshots or samples)
-- Keyboard shortcuts (a screenshot of R3.1's File and Edit menus open shows them)
+- ~~Keyboard shortcuts~~ (step 9.2, from the menu screenshots); still open: Edit > Select
+  By and Region, Views > Grids submenu contents; underlined letters
 - Dialogs: File > New's options, Reset's and the save prompt's wording, Summary Info,
   Transform Type-In, Object Color, Merge's object list and duplicate-name dialog
 - The perspective home grid's extent for a distant camera; perspective shading; the ortho
@@ -45,6 +50,18 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.2 verification
+- [x] Builds warning-free; thirty-four test programs pass (MinGW + Wine)
+- [x] `test_menu_spec`: all 23 shortcuts parse to the keys the screenshots show, none
+      twice; plain keys never fire while typing; in an empty scene exactly the 27 items
+      R3.1 greys are greyed, across all eleven menus; with a selection the selection items
+      come alive; recent files (newest first, case-insensitive, nine at most)
+- [x] Under Wine: Select All, then Ctrl+Z (deselected) and Ctrl+A (selected again); with
+      one box selected and the Name field focused, typing "Bm1x" types (M and 1 are not
+      taken); without a focused field M opens the Material Editor (not implemented yet);
+      opening a file records it as File1 in the registry
+- [ ] On Windows: the menus next to the screenshots; the recent-files list; the shortcuts
 
 ## Step 9.1 verification
 - [x] Builds warning-free; thirty-four test programs pass (MinGW + Wine)

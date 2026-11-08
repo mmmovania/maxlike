@@ -46,6 +46,7 @@ public:
         views_[static_cast<size_t>(slot)].SetViewState(ortho, perspective);
     }
     int  Active() const { return active_; }
+    Viewport& ActiveView() { return views_[static_cast<size_t>(active_)]; }
     void SetActive(int index);
     void ToggleMaximized();                 // Min/Max: the active viewport fills the area
     // (Not "IsMaximized": windows.h defines that name as a macro for IsZoomed.)

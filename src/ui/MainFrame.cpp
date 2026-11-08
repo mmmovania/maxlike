@@ -1,4 +1,6 @@
 #include "ui/MainFrame.h"
+#include "win/App.h"
+#include "ui/RecentFiles.h"
 #include <cctype>
 #include <shellapi.h>
 #include <commdlg.h>
@@ -20,6 +22,11 @@
 
 namespace ui {
 
+// The recently opened or saved files, most recent first, in the registry like other
+// Windows programs (R3 keeps them in 3dsmax.ini).
+static const wchar_t kRecentKey[] = L"Software\\maxlike\\Recent File List";
+
+
 static constexpr const wchar_t* kAppName = L"maxlike";
 
 MainFrame::~MainFrame() {
@@ -36,8 +43,21 @@ bool MainFrame::Create() {
     // A top-level window's menu is passed in the "menu or ID" slot. Once the
     // window owns it, DestroyWindow destroys the menu too.
     p.menuOrId = BuildMenuBar(MainMenuSpec(), commands_);
+    for (int i = 1; i <= 9; ++i) commands_.Register("file.recent." + std::to_string(i));
     if (win::Window::Create(p)) {
         undo_.MarkClean();       // the startup scene counts as saved: closing it asks nothing
+        InstallShortcuts();
+        HKEY key;
+        if (RegOpenKeyExW(HKEY_CURRENT_USER, kRecentKey, 0, KEY_READ, &key) == ERROR_SUCCESS) {
+            for (int i = 1; i <= 9; ++i) {
+                wchar_t value[MAX_PATH * 2] = L"";
+                DWORD size = sizeof(value), type = 0;
+                const std::wstring name = L"File" + std::to_wstring(i);
+                if (RegQueryValueExW(key, name.c_str(), nullptr, &type, reinterpret_cast<BYTE*>(value), &size) == ERROR_SUCCESS && type == REG_SZ && value[0])
+                    recentFiles_.push_back(value);
+            }
+            RegCloseKey(key);
+        }
         return true;
     }
     DestroyMenu(p.menuOrId); // creation failed: the menu was never attached
@@ -62,7 +82,7 @@ void MainFrame::UpdateSelectionStatus() {
 // the same pattern (NOTE: unverified). Move, Rotate and Scale all show the Move gizmo
 // (R3.1, confirmed by the project owner); Select and creation show the tripod.
 void MainFrame::UpdateTransformDisplay() {
-    viewports_.SetAxesDisplay(tool_ != Tool::Select ? view::AxesStyle::MoveGizmo : view::AxesStyle::Tripod, constraint_);
+    viewports_.SetAxesDisplay(tool_ != Tool::Select && showGizmo_ ? view::AxesStyle::MoveGizmo : view::AxesStyle::Tripod, constraint_);
     viewports_.SetTransformTool(tool_ != Tool::Select);
     if (commandPanel_.CreateType() >= 0) return;   // creation keeps its own prompt
     const wchar_t* prompt = L"Click or click-and-drag to select objects";
@@ -282,6 +302,7 @@ bool MainFrame::OpenFile(const std::wstring& path) {
         }
     }
     SetDocumentName(fileName);
+    AddRecentFile(path);
     std::wstring prompt = L"Opened " + fileName + L": " + std::to_wstring(report.nodes) +
                           (report.nodes == 1 ? L" object" : L" objects");
     if (!report.notes.empty()) prompt += L" (" + std::to_wstring(report.notes.size()) + L" import notes)";
@@ -316,6 +337,7 @@ bool MainFrame::SaveFile(const std::wstring& path) {
     docPath_ = path;
     undo_.MarkClean();
     SetDocumentName(fileName);
+    AddRecentFile(path);
     statusArea_.SetPrompt(1, L"Saved " + fileName);
     return true;
 }
@@ -973,6 +995,25 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "views.redraw_all") { viewports_.Redraw(); return; }
+    if (command.rfind("file.recent.", 0) == 0) {
+        const size_t n = static_cast<size_t>(std::atoi(command.c_str() + 12));
+        if (n >= 1 && n <= recentFiles_.size() && ConfirmDiscard()) OpenFile(recentFiles_[n - 1]);
+        return;
+    }
+    if (command == "views.show_gizmo") {
+        showGizmo_ = !showGizmo_;
+        UpdateTransformDisplay();
+        viewports_.Redraw();
+        return;
+    }
+    if (command == "views.update_during_spinner_drag") { updateDuringSpinnerDrag_ = !updateDuringSpinnerDrag_; return; }
+    if (command == "views.save_active" || command == "views.restore_active") {
+        ui::Viewport& v = viewports_.ActiveView();
+        SavedView& saved = savedViews_[static_cast<int>(v.Type())];
+        if (command == "views.save_active") { saved = {true, v.OrthoState(), v.PerspectiveState()}; }
+        else if (saved.saved) { v.SetViewState(saved.ortho, saved.perspective); }
+        return;
+    }
     if (command == "file.open") {
         wchar_t path[MAX_PATH] = L"";
         OPENFILENAMEW ofn{};
@@ -1005,6 +1046,97 @@ void MainFrame::OnCommand(const std::string& command) {
 
 // Before the Edit menu opens: show what Undo/Redo would do, and grey them when there
 // is nothing to undo or redo. NOTE: R3's exact wording ("Undo Create"?) is not verified.
+// Before a menu opens: R3's greying (ui::MenuItemEnabled), Undo / Redo named after the
+// step they undo (keeping the shortcut), the check marks, the active view's name in Save /
+// Restore Active View, and in the File menu the recently opened files above Exit.
+void MainFrame::UpdateMenu(HMENU menu) {
+    ui::MenuState state;
+    state.canUndo = undo_.CanUndo();
+    state.canRedo = undo_.CanRedo();
+    state.objects = scene_.Nodes().size();
+    state.selected = scene_.Selection().size();
+    const int activeType = static_cast<int>(viewports_.ActiveView().Type());
+    state.savedPerspective = savedViews_[activeType].saved;
+    const std::wstring viewName = viewports_.ActiveView().Name();
+    // File menu: rebuild the recent-files block (a separator and up to nine entries).
+    if (GetSubMenu(GetMenu(Hwnd()), 0) == menu) {
+        for (int i = GetMenuItemCount(menu) - 1; i >= 0; --i) {
+            const UINT id = GetMenuItemID(menu, i);
+            const std::string& name = commands_.Name(static_cast<uint16_t>(id));
+            if (name.rfind("file.recent.", 0) == 0) DeleteMenu(menu, static_cast<UINT>(i), MF_BYPOSITION);
+        }
+        int exitPos = -1;
+        for (int i = 0; i < GetMenuItemCount(menu); ++i)
+            if (GetMenuItemID(menu, i) == commands_.Find("file.exit")) exitPos = i;
+        // A separator we added before (an extra one directly above Exit's own).
+        if (exitPos >= 2 && GetMenuItemID(menu, exitPos - 1) == 0 && GetMenuItemID(menu, exitPos - 2) == 0 &&
+            (GetMenuState(menu, static_cast<UINT>(exitPos - 2), MF_BYPOSITION) & MF_SEPARATOR)) {
+            DeleteMenu(menu, static_cast<UINT>(exitPos - 1), MF_BYPOSITION);
+            --exitPos;
+        }
+        if (exitPos > 0 && !recentFiles_.empty()) {
+            int at = exitPos;                                      // insert above Exit's separator's successor
+            for (size_t i = 0; i < recentFiles_.size() && i < 9; ++i) {
+                const std::wstring text = L"&" + std::to_wstring(i + 1) + L" " + recentFiles_[i];
+                InsertMenuW(menu, static_cast<UINT>(at++), MF_BYPOSITION | MF_STRING, commands_.Find("file.recent." + std::to_string(i + 1)), text.c_str());
+            }
+            InsertMenuW(menu, static_cast<UINT>(at), MF_BYPOSITION | MF_SEPARATOR, 0, nullptr);
+        }
+    }
+    for (int i = 0; i < GetMenuItemCount(menu); ++i) {
+        const UINT id = GetMenuItemID(menu, i);
+        if (id == 0 || id == static_cast<UINT>(-1)) continue;     // separators, submenus
+        const std::string& c = commands_.Name(static_cast<uint16_t>(id));
+        if (c.empty()) continue;
+        UINT flags = MF_BYCOMMAND | (ui::MenuItemEnabled(c, state) ? MF_ENABLED : MF_GRAYED);
+        EnableMenuItem(menu, id, flags);
+        if (c == "edit.undo" || c == "edit.redo") {
+            const bool undo = c == "edit.undo";
+            std::wstring text = undo ? L"&Undo" : L"&Redo";
+            const std::string what = undo ? undo_.UndoName() : undo_.RedoName();
+            if (undo ? state.canUndo : state.canRedo) text += L" " + std::wstring(what.begin(), what.end());
+            text += undo ? L"\tCtrl+Z" : L"\tCtrl+A";
+            ModifyMenuW(menu, id, MF_BYCOMMAND | MF_STRING | (ui::MenuItemEnabled(c, state) ? MF_ENABLED : MF_GRAYED), id, text.c_str());
+        }
+        if (c == "views.save_active" || c == "views.restore_active") {
+            const std::wstring text = (c == "views.save_active" ? L"&Save Active " : L"Restore Active ") + viewName + L" View";
+            ModifyMenuW(menu, id, MF_BYCOMMAND | MF_STRING | (ui::MenuItemEnabled(c, state) ? MF_ENABLED : MF_GRAYED), id, text.c_str());
+        }
+        if (c == "views.show_gizmo") CheckMenuItem(menu, id, MF_BYCOMMAND | (showGizmo_ ? MF_CHECKED : MF_UNCHECKED));
+        if (c == "views.update_during_spinner_drag") CheckMenuItem(menu, id, MF_BYCOMMAND | (updateDuringSpinnerDrag_ ? MF_CHECKED : MF_UNCHECKED));
+    }
+}
+
+void MainFrame::InstallShortcuts() {
+    std::vector<ACCEL> always, plain;
+    for (const ui::Shortcut& s : ui::ShortcutsOf(ui::MainMenuSpec())) {
+        ACCEL a{};
+        a.fVirt = static_cast<BYTE>(FVIRTKEY | (s.ctrl ? FCONTROL : 0) | (s.alt ? FALT : 0) | (s.shift ? FSHIFT : 0));
+        a.key = s.key;
+        a.cmd = commands_.Find(s.command);
+        if (!a.cmd) continue;
+        (s.WhileTyping() ? always : plain).push_back(a);
+    }
+    HACCEL a = always.empty() ? nullptr : CreateAcceleratorTableW(always.data(), static_cast<int>(always.size()));
+    HACCEL p = plain.empty() ? nullptr : CreateAcceleratorTableW(plain.data(), static_cast<int>(plain.size()));
+    win::App::SetAccelerators(Hwnd(), a, p);
+}
+
+void MainFrame::AddRecentFile(const std::wstring& path) {
+    recentFiles_ = ui::AddRecentFile(recentFiles_, path);
+    HKEY key;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, kRecentKey, 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS) return;
+    for (size_t i = 0; i < 9; ++i) {
+        const std::wstring name = L"File" + std::to_wstring(i + 1);
+        if (i < recentFiles_.size())
+            RegSetValueExW(key, name.c_str(), 0, REG_SZ, reinterpret_cast<const BYTE*>(recentFiles_[i].c_str()),
+                           static_cast<DWORD>((recentFiles_[i].size() + 1) * sizeof(wchar_t)));
+        else
+            RegDeleteValueW(key, name.c_str());
+    }
+    RegCloseKey(key);
+}
+
 void MainFrame::UpdateEditMenu(HMENU menu) {
     auto update = [&](const char* command, const wchar_t* label, bool can, const std::string& what) {
         const UINT id = commands_.Find(command);
@@ -1078,7 +1210,7 @@ LRESULT MainFrame::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
 
     case WM_INITMENUPOPUP:
         // Sent just before a menu opens: the moment to update its items.
-        UpdateEditMenu(reinterpret_cast<HMENU>(wp));
+        UpdateMenu(reinterpret_cast<HMENU>(wp));
         break;
 
     case WM_SIZE:

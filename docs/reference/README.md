@@ -14,6 +14,8 @@
 - `samples/*.max` — seventeen R3.1 sample scenes (box, box_editmesh, boxes, cone,
   cylinder, geosphere, instances, parent_child_link, pivot, plane, pyramid, sphere, teapot,
   teapot_edit_mesh, teapot_smoothinggroups, torus, tube); `test_samples` reads them all.
+- `screenshots/r3.1-menu-*.png` — R3.1 with each of its eleven menus open (empty scene):
+  labels, separators, shortcuts, ticked and greyed items (step 9.2).
 - `screenshots/r3.1-open-instances.png`, `screenshots/r3.1-open-parent-child-link.png` —
   two samples open in R3.1 with their saved viewports (step 8.6).
 - `screenshots/r3.1-modify-editmesh-scrolled.png` — R3.1's Edit Mesh panel scrolled down by

@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include "win/Window.h"
 #include "ui/CommandTable.h"
 #include "scene/Scene.h"
@@ -102,6 +103,15 @@ private:
     bool MergeFile(const std::wstring& path);
     std::wstring AskForSceneFile(const wchar_t* title);
     void SelectNodes(std::vector<scene::Node::Id> ids);   // one undoable "Select" step
+    // Phase 9.2: menus as in R3.1 (greying, check marks, recent files), shortcuts.
+    void UpdateMenu(HMENU menu);
+    void InstallShortcuts();
+    void AddRecentFile(const std::wstring& path);
+    std::vector<std::wstring> recentFiles_;            // most recent first (registry)
+    bool showGizmo_ = true;                            // Views > Show Transform Gizmo
+    bool updateDuringSpinnerDrag_ = true;              // Views > Update During Spinner Drag (NOTE: no effect yet)
+    struct SavedView { bool saved = false; view::OrthoView ortho; view::PerspectiveView perspective; };
+    std::map<int, SavedView> savedViews_;              // Views > Save Active ... View, per view type
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;

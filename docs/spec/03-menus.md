@@ -4,24 +4,55 @@ Source of truth in code: `src/ui/MenuSpec.cpp` (data), built by `src/ui/MenuBuil
 Commands are referred to by name (`file.open`); `CommandTable` maps names to WM_COMMAND IDs.
 
 ## Status
-| Menu | Title | Items, order, separators | Underlined letters |
-|---|---|---|---|
-| File | ✔ | ✔ | ○ |
-| Edit | ✔ | ✔ | ○ |
-| Tools | ✔ | ✔ | ○ |
-| Group | ✔ | ✔ | ○ |
-| Views | ✔ | ✔ | ○ |
-| Rendering | ✔ | ✔ | ○ |
-| Track View | ✔ | ✔ | ○ |
-| Schematic View | ✔ | ✔ | ○ |
-| Customize | ✔ | ✔ | ○ |
-| MAXScript | ✔ | ✔ | ○ |
-| Help | ✔ | ✔ (About renamed for maxlike) | ○ |
+Every menu was checked item by item against screenshots of R3.1 with each menu open
+(`docs/reference/screenshots/r3.1-menu-*.png`, step 9.2): labels, order, separators, the
+shortcut column, the ticked items, and which items R3 greys in an empty scene.
 
-✔ verified against R3.1 · ○ unverified
+| Menu | Items, order, separators | Shortcuts | Greying | Underlined letters |
+|---|---|---|---|---|
+| File | ✔ (+ recent files 1–9 above Exit) | ✔ | ✔ | ○ |
+| Edit | ✔ (Select By / Region contents ○) | ✔ | ✔ | ○ |
+| Tools | ✔ | ✔ | ✔ | ○ |
+| Group | ✔ | — | ✔ | ○ |
+| Views | ✔ (Grids contents ○) | ✔ | ✔ | ○ |
+| Rendering | ✔ | ✔ | ✔ | ○ |
+| Track View | ✔ | — | ✔ | ○ |
+| Schematic View | ✔ | — | ✔ | ○ |
+| Customize | ✔ | — | ✔ | ○ |
+| MAXScript | ✔ | ✔ | ✔ | ○ |
+| Help | ✔ (About renamed for maxlike) | — | ✔ | ○ |
 
-Items were corrected against R3.1 by the project owner. Underlined (mnemonic)
-letters still need checking: press Alt in R3.1 and compare.
+✔ verified against R3.1 · ○ unverified · — none in R3.1
+
+Corrections the screenshots brought (Phase 1 had these from memory): "New...", "Merge
+Animation..." (missing), "Properties..." (was "File Properties..."), "Align Camera...",
+Group's first item without "...", Views' "Undo" / "Redo" (were "... View Change"), "View
+Preview...", "Online Reference..." and "MAXScript Reference..." with "...", and the
+separators in Edit, Views, Rendering, Customize, MAXScript and Help.
+
+Shortcuts (from the shortcut column; `ui::ShortcutsOf`, Windows accelerators): Ctrl+N New,
+Ctrl+O Open, Ctrl+S Save, Ctrl+Z Undo, **Ctrl+A Redo** (R3.1; later Max versions use it
+for Select All), Alt+Ctrl+H Hold, Alt+Ctrl+F Fetch, Delete, F12 Transform Type-In, Alt+A
+Align, Alt+N Normal Align, Ctrl+H Place Highlight, M Material Editor, Shift+I Spacing
+Tool, Shift+Z / Shift+A view Undo / Redo, Alt+B Viewport Background, Alt+Shift+Ctrl+B
+Update Background Image, Ctrl+C Match Camera to View, 1 Redraw All Views, Ctrl+X Expert
+Mode, Ctrl+I Show Last Rendering, F11 MAXScript Listener. Ctrl / Alt and function-key
+shortcuts work everywhere; single keys and Shift+key ("M", "1", Delete, Shift+A) not while
+a text field has focus, so typing is never taken for a shortcut.
+
+Greying (`ui::MenuItemEnabled`): Undo / Redo with nothing to undo or redo; Clone, Select
+None, Properties, Save Selected, Export Selected and Group without a selection; Select All
+and Select Invert without objects; Restore Active ... View until that view was saved; and
+always, for things that cannot exist yet: Merge Animation, Views' Undo / Redo, the
+background image, Match Camera to View, Add Default Lights, Show Last Rendering, Delete
+Track / Schematic View, and Group's Open, Close, Ungroup, Explode, Detach, Attach. Edit >
+Delete is never greyed (as in R3.1).
+
+Ticked at start: Show Transform Gizmo (unticked, Move shows the plain tripod) and Update
+During Spinner Drag (NOTE: no effect yet). Views > Save / Restore Active View are named
+after the active viewport ("Save Active Top View"). Recent files: the nine most recently
+opened or saved, newest first, kept in the registry (`HKCU\Software\maxlike\Recent File
+List`; R3 keeps them in 3dsmax.ini).
 
 ## Rules (enforced by tests/test_menu_spec.cpp)
 - Top-level titles match the reference, in order.
