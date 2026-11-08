@@ -71,16 +71,18 @@ Mesh BoxObject::Evaluate() const {
     auto V = [&](int i, int j, int k) { return index.at({i, j, k}); };
 
     // Each side: a grid stepping along U then V from its corner c00, as in Max's
-    // face list (bottom 0 2 3 / 3 1 0, top 4 5 7 / 7 6 4, ...). Own smoothing group
-    // per side. NOTE: Max's exact smoothing bits per side are not verified.
-    struct Side { int ci, cj, ck; int ui, uj, uk; int vi, vj, vk; int nu, nv; uint32_t group; };
+    // face list (bottom 0 2 3 / 3 1 0, top 4 5 7 / 7 6 4, ...). Each side its own
+    // smoothing group and material ID, as Max's (verified against R3.1's collapsed Box,
+    // box_editmesh.max: positions, faces, smoothing, material IDs and edges all equal).
+    // Material IDs as stored (R3's panel shows them + 1: bottom 2, top 1, ...).
+    struct Side { int ci, cj, ck; int ui, uj, uk; int vi, vj, vk; int nu, nv; uint32_t group; uint16_t material; };
     const Side sides[6] = {
-        {0, 0, 0,   0, 1, 0,   1, 0, 0,   ny, nx, 1u << 1},   // bottom: U +y, V +x
-        {0, 0, nz,  1, 0, 0,   0, 1, 0,   nx, ny, 1u << 2},   // top:    U +x, V +y
-        {0, 0, 0,   1, 0, 0,   0, 0, 1,   nx, nz, 1u << 3},   // front (-y): U +x, V +z
-        {nx, 0, 0,  0, 1, 0,   0, 0, 1,   ny, nz, 1u << 4},   // right (+x): U +y, V +z
-        {nx, ny, 0, -1, 0, 0,  0, 0, 1,   nx, nz, 1u << 5},   // back (+y):  U -x, V +z
-        {0, ny, 0,  0, -1, 0,  0, 0, 1,   ny, nz, 1u << 6},   // left (-x):  U -y, V +z
+        {0, 0, 0,   0, 1, 0,   1, 0, 0,   ny, nx, 1u << 1, 1},   // bottom: U +y, V +x
+        {0, 0, nz,  1, 0, 0,   0, 1, 0,   nx, ny, 1u << 2, 0},   // top:    U +x, V +y
+        {0, 0, 0,   1, 0, 0,   0, 0, 1,   nx, nz, 1u << 3, 4},   // front (-y): U +x, V +z
+        {nx, 0, 0,  0, 1, 0,   0, 0, 1,   ny, nz, 1u << 4, 3},   // right (+x): U +y, V +z
+        {nx, ny, 0, -1, 0, 0,  0, 0, 1,   nx, nz, 1u << 5, 5},   // back (+y):  U -x, V +z
+        {0, ny, 0,  0, -1, 0,  0, 0, 1,   ny, nz, 1u << 6, 2},   // left (-x):  U -y, V +z
     };
     for (const Side& s : sides)
         for (int b = 0; b < s.nv; ++b)
@@ -88,7 +90,9 @@ Mesh BoxObject::Evaluate() const {
                 auto at = [&](int da, int db) {
                     return V(s.ci + s.ui * da + s.vi * db, s.cj + s.uj * da + s.vj * db, s.ck + s.uk * da + s.vk * db);
                 };
+                const size_t first = m.faces.size();
                 AddCell(m, at(a, b), at(a + 1, b), at(a + 1, b + 1), at(a, b + 1), s.group);
+                for (size_t f = first; f < m.faces.size(); ++f) m.faces[f].materialId = s.material;
             }
     // Negative dimensions mirror the box (e.g. a negative height builds downwards);
     // keep the faces pointing outwards.

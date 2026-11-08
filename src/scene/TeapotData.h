@@ -5,6 +5,11 @@
 // including the four bottom patches (Frank Crow). Copied from three.js
 // (examples/js/geometries/TeapotGeometry.js, r128, MIT licence, (c) three.js authors).
 // Patch order: rim 0-3, body 4-11, handle 12-15, spout 16-19, lid 20-27, bottom 28-31.
+// Point 16 is (-0.874, -1.4, 2.4) where three.js and most datasets have -0.784: the
+// teapot 3ds Max R3.1 builds carries these digits transposed, so its rim is not quite
+// symmetric. Measured from R3.1's own collapsed teapot (teapot_edit_mesh.max): 12 rim
+// points differ from the symmetric data by exactly this one change; with it all 530
+// agree (tests/test_max_objects.cpp).
 namespace scene::teapot {
 
 inline constexpr int kPatchCount = 32;
@@ -62,7 +67,7 @@ inline constexpr double kPoints[kPointCount][3] = {
     {1.5, -0.84, 2.4},
     {0.84, -1.5, 2.4},
     {0, -1.5, 2.4},
-    {-0.784, -1.4, 2.4},
+    {-0.874, -1.4, 2.4} /* Max's value: see the note above */,
     {-1.4, -0.784, 2.4},
     {-1.4, 0, 2.4},
     {-0.749, -1.3375, 2.53125},

@@ -107,10 +107,14 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
   modifier gizmo (orange in R3); Rotate and Scale at vertex level; the other modifiers in
   the More… list.
 
-## Phase 8 — `.max` import (`phase/8-max-import`)
-- [ ] CFB reader, zlib, chunk walker, class directory, DLL directory.
-- [ ] ParamBlock / PB2, Derived Object, node controllers (quaternion conjugate).
-- [ ] All loader samples import with R3.1's vertex/face counts (`04-primitives.md`; the
-      JS regression table's counts for most primitives are three.js's) and the verified
-      transforms, colours and instances.
-- [ ] Native save in own chunked format.
+## Phase 8 — `.max` import (`phase/8-max-import`) ✔ v0.8.0
+- [x] CFB reader, chunk walker, class directory, DLL directory (8.1–8.2). zlib deferred:
+      no R3-era file is compressed.
+- [x] ParamBlock / PB2, Derived Object, node controllers (quaternion conjugate) (8.3–8.4).
+- [x] All seventeen samples import: R3.1's vertex/face counts, Max's own collapsed Box
+      and teapot field by field, transforms, colours, instances (8.4–8.5); opened samples
+      compared with R3.1 screenshots, with the saved viewports restored (8.6).
+- [x] Native save in own chunked format (`.mlk`, 8.7).
+- Deferred: the perspective grid's extent rule; Bend / Taper / Twist and Backface Cull
+  flags from files (no samples); materials; viewports and selection in `.mlk` files;
+  keyboard shortcuts.

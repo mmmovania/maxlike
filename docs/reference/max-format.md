@@ -82,7 +82,11 @@ The 64-bit class "GUID" used below is `classIdB << 32 | classIdA`.
 
 ### 2.3 `DllDirectory` ✔ verified
 
-Entries contain `0x2037` (description) and `0x2039` (DLL file name), both UTF-16.
+Entries (`0x2038`, containers) contain `0x2039` (description, e.g. "Standard primitive
+objects") and `0x2037` (DLL file name, e.g. `prim.dlo`), both UTF-16 without a terminator.
+A class's `dllIndex` is the entry's position; −1 = built into Max (Box: 2 → `prim.dlo`).
+*Corrected by maxlike: this section first had the two chunk types the other way round;
+every R3.1 sample shows them as above.*
 
 ---
 
@@ -101,7 +105,11 @@ An object's references to other objects are stored in one of two chunks:
 | Chunk | Layout | Seen in |
 |---|---|---|
 | `0x2034` | `i32[]` — positional: slot *i* → scene-list index (−1 = empty) | PRS controller, Box, Derived Object |
-| `0x2035` | `i32 count`, then `(i32 slot, i32 index)` pairs | Node, sub-controllers |
+| `0x2035` | `i32 slotCount`, then `(i32 slot, i32 index)` pairs for the filled slots only | Node, sub-controllers |
+
+*Clarified by maxlike:* the first value is the object's number of reference slots, not the
+number of pairs: a Bezier Position controller's `0x2035` is just `02000000` (two empty
+slots); the node below has 8 slots, 3 filled.
 
 Example from `box.max`, a node's `0x2035`:
 
@@ -130,16 +138,20 @@ A node is a scene-list object whose class has GUID `0x1` and superclass `0x1` (c
 
 | Chunk | Contents | Status |
 |---|---|---|
-| `0x0960` | `i32 parentIndex` (scene-list index; the RootNode for top-level nodes), then `u32` flags | ✔ |
+| `0x0960` | `i32 parentIndex` (scene-list index; the RootNode for top-level nodes), then `u32` flags | ✔ (`parent_child_link.max`: Box01's parent is Sphere01's node) |
 | `0x0962` | Node name (UTF-16) | ✔ |
-| `0x096A` | Pivot (object-offset) position, `f32 × 3` | ◐ only identity values seen |
+| `0x096A` | Pivot (object-offset) position, `f32 × 3` | ✔ `pivot.max`: (0, 0, −20.16222) with the node at z = 20.16222: half the Box's height (40.3244), the pivot centred on the object |
 | `0x096B` | Pivot rotation, quaternion `f32 × 4` (x, y, z, w; Max handedness, §5.2) | ◐ only identity values seen |
 | `0x096C` | Pivot scale `f32 × 3`, then scale-axis quaternion `f32 × 4` | ◐ only identity values seen |
 | `0x0974` | Wire colour: bytes **R, G, B**, 0 | ✔ e.g. `1A B1 94 00` = teal |
 | `0x09CE`, `0x0963`, `0x099C`, `0x0A28`, `0x09BA`, `0x0978` | Unknown | — |
 
 The object offset is applied between the node transform and the geometry:
-`world = objectOffset × nodeTM × parentTM × …`.
+`world = objectOffset × nodeTM × parentTM × …` (row vectors; maxlike's column-vector form
+is `parentTM × nodeTM × objectOffset`, `scene::Node::ObjectMatrix`).
+
+*Verified by maxlike (step 8.3):* every node in the seventeen samples reads with these
+chunks; the value chunks are direct children of the node and of each controller.
 
 ---
 
@@ -231,16 +243,22 @@ All primitives build in object space with Max's Z-up axes. Unless noted, they si
 |---|---|---|---|---|
 | Box | `0x10` | old | 0 length (Y), 1 width (X), 2 height (Z), 3 width segs, 4 length segs, 5 height segs, 6 mapping | ✔ |
 | Sphere | `0x11` | old | 0 radius, 1 segments, 2 smooth, 3 hemisphere, 4 chop/squash, 5 base to pivot, 6 mapping, 7 slice on, 8 slice from, 9 slice to | ✔; centred on pivot unless *base to pivot* |
-| GeoSphere | `0x7F9E` | PB2 | 0 radius, 1 segments, 2 base type (0 tetra, 1 octa, 2 icosa), 3 hemisphere, 4 smooth, 5 base to pivot, 6 mapping | ✔; segments = geodesic frequency |
-| Cylinder | `0x12` | old | 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides, 5 smooth | ◐ visually checked; mesh ✔ (§7.6) |
+| GeoSphere | `0x00000000, 0x00007F9E` (the second word) | PB2 | 0 radius, 1 segments, 2 base type (0 tetra, 1 octa, 2 icosa), 3 hemisphere, 4 smooth, 5 base to pivot, 6 mapping | ✔; segments = geodesic frequency |
+| Cylinder | `0x12` | old | 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides, 5 smooth | ✔ imported by maxlike (`cylinder.max`: radius 10, height 20; the earlier visual estimate was 15 × 25); mesh ✔ (§7.6) |
 | Cone | `0xA86C23DD` | old | 0 radius 1 (base), 1 radius 2 (top), 2 height, 3 height segs, 4 cap segs, 5 sides, 6 smooth, 7 slice on, 8 slice from, 9 slice to, 10 mapping | ✔ |
 | Tube | `0x7B21` | old | 0 radius 1, 1 radius 2, 2 height, **3 sides, 4 cap segs, 5 height segs**, 6 smooth, 7–9 slice, 10 mapping | ✔; note the order differs from Cone |
-| Torus | `0x20` ○ | old | 0 radius 1, 1 radius 2, 2 rotation, 3 twist, 4 segments, 5 sides | ◐ visually checked; mesh counts ✔ (§7.6) |
+| Torus | `0x20` | old | 0 radius 1, 1 radius 2, 2 rotation, 3 twist, 4 segments, 5 sides, 6 smooth (int) | ✔ class ID from `torus.max`; mesh counts ✔ (§7.6) |
 | Pyramid | `0x76BF318A, 0x4BF37B10` | old | 0 width (X), 1 depth (Y), 2 height, 3 width segs, 4 depth segs, 5 height segs, 6 mapping | ✔ |
 | Teapot | `0xACAD13D3, 0xACAD26D9` | old | 0 radius, 1 segments, 2 smooth, 3 unused (−1), 4 body, 5 handle, 6 spout, 7 lid, 8 mapping | ✔; Utah teapot, Radius = body radius |
 | Plane | `0x081F1DFC, 0x77566F65` | PB2 | 0 length (Y), 1 width (X), 2 length segs ◐, 3 width segs ◐, 4 render scale, 5 render density, 6 mapping | ✔; centred, facing +Z |
 
 Teapot proportions (Blinn-scaled Utah data, in units of the radius): height 1.575, handle reach 1.5, spout reach ≈ 1.71.
+Max's teapot data has control point 16 = (−0.874, −1.4, 2.4) where the common Utah datasets
+have −0.784 (digits transposed); verified by R3.1's collapsed teapot (§7.3).
+
+*Verified by maxlike (step 8.4a):* every class ID above as the samples record it, matched
+on both words; importing each sample's parameters into maxlike's primitives reproduces
+R3.1's Summary Info counts for all seven samples in §7.6.
 
 ### 7.2 Box vertex order ✔ verified
 
@@ -255,7 +273,7 @@ Index-based edits (§8.3) need Max's own vertex order. For a 1 × 1 × 1 segment
 
 This was confirmed by applying the Edit Mesh deltas in `instances.max`: they rotate vertices 4–7 rigidly by exactly +25°, which matches the viewport. Faces (two per side, each side its own smoothing group): bottom `0 2 3, 3 1 0`; top `4 5 7, 7 6 4`; front `0 1 5, 5 4 0`; right `1 3 7, 7 5 1`; back `3 2 6, 6 7 3`; left `2 0 4, 4 6 2`.
 
-### 7.3 Editable Mesh ◐ (structure from community sources; not yet in a sample)
+### 7.3 Editable Mesh (class `0xE44F10B3`, superclass `0x10`) ✔ verified (maxlike step 8.4b: `box_editmesh`, `teapot_edit_mesh`, `teapot_smoothinggroups`)
 
 Mesh data lives in child `0x08FE` of the object:
 
@@ -264,7 +282,13 @@ Mesh data lives in child `0x08FE` of the object:
 | `0x0914` | `u32 count`, then `count × f32[3]` vertices |
 | `0x0912` | `u32 count`, then `count ×` 20-byte faces: `u32 a, b, c`, `u32 smoothingGroups`, `u32 flags` |
 
-In the face flags, the high 16 bits are thought to hold the material ID and the low bits edge visibility ○.
+Face flags: bits 0–2 are edge visibility (A = a→b, B = b→c, C = c→a; the 3ds Max SDK's
+`EDGE_A/B/C`) ✔; the high 16 bits are the material ID as stored (R3's panel shows it + 1) ✔;
+bit 6 (`0x40`) is set on every face in the samples (meaning unknown). Verified: R3.1's
+collapsed Box equals maxlike's Box in every field, and the collapsed teapot's 530 points
+equal maxlike's teapot (with Max's control point, §7.1). Also in `0x08FE`: `0x0906`,
+`0x0908`, `0x0924`, `0x0928`, `0x092A` (unknown). The object's first reference is a
+Master Point Controller (vertex animation; not read).
 
 ### 7.4 Editable Poly ○ unverified (Max 4 and later; cannot exist in R3.1 files)
 
@@ -353,6 +377,10 @@ Example from `instances.max` (top face of the box twisted +25°):
 
 Topology edits (delete, extrude, and so on) and smoothing-group or material changes made in Edit Mesh are not decoded yet.
 
+*Verified by maxlike (step 8.4b):* imported into maxlike's own Edit Mesh, these moves turn
+vertices 4–7 by +25.00° about the box's axis at unchanged radius, with 0–3 unmoved; the
+modifier context transform (`0x2510`) is identity (maxlike reports any other).
+
 ---
 
 ## 9. Materials ○ unverified
@@ -374,16 +402,45 @@ Max is **Z-up and right-handed**; three.js is Y-up. Rotating the scene root by �
 
 ---
 
+## 10a. Saved viewports (Config stream) ✔ verified (maxlike step 8.6)
+
+R3 restores the viewports saved with a file. They are in the **Config** stream, inside the
+top-level container `0x2080`, one 80-byte leaf per viewport in layout order: `0x2810`
+top-left, `0x2811` top-right, `0x2812` bottom-left, `0x2813` bottom-right.
+
+| Offset | Contents |
+|---|---|
+| 0 | `i32`, 1 for ortho views, 0 for perspective (meaning unverified) |
+| 4 | `i32` view type, the SDK's `VIEW_*`: 0 Left, 1 Right, 2 Top, 3 Bottom, 4 Front, 5 Back, 6 User, 7 Perspective |
+| 8 | 3 × 4 `f32` view matrix, rows (row vectors: view = world · R + T) |
+| 56 | Ortho: `f32` zoom. Perspective: `f32` field of view (radians, horizontal), then `f32` target distance |
+
+- Ortho views show **400 × zoom** world units across the viewport (calibrated on
+  R3.1's screenshot of `instances.max`; a zoom of 1 is R3's default 400-unit view); the
+  world point at the centre is the negated translation, along the view's right and up.
+- Perspective: the eye is −T·Rᵀ, the view direction the negated third column of R, the
+  target `distance` ahead (instances: 15° above the ground, looking along +Y, 45°).
+- `0x2910`–`0x2912` hold 80-byte records of the same layout (perhaps the views' undo
+  state; not read). `0x2825` appears to describe the layout (unverified).
+- Every sample saves four viewports: Top, Front, Left, Perspective. `box.max` is zoomed
+  to the box (Top zoom 0.36), not at the default views.
+
+Imported into maxlike, both R3.1 screenshots (`r3.1-open-instances.png`,
+`r3.1-open-parent-child-link.png`) are matched in framing in all four views; the ortho
+views differ by 774–2,970 pixels each (single-pixel line rasterisation and the labels).
+
+---
+
 ## 11. Open questions and next samples
 
 | Topic | Sample that would settle it |
 |---|---|
 | Editable Mesh in a real file (§7.3) | A box and a teapot converted to Editable Mesh, with moved vertices and a deleted face |
-| Pivot offsets with real values (§4) | A box whose pivot was moved with *Affect Pivot Only* |
-| Linked hierarchy (§4) | A box linked to a rotated parent |
+| The perspective home grid's extent | R3.1 screenshots of the Perspective view at several distances (instances.max shows x −400…+300, far edge y = 400; parent_child_link and the default ±200) |
+| The node flag for Backface Cull | A file with an object whose Backface Cull is turned off |
 | Material slot and colours (§9) | A box with a Standard material; a mesh with Multi/Sub-Object material IDs |
 | Plane length/width segment ids (§7.1) | A plane with different segment counts (e.g. 2 × 6) |
 | Sphere slice angles: degrees or radians | A sphere with *Slice On*, from 0° to 90° |
-| Other modifiers (Bend, Taper, Twist) | A segmented box with one modifier each |
+| Other modifiers (Bend, Taper, Twist) | A segmented box with one modifier each (still needed: no sample has one) |
 | Edit Mesh topology changes (§8.3) | An Edit Mesh that deletes and extrudes faces |
 | Newer Max versions (compression, PB2 everywhere) | Any file saved from Max 2010 or later |

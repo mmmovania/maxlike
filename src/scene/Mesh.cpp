@@ -21,14 +21,17 @@ math::Vec3 Mesh::FaceNormal(size_t i) const {
     return math::Normalize(math::Cross(b - a, c - a));
 }
 
-std::vector<std::pair<uint32_t, uint32_t>> Mesh::VisibleEdges() const {
+std::vector<std::pair<uint32_t, uint32_t>> Mesh::VisibleEdges(const std::vector<bool>* faceShown) const {
     std::set<std::pair<uint32_t, uint32_t>> edges; // shared edges appear once
-    for (const Face& f : faces)
+    for (size_t i = 0; i < faces.size(); ++i) {
+        const Face& f = faces[i];
+        if (faceShown && i < faceShown->size() && !(*faceShown)[i]) continue;
         for (int k = 0; k < 3; ++k)
             if (f.EdgeVisible(k)) {
                 const uint32_t a = f.v[k], b = f.v[(k + 1) % 3];
                 edges.insert({std::min(a, b), std::max(a, b)});
             }
+    }
     return {edges.begin(), edges.end()};
 }
 

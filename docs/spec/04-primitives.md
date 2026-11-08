@@ -46,7 +46,10 @@ Screenshots: `docs/reference/screenshots/r3.1-summary-*.png`.
 0 length (Y), 1 width (X), 2 height (Z), 3 width segs, 4 length segs, 5 height segs.
 Vertices: surface points of the (nx+1)(ny+1)(nz+1) lattice, layer by layer from the
 bottom, row by row (y), then x: for 1 × 1 × 1 exactly Max's order ✔. Each side its own
-smoothing group (bits 1–6 ○); material IDs ○ (0 for now).
+smoothing group and material ID ✔: bottom 2 / 1, top 4 / 0, front 8 / 4, right 0x10 / 3,
+back 0x20 / 5, left 0x40 / 2 (group / stored ID; R3's panel shows IDs + 1). Verified in
+step 8.4b against R3.1's collapsed Box (`box_editmesh.max`): positions, faces with
+winding, smoothing groups, material IDs and edge visibility all equal.
 
 ### Plane (PB2)
 0 length (Y), 1 width (X), 2 length segs ◐, 3 width segs ◐. Centred on the pivot, facing
@@ -89,7 +92,11 @@ about Z ○.
 ### Teapot
 0 radius, 1 segments, 2 smooth, 3 unused (−1), 4 body, 5 handle, 6 spout, 7 lid.
 The Utah teapot: 32 bicubic Bézier patches (Newell, with Blinn's proportions and Crow's
-bottom), each evaluated on an n × n grid. Radius = body radius (data radius 2.0),
+bottom), each evaluated on an n × n grid, with **Max's control point 16, (−0.874, −1.4,
+2.4)**, where three.js and most datasets have −0.784: R3.1's teapot carries these two
+digits transposed, so its rim is very slightly asymmetric ✔ (step 8.4b: R3.1's collapsed
+teapot, `teapot_edit_mesh.max`, and maxlike's agree in all 530 points within 0.001; with
+the symmetric value 12 rim points differ by up to 0.57). Radius = body radius (data radius 2.0),
 height = 1.575 × radius, spout towards +X ✔. Parts: Body = rim + body + bottom, Handle,
 Spout, Lid; points are merged **within each part only** ✔ (merging all gives 529, as
 the handle's end touches the body at one grid point). Predicted, to verify: Body 257 /

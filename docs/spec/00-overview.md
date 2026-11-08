@@ -30,6 +30,7 @@ Recreate the look and workflow of 3D Studio MAX R3.1 on modern Windows, pixel-cl
 | Modifiers | A node holds a Derived Object (base + modifiers, bottom up) only once it has a modifier; each modifier has a parameter block like a primitive's; adding, removing, switching off and editing are undo commands | One mechanism for spinners, undo and (Phase 8) import; undo can unwrap a plain object again |
 | Sub-objects | Edit Mesh edits the mesh as it is at its own level (the stack evaluated up to it), with moves stored in the object's space by vertex index | Modifiers above do not disturb editing; matches R3's Edit Mesh data |
 | Hand-drawn classics | Radio buttons, checkbox ticks: drawn from measured patterns where Wine and Windows differ | Exact everywhere, independent of the system's drawing |
+| File formats | `.max` read by pure, bounds-checked layers (compound file, chunks, scene list, nodes, objects, import), each tested on the R3.1 samples and swept with damaged files under sanitizers; maxlike's own `.mlk` uses the same chunk structure | Real files are the reference; untrusted input never crashes |
 | Testing | Logic kept pure and unit-tested (CTest); UI checked by pixel comparison with R3.1 screenshots | Measurable fidelity |
 
 ## Out of scope / rules

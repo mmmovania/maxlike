@@ -21,7 +21,7 @@ This is how it looks so far
 | 5 Interactive creation (all primitives, live Parameters, Keyboard Entry, undo) | ✔ panel pixel-checked | 0.5.0 |
 | 6 Selection and transforms (Objects strip, selection, Name and Color, Move/Rotate/Scale, X/Y/Z) | ✔ strip pixel-checked, gizmo measured | 0.6.0 |
 | 7 Modify panel (modifier stack, Bend/Taper/Twist, Edit Mesh at Vertex level) | ✔ panels pixel-checked | 0.7.0 |
-| 8 `.max` import | next | |
+| 8 `.max` import (open R3-era files, saved viewports; maxlike's own `.mlk` files) | ✔ samples verified against R3.1 | 0.8.0 |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 
@@ -38,9 +38,15 @@ build\Debug\maxlike.exe
 
 `maxlike.exe --client-size 1920x998` opens the window un-maximised with exactly the
 client size of the R3.1 reference screenshot (useful for pixel comparisons).
-`--demo-scene <name>|all` opens with objects from the verified `.max` samples (box, plane,
-pyramid, cylinder, cone, tube, torus, sphere, geosphere, teapot), `instances` (seven nodes sharing one
-modified box) or `deform` (three tall boxes with Bend, Twist and Taper).
+`maxlike.exe scene.max` (or File > Open…, or dropping a file on the window) opens a 3ds Max
+R3-era `.max` file: primitives, Editable Meshes and Edit Mesh stacks, with names, hierarchy,
+transforms and wire colours; a report lists anything it could not import. The seventeen R3.1
+samples are in `docs/reference/samples/`.
+`--demo-scene <name>|all` opens with hand-built objects (box, plane, pyramid, cylinder, cone,
+tube, torus, sphere, geosphere, teapot), `instances` (seven nodes sharing one modified box) or
+`deform` (three tall boxes with Bend, Twist and Taper). They were transcribed before maxlike
+could read `.max` files: most match their sample exactly, but cylinder, torus and instances
+use estimated sizes and colours — open the sample itself for the real scene.
 
 ## Branches
 

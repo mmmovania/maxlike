@@ -26,6 +26,9 @@ public:
     void SetDocumentName(const std::wstring& name); // updates "<name> - maxlike"
     scene::Scene& Scene() { return scene_; }
     bool LoadDemoScene(const std::string& which);   // --demo-scene
+    // Opens a .max file (Phase 8): replaces the scene if the file can be read, otherwise
+    // leaves it untouched; reports what could not be imported.
+    bool OpenFile(const std::wstring& path);
 
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.MainFrame"; }
@@ -89,6 +92,9 @@ private:
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;
     std::shared_ptr<scene::Modifier> CurrentModifier() const;   // null when the base is shown
     std::wstring docName_ = L"Untitled";
+    std::wstring docPath_;                          // the .mlk file the scene was opened from or saved to
+    bool SaveFile(const std::wstring& path);
+    void SaveAs();
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;

@@ -1,4 +1,5 @@
 #include "view/OrthoGrid.h"
+#include <algorithm>
 #include <cmath>
 
 namespace view {
@@ -64,9 +65,24 @@ static LineKind KindOf(long long index) {
     return (index % kMajorEvery == 0) ? LineKind::Major : LineKind::Minor;
 }
 
+double OrthoGridSpacing(int w, const OrthoView& v) {
+    double s = kGridSpacing;
+    if (w <= 0 || v.width <= 0) return s;
+    for (int i = 0; i < 6 && (s / 10.0) * ScaleX(w, v) >= kSubdivideGap; ++i) s /= 10.0;
+    return s;
+}
+
+int OrthoMinorShade(int w, const OrthoView& v) {
+    const double gap = OrthoGridSpacing(w, v) * ScaleX(w, v);
+    // The slope is the middle of the band (0.8648..0.8699) that fits all six measurements.
+    const int shade = static_cast<int>(std::floor(160.0 - 0.8674 * gap));
+    return std::clamp(shade, 116, 160);
+}
+
 std::vector<GridLine> OrthoGridLines(int w, int h, const OrthoView& v) {
     std::vector<GridLine> lines;
     if (w <= 0 || h <= 0 || v.width <= 0) return lines;
+    const double kGridSpacing = OrthoGridSpacing(w, v);   // the spacing drawn (shadows the constant)
 
     // World range visible in each direction, then every multiple of the spacing in it.
     const double halfU = v.width / 2.0 + kGridSpacing;

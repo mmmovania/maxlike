@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(maxlike VERSION 0.7.0 LANGUAGES C CXX RC)
+project(maxlike VERSION 0.8.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -121,6 +121,23 @@ add_executable(maxlike WIN32
     src/scene/CreationTool.h
     src/scene/MoveMath.cpp
     src/scene/MoveMath.h
+    src/io/Cfb.cpp
+    src/io/Cfb.h
+    src/io/Chunks.cpp
+    src/io/Chunks.h
+    src/io/MaxScene.cpp
+    src/io/MaxScene.h
+    src/io/MaxNodes.cpp
+    src/io/MaxNodes.h
+    src/io/MaxObjects.cpp
+    src/io/MaxObjects.h
+    src/io/MaxImport.cpp
+    src/io/MaxImport.h
+    src/io/MaxViewports.cpp
+    src/io/MaxViewports.h
+    src/io/NativeFile.cpp
+    src/io/NativeFile.h
+    src/io/Utf16.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
     res/resource.h
@@ -149,7 +166,7 @@ else()
     target_link_options(maxlike PRIVATE -municode -static)
 endif()
 
-target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32 comdlg32) # msimg32: TransparentBlt; comctl32: tooltips
+target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32 comdlg32 shell32) # msimg32: TransparentBlt; comctl32: tooltips; shell32: drag-and-drop, command line
 
 # ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
 enable_testing()
@@ -192,3 +209,20 @@ maxlike_add_test(test_parameters_spec tests/test_parameters_spec.cpp src/ui/Para
 maxlike_add_test(test_picking tests/test_picking.cpp src/view/Picking.cpp)
 maxlike_add_test(test_transform_axes tests/test_transform_axes.cpp src/view/TransformAxes.cpp)
 maxlike_add_test(test_move_math tests/test_move_math.cpp src/scene/MoveMath.cpp src/scene/Node.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_cfb tests/test_cfb.cpp src/io/Cfb.cpp)
+target_compile_definitions(test_cfb PRIVATE MAXLIKE_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+maxlike_add_test(test_chunks tests/test_chunks.cpp src/io/Chunks.cpp)
+maxlike_add_test(test_samples tests/test_samples.cpp src/io/Cfb.cpp src/io/Chunks.cpp)
+target_compile_definitions(test_samples PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_scene tests/test_max_scene.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp)
+target_compile_definitions(test_max_scene PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_nodes tests/test_max_nodes.cpp src/io/MaxNodes.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_max_nodes PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_objects tests/test_max_objects.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_max_objects PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_import tests/test_max_import.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_max_import PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_viewports tests/test_max_viewports.cpp src/io/MaxViewports.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/view/PerspectiveView.cpp src/view/OrthoGrid.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_max_viewports PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_native_file tests/test_native_file.cpp src/io/NativeFile.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/DemoScene.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_native_file PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")

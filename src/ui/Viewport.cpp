@@ -75,7 +75,13 @@ void Viewport::DrawOrthoGrid(int w, int h) {
     }
     const math::Mat4 toClip = math::PixelToClip(w, h);
     for (int k = 0; k < 3; ++k)
-        lines_->Draw(batch[k], toClip, kGridColours[k].R(), kGridColours[k].G(), kGridColours[k].B());
+        if (k == 0) {
+            // Minor lines: a grey level that depends on their spacing (OrthoMinorShade).
+            const float g = static_cast<float>(view::OrthoMinorShade(w, ortho_)) / 255.0f;
+            lines_->Draw(batch[k], toClip, g, g, g);
+        } else {
+            lines_->Draw(batch[k], toClip, kGridColours[k].R(), kGridColours[k].G(), kGridColours[k].B());
+        }
 }
 
 // Perspective: the home grid in world space, through the camera's matrices.
@@ -296,8 +302,19 @@ void Viewport::DrawScene(int w, int h) {
         std::vector<math::Vec3> p(mesh.verts.size());
         for (size_t i = 0; i < p.size(); ++i) p[i] = math::TransformPoint(m, mesh.verts[i]);
 
+        // R3.1 culls back faces in wireframe (measured: r3.1-open-*.png show one hemisphere
+        // of a sphere): a face is shown when its world-space winding faces the viewer.
+        std::vector<bool> shown(mesh.faces.size());
+        const math::Vec3 outOfScreen = math::Cross(right, up);
+        const math::Vec3 eye = persp ? perspective_.Eye() : math::Vec3{0, 0, 0};
+        for (size_t i = 0; i < mesh.faces.size(); ++i) {
+            const scene::Face& f = mesh.faces[i];
+            const math::Vec3 n = math::Cross(p[f.v[1]] - p[f.v[0]], p[f.v[2]] - p[f.v[0]]);
+            const math::Vec3 toViewer = persp ? eye - p[f.v[0]] : outOfScreen;
+            shown[i] = math::Dot(n, toViewer) > 0;
+        }
         std::vector<Line> lines;
-        for (const auto& [a, b] : mesh.VisibleEdges()) {
+        for (const auto& [a, b] : mesh.VisibleEdges(shading_ == Shading::BoundingBox ? nullptr : &shown)) {
             if (persp) {
                 lines.push_back({static_cast<float>(p[a].x), static_cast<float>(p[a].y), static_cast<float>(p[a].z),
                                  static_cast<float>(p[b].x), static_cast<float>(p[b].y), static_cast<float>(p[b].z)});

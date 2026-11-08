@@ -1,5 +1,6 @@
 #include "win/App.h"
 #include "ui/MainFrame.h"
+#include <shellapi.h>
 #include <commctrl.h>
 #include <cwchar>
 #include <string>
@@ -36,6 +37,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR cmdLine, int /*cmdShow*
     if (!frame.Create()) {
         MessageBoxW(nullptr, L"Could not create the main window.", L"maxlike", MB_ICONERROR);
         return 1;
+    }
+    // A .max or .mlk file named on the command line (or dropped on maxlike's icon) opens at start.
+    {
+        int argc = 0;
+        if (LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc)) {
+            for (int i = 1; i < argc; ++i) {
+                const std::wstring arg = argv[i];
+                if (arg.size() > 4 && (_wcsicmp(arg.c_str() + arg.size() - 4, L".max") == 0 ||
+                                       _wcsicmp(arg.c_str() + arg.size() - 4, L".mlk") == 0)) { frame.OpenFile(arg); break; }
+            }
+            LocalFree(argv);
+        }
     }
     const std::string demo = DemoSceneArg(cmdLine);
     if (!demo.empty() && !frame.LoadDemoScene(demo))
