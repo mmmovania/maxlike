@@ -127,6 +127,8 @@ add_executable(maxlike WIN32
     src/io/Chunks.h
     src/io/MaxScene.cpp
     src/io/MaxScene.h
+    src/io/MaxNodes.cpp
+    src/io/MaxNodes.h
     src/io/Utf16.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
@@ -206,3 +208,5 @@ maxlike_add_test(test_samples tests/test_samples.cpp src/io/Cfb.cpp src/io/Chunk
 target_compile_definitions(test_samples PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
 maxlike_add_test(test_max_scene tests/test_max_scene.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp)
 target_compile_definitions(test_max_scene PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_nodes tests/test_max_nodes.cpp src/io/MaxNodes.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_max_nodes PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")

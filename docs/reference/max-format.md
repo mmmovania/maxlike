@@ -138,16 +138,20 @@ A node is a scene-list object whose class has GUID `0x1` and superclass `0x1` (c
 
 | Chunk | Contents | Status |
 |---|---|---|
-| `0x0960` | `i32 parentIndex` (scene-list index; the RootNode for top-level nodes), then `u32` flags | ✔ |
+| `0x0960` | `i32 parentIndex` (scene-list index; the RootNode for top-level nodes), then `u32` flags | ✔ (`parent_child_link.max`: Box01's parent is Sphere01's node) |
 | `0x0962` | Node name (UTF-16) | ✔ |
-| `0x096A` | Pivot (object-offset) position, `f32 × 3` | ◐ only identity values seen |
+| `0x096A` | Pivot (object-offset) position, `f32 × 3` | ✔ `pivot.max`: (0, 0, −20.16222) with the node at z = 20.16222 |
 | `0x096B` | Pivot rotation, quaternion `f32 × 4` (x, y, z, w; Max handedness, §5.2) | ◐ only identity values seen |
 | `0x096C` | Pivot scale `f32 × 3`, then scale-axis quaternion `f32 × 4` | ◐ only identity values seen |
 | `0x0974` | Wire colour: bytes **R, G, B**, 0 | ✔ e.g. `1A B1 94 00` = teal |
 | `0x09CE`, `0x0963`, `0x099C`, `0x0A28`, `0x09BA`, `0x0978` | Unknown | — |
 
 The object offset is applied between the node transform and the geometry:
-`world = objectOffset × nodeTM × parentTM × …`.
+`world = objectOffset × nodeTM × parentTM × …` (row vectors; maxlike's column-vector form
+is `parentTM × nodeTM × objectOffset`, `scene::Node::ObjectMatrix`).
+
+*Verified by maxlike (step 8.3):* every node in the seventeen samples reads with these
+chunks; the value chunks are direct children of the node and of each controller.
 
 ---
 
