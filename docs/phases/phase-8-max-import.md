@@ -31,7 +31,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] **8.7 Saving**: maxlike's own `.mlk` files (`io::SaveNative` / `io::LoadNative`, the
       .max chunk structure, objects once so instances stay shared, exact doubles); File >
       Save and Save As…; `.mlk` files open like `.max` files (recognised by signature)
-- [ ] 8.8 Wrap-up
+- [x] **8.8 Wrap-up**: checks, `docs/tech/phase8-tech-docs.md`, version 0.8.0, a sweep of
+      the plan, overview, README and tech index
 
 ## Step 8.1 verification
 - [x] Builds warning-free (MinGW, clean rebuild); twenty-six test programs pass (MinGW + Wine)
@@ -169,6 +170,11 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [ ] On Windows: Save As…, Save (overwrites the .mlk; a scene opened from .max always
       asks for a name), reopen
 - Not stored yet: viewports, the selection; no keyboard shortcuts (none exist yet)
+
+## Step 8.8 verification
+- [x] Clean rebuild: 0 warnings; thirty-three test programs pass (MinGW + Wine)
+- [x] Default window unchanged; Modify panels against R3.1: Bend 0, Edit Mesh 0
+- [ ] On Windows: `ctest`; the "Try it" steps of 8.5–8.7
 
 ## Notes
 - Compression: none of the R3.1 samples were compressed (`max-format.md` §1); zlib is
