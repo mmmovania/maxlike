@@ -262,6 +262,23 @@ private:
     std::vector<std::unique_ptr<DeleteNodeCommand>> parts_;
 };
 
+// Nodes added to the scene outside the undo stack (File > Merge): already present when
+// executed. Undo deletes them, children first; redo restores them, parents first. `ids`
+// must list parents before their children.
+class AddedNodesCommand : public Command {
+public:
+    AddedNodesCommand(std::string name, std::vector<Node::Id> ids) : name_(std::move(name)), ids_(std::move(ids)) {}
+    std::string Name() const override { return name_; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    std::string name_;
+    std::vector<Node::Id> ids_;
+    bool first_ = true;
+    std::vector<std::unique_ptr<DeleteNodeCommand>> deleted_;   // in deletion order
+};
+
 // Several commands as one undo step (e.g. creating an object, then adjusting it while
 // dragging). Undone in reverse order.
 class MacroCommand : public Command {

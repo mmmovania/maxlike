@@ -185,4 +185,19 @@ void MacroCommand::Undo(Scene& scene) {
     for (auto it = parts_.rbegin(); it != parts_.rend(); ++it) (*it)->Undo(scene);
 }
 
+void AddedNodesCommand::Do(Scene& scene) {
+    if (first_) { first_ = false; return; }                 // the nodes are already there
+    for (auto it = deleted_.rbegin(); it != deleted_.rend(); ++it) (*it)->Undo(scene);   // parents first
+    deleted_.clear();
+}
+
+void AddedNodesCommand::Undo(Scene& scene) {
+    deleted_.clear();
+    for (auto it = ids_.rbegin(); it != ids_.rend(); ++it) {   // children first
+        auto d = std::make_unique<DeleteNodeCommand>(*it);
+        d->Do(scene);
+        deleted_.push_back(std::move(d));
+    }
+}
+
 } // namespace scene

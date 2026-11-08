@@ -22,6 +22,7 @@ This is how it looks so far
 | 6 Selection and transforms (Objects strip, selection, Name and Color, Move/Rotate/Scale, X/Y/Z) | ✔ strip pixel-checked, gizmo measured | 0.6.0 |
 | 7 Modify panel (modifier stack, Bend/Taper/Twist, Edit Mesh at Vertex level) | ✔ panels pixel-checked | 0.7.0 |
 | 8 `.max` import (open R3-era files, saved viewports; maxlike's own `.mlk` files) | ✔ samples verified against R3.1 | 0.8.0 |
+| 9 Deferred items (inventory in `docs/phases/phase-9-deferred.md`) | in progress | |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 

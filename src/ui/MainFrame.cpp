@@ -1,7 +1,9 @@
 #include "ui/MainFrame.h"
+#include <cctype>
 #include <shellapi.h>
 #include <commdlg.h>
 #include "io/MaxImport.h"
+#include "io/Merge.h"
 #include "io/NativeFile.h"
 #include "io/MaxViewports.h"
 #include "ui/ModifiersDialog.h"
@@ -34,8 +36,10 @@ bool MainFrame::Create() {
     // A top-level window's menu is passed in the "menu or ID" slot. Once the
     // window owns it, DestroyWindow destroys the menu too.
     p.menuOrId = BuildMenuBar(MainMenuSpec(), commands_);
-    if (win::Window::Create(p))
+    if (win::Window::Create(p)) {
+        undo_.MarkClean();       // the startup scene counts as saved: closing it asks nothing
         return true;
+    }
     DestroyMenu(p.menuOrId); // creation failed: the menu was never attached
     return false;
 }
@@ -205,11 +209,9 @@ bool MainFrame::LoadDemoScene(const std::string& which) {
     return true;
 }
 
-bool MainFrame::OpenFile(const std::wstring& path) {
-    const size_t slash = path.find_last_of(L"\\/");
-    const std::wstring fileName = slash == std::wstring::npos ? path : path.substr(slash + 1);
-    // Read with Win32 (wide paths on every compiler).
-    std::vector<uint8_t> bytes;
+// Read with Win32 (wide paths on every compiler); a message if it fails.
+bool MainFrame::ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& bytes) {
+    bytes.clear();
     HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file != INVALID_HANDLE_VALUE) {
         LARGE_INTEGER size{};
@@ -225,6 +227,14 @@ bool MainFrame::OpenFile(const std::wstring& path) {
         MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
         return false;
     }
+    return true;
+}
+
+bool MainFrame::OpenFile(const std::wstring& path) {
+    const size_t slash = path.find_last_of(L"\\/");
+    const std::wstring fileName = slash == std::wstring::npos ? path : path.substr(slash + 1);
+    std::vector<uint8_t> bytes;
+    if (!ReadWholeFile(path, bytes)) return false;
     // Import into a new scene first: a file that cannot be read leaves the current one.
     // maxlike's own files are recognised by their signature, whatever their name.
     const bool native = io::IsNativeFile(bytes);
@@ -310,7 +320,7 @@ bool MainFrame::SaveFile(const std::wstring& path) {
     return true;
 }
 
-void MainFrame::SaveAs() {
+bool MainFrame::SaveAs() {
     // The suggested name: the document's, with maxlike's extension.
     std::wstring suggested = docName_;
     const size_t dot = suggested.find_last_of(L'.');
@@ -327,7 +337,84 @@ void MainFrame::SaveAs() {
     ofn.lpstrTitle = L"Save File As";
     ofn.lpstrDefExt = L"mlk";
     ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-    if (GetSaveFileNameW(&ofn)) SaveFile(path);
+    return GetSaveFileNameW(&ofn) && SaveFile(path);
+}
+
+bool MainFrame::ConfirmDiscard() {
+    if (undo_.IsClean()) return true;
+    // NOTE: R3's wording for this question is unverified.
+    const std::wstring text = L"The scene " + docName_ + L" has been modified.\nDo you want to save your changes?";
+    switch (MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_YESNOCANCEL | MB_ICONQUESTION)) {
+    case IDYES: return docPath_.empty() ? SaveAs() : SaveFile(docPath_);
+    case IDNO: return true;
+    default: return false;
+    }
+}
+
+void MainFrame::ResetScene() {
+    creation_.Cancel();
+    scene_ = scene::Scene();
+    undo_.Clear();
+    undo_.MarkClean();
+    modifyIndex_ = 0;
+    subObject_ = false;
+    vertexMove_ = {};
+    docPath_.clear();
+    viewports_.SetScene(&scene_);
+    UpdateSelectionStatus();
+    UpdateModifyPanel();
+    UpdateCreatePanel();
+    viewports_.Redraw();
+    SetDocumentName(L"Untitled");
+}
+
+std::wstring MainFrame::AskForSceneFile(const wchar_t* title) {
+    wchar_t path[MAX_PATH] = L"";
+    OPENFILENAMEW ofn{};
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = Hwnd();
+    ofn.lpstrFilter = L"Scenes (*.max, *.mlk)\0*.max;*.mlk\0" L"3D Studio MAX (*.max)\0*.max\0" L"maxlike (*.mlk)\0*.mlk\0All Files (*.*)\0*.*\0";
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = title;
+    ofn.lpstrDefExt = L"max";
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    return GetOpenFileNameW(&ofn) ? std::wstring(path) : std::wstring();
+}
+
+void MainFrame::SelectNodes(std::vector<scene::Node::Id> ids) {
+    undo_.Execute(std::make_unique<scene::SelectCommand>(std::move(ids)), scene_);
+    modifyIndex_ = 0;
+    subObject_ = false;
+    UpdateSelectionStatus();
+    UpdateModifyPanel();
+    viewports_.Redraw();
+}
+
+// File > Merge: another file's objects added to this scene, as one undoable step. Names
+// already in the scene get the next free number (R3 asks in a dialog; NOTE: not built).
+bool MainFrame::MergeFile(const std::wstring& path) {
+    const size_t slash = path.find_last_of(L"\\/");
+    const std::wstring fileName = slash == std::wstring::npos ? path : path.substr(slash + 1);
+    std::vector<uint8_t> bytes;
+    if (!ReadWholeFile(path, bytes)) return false;
+    io::ImportReport report;
+    std::vector<scene::Node::Id> ids;
+    std::string error;
+    if (!io::MergeScene(bytes, scene_, report, ids, error)) {
+        const std::wstring text = L"Could not merge " + fileName + L":\n" + std::wstring(error.begin(), error.end());
+        MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    undo_.Execute(std::make_unique<scene::AddedNodesCommand>("Merge", ids), scene_);
+    viewports_.Redraw();
+    statusArea_.SetPrompt(1, L"Merged " + fileName + L": " + std::to_wstring(ids.size()) + (ids.size() == 1 ? L" object" : L" objects"));
+    if (!report.notes.empty()) {
+        std::wstring text = L"Merging " + fileName + L":\n\n";
+        for (size_t i = 0; i < report.notes.size() && i < 20; ++i) text += L"\x2022 " + std::wstring(report.notes[i].begin(), report.notes[i].end()) + L"\n";
+        MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONINFORMATION);
+    }
+    return true;
 }
 
 void MainFrame::SetDocumentName(const std::wstring& name) {
@@ -855,6 +942,37 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "file.save_as") { SaveAs(); return; }
+    if (command == "file.new") {
+        // NOTE: R3 first asks Keep Objects and Hierarchy / Keep Objects / New All (dialog
+        // not built); this is New All, keeping the views.
+        if (ConfirmDiscard()) { ResetScene(); statusArea_.SetPrompt(1, L"New scene"); }
+        return;
+    }
+    if (command == "file.reset") {
+        if (!ConfirmDiscard()) return;
+        // NOTE: R3's wording unverified.
+        if (MessageBoxW(Hwnd(), L"Do you really want to reset?", kAppName, MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+        ResetScene();
+        viewports_.ResetAllViews();
+        return;
+    }
+    if (command == "file.merge") {
+        const std::wstring path = AskForSceneFile(L"Merge File");
+        if (!path.empty()) MergeFile(path);
+        return;
+    }
+    if (command == "edit.select_all" || command == "edit.select_none" || command == "edit.select_invert") {
+        std::vector<scene::Node::Id> ids;
+        if (command != "edit.select_none")
+            for (const auto& n : scene_.Nodes()) {
+                const auto& sel = scene_.Selection();
+                const bool selected = std::find(sel.begin(), sel.end(), n->GetId()) != sel.end();
+                if (command == "edit.select_all" || !selected) ids.push_back(n->GetId());
+            }
+        SelectNodes(ids);
+        return;
+    }
+    if (command == "views.redraw_all") { viewports_.Redraw(); return; }
     if (command == "file.open") {
         wchar_t path[MAX_PATH] = L"";
         OPENFILENAMEW ofn{};
@@ -866,7 +984,7 @@ void MainFrame::OnCommand(const std::string& command) {
         ofn.lpstrTitle = L"Open File";
         ofn.lpstrDefExt = L"max";
         ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-        if (GetOpenFileNameW(&ofn)) OpenFile(path);
+        if (ConfirmDiscard() && GetOpenFileNameW(&ofn)) OpenFile(path);
         return;
     }
     if (command == "file.exit") {
@@ -929,13 +1047,17 @@ LRESULT MainFrame::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         DragAcceptFiles(Hwnd(), TRUE);   // a .max file dropped on the window opens it
         return 0;
 
+    case WM_CLOSE:
+        if (!ConfirmDiscard()) return 0;    // cancelled: keep running
+        break;
+
     case WM_DROPFILES: {
         const HDROP drop = reinterpret_cast<HDROP>(wp);
         wchar_t path[MAX_PATH] = L"";
         if (DragQueryFileW(drop, 0, path, MAX_PATH) > 0) {
             DragFinish(drop);
             SetForegroundWindow(Hwnd());
-            OpenFile(path);
+            if (ConfirmDiscard()) OpenFile(path);
         } else {
             DragFinish(drop);
         }

@@ -94,7 +94,14 @@ private:
     std::wstring docName_ = L"Untitled";
     std::wstring docPath_;                          // the .mlk file the scene was opened from or saved to
     bool SaveFile(const std::wstring& path);
-    void SaveAs();
+    bool SaveAs();                                  // false if cancelled or failed
+    // Before replacing the scene: if it is modified, ask to save it. False = cancel.
+    bool ConfirmDiscard();
+    void ResetScene();                              // an empty, unsaved scene ("Untitled")
+    bool ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& bytes);
+    bool MergeFile(const std::wstring& path);
+    std::wstring AskForSceneFile(const wchar_t* title);
+    void SelectNodes(std::vector<scene::Node::Id> ids);   // one undoable "Select" step
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;

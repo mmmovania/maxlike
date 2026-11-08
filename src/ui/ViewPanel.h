@@ -37,6 +37,8 @@ public:
     std::function<void(const std::vector<uint32_t>&, bool, bool, bool)> onVertexSelect;
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
+    // File > Reset: the startup types and views (Top, Front, Left, Perspective).
+    void ResetAllViews();
     // A viewport (0..3 in layout order) restored from a file: its type and its view.
     void ApplySavedView(int slot, ViewType type, const view::OrthoView& ortho, const view::PerspectiveView& perspective) {
         if (slot < 0 || slot >= static_cast<int>(views_.size())) return;

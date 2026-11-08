@@ -115,6 +115,12 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       and teapot field by field, transforms, colours, instances (8.4–8.5); opened samples
       compared with R3.1 screenshots, with the saved viewports restored (8.6).
 - [x] Native save in own chunked format (`.mlk`, 8.7).
-- Deferred: the perspective grid's extent rule; Bend / Taper / Twist and Backface Cull
+- Deferred (now in Phase 9's inventory): the perspective grid's extent rule; Bend / Taper / Twist and Backface Cull
   flags from files (no samples); materials; viewports and selection in `.mlk` files;
   keyboard shortcuts.
+
+## Phase 9 — Deferred items (`phase/9-deferred`)
+Everything earlier phases deferred, inventoried in `docs/phases/phase-9-deferred.md` as
+buildable now, needing R3.1 evidence, or separate subsystems; worked through in steps.
+- [x] File > New, Reset, Merge; Edit > Select All / None / Invert; Views > Redraw All;
+      the save prompt (9.1).

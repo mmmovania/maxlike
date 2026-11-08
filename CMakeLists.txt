@@ -137,6 +137,8 @@ add_executable(maxlike WIN32
     src/io/MaxViewports.h
     src/io/NativeFile.cpp
     src/io/NativeFile.h
+    src/io/Merge.cpp
+    src/io/Merge.h
     src/io/Utf16.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
@@ -226,3 +228,5 @@ maxlike_add_test(test_max_viewports tests/test_max_viewports.cpp src/io/MaxViewp
 target_compile_definitions(test_max_viewports PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
 maxlike_add_test(test_native_file tests/test_native_file.cpp src/io/NativeFile.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/DemoScene.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 target_compile_definitions(test_native_file PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_merge tests/test_merge.cpp src/io/Merge.cpp src/io/NativeFile.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_merge PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")

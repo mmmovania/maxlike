@@ -204,3 +204,15 @@ LRESULT ViewPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 } // namespace ui
+
+namespace ui {
+
+void ViewPanel::ResetAllViews() {
+    const ViewType types[viewports::kCount] = {ViewType::Top, ViewType::Front, ViewType::Left, ViewType::Perspective};
+    for (size_t i = 0; i < views_.size(); ++i) {
+        views_[i].SetType(types[i]);
+        views_[i].ResetView();
+    }
+}
+
+} // namespace ui

@@ -41,6 +41,14 @@ letters still need checking: press Alt in R3.1 and compare.
   Rotate / Scale (Phase 6), adding, removing and switching off modifiers, modifier
   parameters, vertex selection and vertex moves (Phase 7).
 - `edit.delete` deletes the selection as one undo step (Phase 6; also the Delete key).
+- `file.new` replaces the scene with an empty one, keeping the views (R3's New All;
+  its Keep Objects options are not built); `file.reset` also restores the startup views,
+  after asking; `file.merge` adds another file's objects (`.max` or `.mlk`) as one
+  undoable step, renumbering names already in the scene (Phase 9, step 9.1).
+- New, Reset, Open, dropping a file and closing the window first ask to save a modified
+  scene (Yes saves, Cancel stops); the startup scene counts as saved.
+- `edit.select_all`, `edit.select_none`, `edit.select_invert`: one undoable "Select" step
+  each; `views.redraw_all` redraws every viewport (9.1).
 - `file.save` writes the scene to its `.mlk` file, or asks for a name (Save As) if it has
   none or was opened from a `.max` file; `file.save_as` always asks (Phase 8, step 8.7).
   Saving marks the scene clean.

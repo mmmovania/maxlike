@@ -39,7 +39,6 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 7.
 - [ ] Soft Selection's and Surface Properties' contents; Edit Mesh's button actions; Face level
 - [x] **7.5 Wrap-up**: checks, `docs/tech/phase7-tech-docs.md`, version 0.7.0, a sweep of
       every spec and reference document
-- [ ] 7.5 Wrap-up
 
 ## Step 7.1 verification
 - [x] Builds warning-free (clean rebuild); twenty-four test programs pass (MinGW + Wine)
