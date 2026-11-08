@@ -26,6 +26,9 @@ public:
     void SetDocumentName(const std::wstring& name); // updates "<name> - maxlike"
     scene::Scene& Scene() { return scene_; }
     bool LoadDemoScene(const std::string& which);   // --demo-scene
+    // Opens a .max file (Phase 8): replaces the scene if the file can be read, otherwise
+    // leaves it untouched; reports what could not be imported.
+    bool OpenFile(const std::wstring& path);
 
 protected:
     const wchar_t* ClassName() const override { return L"maxlike.MainFrame"; }

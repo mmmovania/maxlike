@@ -22,7 +22,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       modifiers and edits reported)
 - [ ] Bend / Taper / Twist from files: no sample has them (Phase 7's parameter indices stay
       unverified until one does)
-- [ ] 8.5 File > Open (and drag-and-drop) into the scene, with a report of what was skipped
+- [x] **8.5 File > Open**: `io::ImportMax` (nodes, links, colours, transforms, offsets,
+      shared objects, a report) and `MainFrame::OpenFile` (File > Open…, drag-and-drop,
+      command line; the scene replaced only if the file reads)
 - [ ] 8.6 The samples: R3.1's vertex/face counts, transforms, colours and instances
       (needs the `.max` files)
 - [ ] 8.7 Native save in an own chunked format; wrap-up
@@ -113,6 +115,23 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] Under sanitizers; 2,550 corrupted samples through `ObjectReader`: no crash, no
       out-of-bounds access (every count checked against its chunk's size)
 - [ ] On Windows: `ctest` (Debug)
+
+## Step 8.5 verification
+- [x] Builds warning-free; thirty-one test programs pass (MinGW + Wine)
+- [x] `test_max_import`: in all seventeen samples every imported node's world and object
+      matrices equal those computed straight from the file (`io::ReadNodes`), with links,
+      wire colours and names; instances share one object; nothing left unimported; a
+      mutation check confirms the test catches the linking-order bug found while writing it
+      (Scene::Link keeps world positions, so transforms are set after linking)
+- [x] Under Wine, opened from the command line and compared with the hand-built demo
+      scenes: box, plane, cone, tube, sphere, geosphere and teapot 0 differing pixels;
+      pyramid 3 (the file's node sits at z = 0.005); cylinder, torus and instances differ
+      because their demo scenes used estimated sizes and colours (the files: cylinder
+      10 × 20, torus 7.549 / 2.451, instances' boxes 21.8 × 20.4 × 19.5 in crimson)
+- [x] A file named `.max` that is not one: a message, the scene and title untouched
+- [ ] On Windows: File > Open…, drag-and-drop, double-clicking a `.max` file associated
+      with maxlike (the command line)
+- [ ] Compare an opened sample with R3.1 (a screenshot of the same file open in R3.1)
 
 ## Notes
 - Compression: none of the R3.1 samples were compressed (`max-format.md` §1); zlib is

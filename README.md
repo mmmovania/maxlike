@@ -38,9 +38,15 @@ build\Debug\maxlike.exe
 
 `maxlike.exe --client-size 1920x998` opens the window un-maximised with exactly the
 client size of the R3.1 reference screenshot (useful for pixel comparisons).
-`--demo-scene <name>|all` opens with objects from the verified `.max` samples (box, plane,
-pyramid, cylinder, cone, tube, torus, sphere, geosphere, teapot), `instances` (seven nodes sharing one
-modified box) or `deform` (three tall boxes with Bend, Twist and Taper).
+`maxlike.exe scene.max` (or File > Open…, or dropping a file on the window) opens a 3ds Max
+R3-era `.max` file: primitives, Editable Meshes and Edit Mesh stacks, with names, hierarchy,
+transforms and wire colours; a report lists anything it could not import. The seventeen R3.1
+samples are in `docs/reference/samples/`.
+`--demo-scene <name>|all` opens with hand-built objects (box, plane, pyramid, cylinder, cone,
+tube, torus, sphere, geosphere, teapot), `instances` (seven nodes sharing one modified box) or
+`deform` (three tall boxes with Bend, Twist and Taper). They were transcribed before maxlike
+could read `.max` files: most match their sample exactly, but cylinder, torus and instances
+use estimated sizes and colours — open the sample itself for the real scene.
 
 ## Branches
 

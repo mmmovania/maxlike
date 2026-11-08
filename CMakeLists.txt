@@ -131,6 +131,8 @@ add_executable(maxlike WIN32
     src/io/MaxNodes.h
     src/io/MaxObjects.cpp
     src/io/MaxObjects.h
+    src/io/MaxImport.cpp
+    src/io/MaxImport.h
     src/io/Utf16.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
@@ -160,7 +162,7 @@ else()
     target_link_options(maxlike PRIVATE -municode -static)
 endif()
 
-target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32 comdlg32) # msimg32: TransparentBlt; comctl32: tooltips
+target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32 comdlg32 shell32) # msimg32: TransparentBlt; comctl32: tooltips; shell32: drag-and-drop, command line
 
 # ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
 enable_testing()
@@ -214,3 +216,5 @@ maxlike_add_test(test_max_nodes tests/test_max_nodes.cpp src/io/MaxNodes.cpp src
 target_compile_definitions(test_max_nodes PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
 maxlike_add_test(test_max_objects tests/test_max_objects.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 target_compile_definitions(test_max_objects PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_import tests/test_max_import.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_max_import PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")

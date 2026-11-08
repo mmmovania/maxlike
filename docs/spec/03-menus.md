@@ -41,5 +41,10 @@ letters still need checking: press Alt in R3.1 and compare.
   Rotate / Scale (Phase 6), adding, removing and switching off modifiers, modifier
   parameters, vertex selection and vertex moves (Phase 7).
 - `edit.delete` deletes the selection as one undo step (Phase 6; also the Delete key).
+- `file.open` opens a `.max` file (Phase 8) with the standard Open dialog ("3D Studio MAX
+  (*.max)"); the same happens for a file dropped on the window or named on the command
+  line. The scene is replaced only if the file can be read; undo is cleared; the title
+  becomes the file's name; what could not be imported is listed in a message (R3's own
+  dialogs for missing plug-ins are not reproduced).
 - Every other command shows "<command>  (not implemented yet)" on the status area's
   second prompt line.

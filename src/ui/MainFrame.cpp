@@ -1,4 +1,7 @@
 #include "ui/MainFrame.h"
+#include <shellapi.h>
+#include <commdlg.h>
+#include "io/MaxImport.h"
 #include "ui/ModifiersDialog.h"
 #include <cwchar>
 #include <algorithm>
@@ -197,6 +200,65 @@ bool MainFrame::LoadDemoScene(const std::string& which) {
     undo_.Clear();      // like opening a file: nothing to undo
     undo_.MarkClean();
     viewports_.SetScene(&scene_);
+    return true;
+}
+
+bool MainFrame::OpenFile(const std::wstring& path) {
+    const size_t slash = path.find_last_of(L"\\/");
+    const std::wstring fileName = slash == std::wstring::npos ? path : path.substr(slash + 1);
+    // Read with Win32 (wide paths on every compiler).
+    std::vector<uint8_t> bytes;
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER size{};
+        if (GetFileSizeEx(file, &size) && size.QuadPart > 0 && size.QuadPart < (1ll << 31)) {
+            bytes.resize(static_cast<size_t>(size.QuadPart));
+            DWORD read = 0;
+            if (!ReadFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &read, nullptr) || read != bytes.size()) bytes.clear();
+        }
+        CloseHandle(file);
+    }
+    if (bytes.empty()) {
+        const std::wstring text = L"Could not read " + path + L".";
+        MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    // Import into a new scene first: a file that cannot be read leaves the current one.
+    scene::Scene imported;
+    io::ImportReport report;
+    std::string error;
+    if (!io::ImportMax(bytes, imported, report, error)) {
+        const std::wstring text = L"Could not open " + fileName + L":\n" + std::wstring(error.begin(), error.end());
+        MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    creation_.Cancel();
+    scene_ = std::move(imported);
+    undo_.Clear();                                  // like a new document: nothing to undo
+    undo_.MarkClean();
+    modifyIndex_ = 0;
+    subObject_ = false;
+    vertexMove_ = {};
+    viewports_.SetScene(&scene_);
+    UpdateSelectionStatus();
+    UpdateModifyPanel();
+    UpdateCreatePanel();
+    viewports_.Redraw();
+    SetDocumentName(fileName);
+    std::wstring prompt = L"Opened " + fileName + L": " + std::to_wstring(report.nodes) +
+                          (report.nodes == 1 ? L" object" : L" objects");
+    if (!report.notes.empty()) prompt += L" (" + std::to_wstring(report.notes.size()) + L" import notes)";
+    statusArea_.SetPrompt(1, prompt);
+    if (!report.notes.empty()) {
+        // What could not be imported, as R3 reports missing plug-ins on opening.
+        std::wstring text = L"Some parts of " + fileName + L" could not be imported:\n\n";
+        for (size_t i = 0; i < report.notes.size() && i < 20; ++i) {
+            const std::string& n = report.notes[i];
+            text += L"\x2022 " + std::wstring(n.begin(), n.end()) + L"\n";
+        }
+        if (report.notes.size() > 20) text += L"\x2026 and " + std::to_wstring(report.notes.size() - 20) + L" more\n";
+        MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONINFORMATION);
+    }
     return true;
 }
 
@@ -719,6 +781,20 @@ void MainFrame::OnCommand(const std::string& command) {
     if (command == "nav.zoom_extents" || command == "nav.zoom_extents_sel") { viewports_.ZoomExtents(false); return; }
     if (command == "nav.zoom_extents_all" || command == "nav.zoom_extents_all_sel") { viewports_.ZoomExtents(true); return; }
 
+    if (command == "file.open") {
+        wchar_t path[MAX_PATH] = L"";
+        OPENFILENAMEW ofn{};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = Hwnd();
+        ofn.lpstrFilter = L"3D Studio MAX (*.max)\0*.max\0All Files (*.*)\0*.*\0";
+        ofn.lpstrFile = path;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.lpstrTitle = L"Open File";
+        ofn.lpstrDefExt = L"max";
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+        if (GetOpenFileNameW(&ofn)) OpenFile(path);
+        return;
+    }
     if (command == "file.exit") {
         // Same path as the close button, so a future "save changes?" prompt
         // in WM_CLOSE covers both.
@@ -776,7 +852,21 @@ LRESULT MainFrame::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (!CreateRegions())
             return -1; // cancels creation; CreateWindowExW returns null
         RecreateFonts();
+        DragAcceptFiles(Hwnd(), TRUE);   // a .max file dropped on the window opens it
         return 0;
+
+    case WM_DROPFILES: {
+        const HDROP drop = reinterpret_cast<HDROP>(wp);
+        wchar_t path[MAX_PATH] = L"";
+        if (DragQueryFileW(drop, 0, path, MAX_PATH) > 0) {
+            DragFinish(drop);
+            SetForegroundWindow(Hwnd());
+            OpenFile(path);
+        } else {
+            DragFinish(drop);
+        }
+        return 0;
+    }
 
     case WM_COMMAND:
         // HIWORD(wp): 0 = menu, 1 = accelerator, otherwise a control notification

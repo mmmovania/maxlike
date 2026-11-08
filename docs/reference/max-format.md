@@ -244,7 +244,7 @@ All primitives build in object space with Max's Z-up axes. Unless noted, they si
 | Box | `0x10` | old | 0 length (Y), 1 width (X), 2 height (Z), 3 width segs, 4 length segs, 5 height segs, 6 mapping | ✔ |
 | Sphere | `0x11` | old | 0 radius, 1 segments, 2 smooth, 3 hemisphere, 4 chop/squash, 5 base to pivot, 6 mapping, 7 slice on, 8 slice from, 9 slice to | ✔; centred on pivot unless *base to pivot* |
 | GeoSphere | `0x00000000, 0x00007F9E` (the second word) | PB2 | 0 radius, 1 segments, 2 base type (0 tetra, 1 octa, 2 icosa), 3 hemisphere, 4 smooth, 5 base to pivot, 6 mapping | ✔; segments = geodesic frequency |
-| Cylinder | `0x12` | old | 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides, 5 smooth | ◐ visually checked; mesh ✔ (§7.6) |
+| Cylinder | `0x12` | old | 0 radius, 1 height, 2 height segs, 3 cap segs, 4 sides, 5 smooth | ✔ imported by maxlike (`cylinder.max`: radius 10, height 20; the earlier visual estimate was 15 × 25); mesh ✔ (§7.6) |
 | Cone | `0xA86C23DD` | old | 0 radius 1 (base), 1 radius 2 (top), 2 height, 3 height segs, 4 cap segs, 5 sides, 6 smooth, 7 slice on, 8 slice from, 9 slice to, 10 mapping | ✔ |
 | Tube | `0x7B21` | old | 0 radius 1, 1 radius 2, 2 height, **3 sides, 4 cap segs, 5 height segs**, 6 smooth, 7–9 slice, 10 mapping | ✔; note the order differs from Cone |
 | Torus | `0x20` | old | 0 radius 1, 1 radius 2, 2 rotation, 3 twist, 4 segments, 5 sides, 6 smooth (int) | ✔ class ID from `torus.max`; mesh counts ✔ (§7.6) |
