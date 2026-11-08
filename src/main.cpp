@@ -38,13 +38,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR cmdLine, int /*cmdShow*
         MessageBoxW(nullptr, L"Could not create the main window.", L"maxlike", MB_ICONERROR);
         return 1;
     }
-    // A .max file named on the command line (or dropped on maxlike's icon) opens at start.
+    // A .max or .mlk file named on the command line (or dropped on maxlike's icon) opens at start.
     {
         int argc = 0;
         if (LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc)) {
             for (int i = 1; i < argc; ++i) {
                 const std::wstring arg = argv[i];
-                if (arg.size() > 4 && _wcsicmp(arg.c_str() + arg.size() - 4, L".max") == 0) { frame.OpenFile(arg); break; }
+                if (arg.size() > 4 && (_wcsicmp(arg.c_str() + arg.size() - 4, L".max") == 0 ||
+                                       _wcsicmp(arg.c_str() + arg.size() - 4, L".mlk") == 0)) { frame.OpenFile(arg); break; }
             }
             LocalFree(argv);
         }

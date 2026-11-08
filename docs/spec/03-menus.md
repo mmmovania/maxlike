@@ -41,6 +41,9 @@ letters still need checking: press Alt in R3.1 and compare.
   Rotate / Scale (Phase 6), adding, removing and switching off modifiers, modifier
   parameters, vertex selection and vertex moves (Phase 7).
 - `edit.delete` deletes the selection as one undo step (Phase 6; also the Delete key).
+- `file.save` writes the scene to its `.mlk` file, or asks for a name (Save As) if it has
+  none or was opened from a `.max` file; `file.save_as` always asks (Phase 8, step 8.7).
+  Saving marks the scene clean.
 - `file.open` opens a `.max` file (Phase 8) with the standard Open dialog ("3D Studio MAX
   (*.max)"); the same happens for a file dropped on the window or named on the command
   line. The scene is replaced only if the file can be read; undo is cleared; the title

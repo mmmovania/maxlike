@@ -28,7 +28,10 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] **8.6 Against R3.1**: saved viewports read and restored (`io::ReadViewports`);
       wireframes with back faces culled; the ortho grid's zoom-dependent shade and
       subdivision; compared with R3.1 screenshots of two opened samples
-- [ ] 8.7 Native save in an own chunked format; wrap-up
+- [x] **8.7 Saving**: maxlike's own `.mlk` files (`io::SaveNative` / `io::LoadNative`, the
+      .max chunk structure, objects once so instances stay shared, exact doubles); File >
+      Save and Save As…; `.mlk` files open like `.max` files (recognised by signature)
+- [ ] 8.8 Wrap-up
 
 ## Step 8.1 verification
 - [x] Builds warning-free (MinGW, clean rebuild); twenty-six test programs pass (MinGW + Wine)
@@ -151,6 +154,21 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       grid for a distant camera (rule unknown)
 - [ ] On Windows: open both samples and compare with the screenshots
 - [ ] Open: the perspective grid's extent; perspective shading; the cull flag's bit
+
+## Step 8.7 verification
+- [x] Builds warning-free; thirty-three test programs pass (MinGW + Wine)
+- [x] `test_native_file`: all seventeen samples imported, saved and loaded back equal the
+      original exactly (names, colours, links, world and object matrices, every vertex
+      and face, shared objects), and saving again gives the same bytes; the deform demo's
+      Bend / Taper / Twist settings and a switched-off modifier; an Edit Mesh's moves and
+      selection; damaged input rejected
+- [x] Under sanitizers; 7,200 truncated or corrupted saved scenes: no crash, no
+      out-of-bounds access
+- [x] Under Wine: `instances.mlk` (2 KB; the .max is 112 KB) opens from the command line,
+      titled "instances.mlk - maxlike", seven shared boxes
+- [ ] On Windows: Save As…, Save (overwrites the .mlk; a scene opened from .max always
+      asks for a name), reopen
+- Not stored yet: viewports, the selection; no keyboard shortcuts (none exist yet)
 
 ## Notes
 - Compression: none of the R3.1 samples were compressed (`max-format.md` §1); zlib is

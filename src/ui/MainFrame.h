@@ -92,6 +92,9 @@ private:
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;
     std::shared_ptr<scene::Modifier> CurrentModifier() const;   // null when the base is shown
     std::wstring docName_ = L"Untitled";
+    std::wstring docPath_;                          // the .mlk file the scene was opened from or saved to
+    bool SaveFile(const std::wstring& path);
+    void SaveAs();
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;
