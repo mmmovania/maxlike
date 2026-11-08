@@ -82,7 +82,11 @@ The 64-bit class "GUID" used below is `classIdB << 32 | classIdA`.
 
 ### 2.3 `DllDirectory` ✔ verified
 
-Entries contain `0x2037` (description) and `0x2039` (DLL file name), both UTF-16.
+Entries (`0x2038`, containers) contain `0x2039` (description, e.g. "Standard primitive
+objects") and `0x2037` (DLL file name, e.g. `prim.dlo`), both UTF-16 without a terminator.
+A class's `dllIndex` is the entry's position; −1 = built into Max (Box: 2 → `prim.dlo`).
+*Corrected by maxlike: this section first had the two chunk types the other way round;
+every R3.1 sample shows them as above.*
 
 ---
 
@@ -101,7 +105,11 @@ An object's references to other objects are stored in one of two chunks:
 | Chunk | Layout | Seen in |
 |---|---|---|
 | `0x2034` | `i32[]` — positional: slot *i* → scene-list index (−1 = empty) | PRS controller, Box, Derived Object |
-| `0x2035` | `i32 count`, then `(i32 slot, i32 index)` pairs | Node, sub-controllers |
+| `0x2035` | `i32 slotCount`, then `(i32 slot, i32 index)` pairs for the filled slots only | Node, sub-controllers |
+
+*Clarified by maxlike:* the first value is the object's number of reference slots, not the
+number of pairs: a Bezier Position controller's `0x2035` is just `02000000` (two empty
+slots); the node below has 8 slots, 3 filled.
 
 Example from `box.max`, a node's `0x2035`:
 
@@ -255,7 +263,7 @@ Index-based edits (§8.3) need Max's own vertex order. For a 1 × 1 × 1 segment
 
 This was confirmed by applying the Edit Mesh deltas in `instances.max`: they rotate vertices 4–7 rigidly by exactly +25°, which matches the viewport. Faces (two per side, each side its own smoothing group): bottom `0 2 3, 3 1 0`; top `4 5 7, 7 6 4`; front `0 1 5, 5 4 0`; right `1 3 7, 7 5 1`; back `3 2 6, 6 7 3`; left `2 0 4, 4 6 2`.
 
-### 7.3 Editable Mesh ◐ (structure from community sources; not yet in a sample)
+### 7.3 Editable Mesh ◐ (structure from community sources; samples now exist: `box_editmesh`, `teapot_edit_mesh`, `teapot_smoothinggroups` hold an Editable Mesh)
 
 Mesh data lives in child `0x08FE` of the object:
 

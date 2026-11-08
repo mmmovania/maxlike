@@ -1,4 +1,5 @@
 #include "io/Cfb.h"
+#include "io/Utf16.h"
 #include <algorithm>
 
 namespace io {
@@ -9,21 +10,6 @@ uint16_t U16(const std::vector<uint8_t>& b, size_t o) { return static_cast<uint1
 uint32_t U32(const std::vector<uint8_t>& b, size_t o) {
     return static_cast<uint32_t>(b[o]) | (static_cast<uint32_t>(b[o + 1]) << 8) | (static_cast<uint32_t>(b[o + 2]) << 16) |
            (static_cast<uint32_t>(b[o + 3]) << 24);
-}
-
-// UTF-16LE (as stored, without the terminator) to UTF-8.
-std::string Utf8(const std::vector<uint16_t>& w) {
-    std::string s;
-    for (size_t i = 0; i < w.size(); ++i) {
-        uint32_t c = w[i];
-        if (c >= 0xD800 && c < 0xDC00 && i + 1 < w.size() && w[i + 1] >= 0xDC00 && w[i + 1] < 0xE000)
-            c = 0x10000 + ((c - 0xD800) << 10) + (w[++i] - 0xDC00);
-        if (c < 0x80) s += static_cast<char>(c);
-        else if (c < 0x800) { s += static_cast<char>(0xC0 | (c >> 6)); s += static_cast<char>(0x80 | (c & 0x3F)); }
-        else if (c < 0x10000) { s += static_cast<char>(0xE0 | (c >> 12)); s += static_cast<char>(0x80 | ((c >> 6) & 0x3F)); s += static_cast<char>(0x80 | (c & 0x3F)); }
-        else { s += static_cast<char>(0xF0 | (c >> 18)); s += static_cast<char>(0x80 | ((c >> 12) & 0x3F)); s += static_cast<char>(0x80 | ((c >> 6) & 0x3F)); s += static_cast<char>(0x80 | (c & 0x3F)); }
-    }
-    return s;
 }
 
 } // namespace
@@ -75,7 +61,7 @@ bool CompoundFile::Open(std::vector<uint8_t> bytes, std::string& error) {
             const uint16_t nameBytes = U16(bytes_, o + 64);
             std::vector<uint16_t> w;
             for (uint32_t i = 0; i + 2 < nameBytes && i < 64; i += 2) w.push_back(U16(bytes_, o + i));   // without the terminator
-            entry.name = Utf8(w);
+            entry.name = Utf16ToUtf8(w);
             entry.type = bytes_[o + 66];
             entry.left = U32(bytes_, o + 68);
             entry.right = U32(bytes_, o + 72);

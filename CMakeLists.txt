@@ -125,6 +125,9 @@ add_executable(maxlike WIN32
     src/io/Cfb.h
     src/io/Chunks.cpp
     src/io/Chunks.h
+    src/io/MaxScene.cpp
+    src/io/MaxScene.h
+    src/io/Utf16.h
     src/scene/DemoScene.cpp
     src/scene/DemoScene.h
     res/resource.h
@@ -201,3 +204,5 @@ target_compile_definitions(test_cfb PRIVATE MAXLIKE_TEST_DATA="${CMAKE_CURRENT_S
 maxlike_add_test(test_chunks tests/test_chunks.cpp src/io/Chunks.cpp)
 maxlike_add_test(test_samples tests/test_samples.cpp src/io/Cfb.cpp src/io/Chunks.cpp)
 target_compile_definitions(test_samples PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_max_scene tests/test_max_scene.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp)
+target_compile_definitions(test_max_scene PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
