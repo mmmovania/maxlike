@@ -17,7 +17,8 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
       separators, ticked items; the shortcut column with working keyboard shortcuts (not
       while typing); R3's greying; recent files; Views > Show Transform Gizmo, Save /
       Restore Active View
-- [ ] Edit > Clone (copy / instance); File > Save Selected; File > Summary Info
+- [x] **9.3** Edit > Clone (Copy / Instance, one undo step, clones selected); File > Save
+      Selected; File > Summary Info (laid out after R3.1's dialog)
 - [ ] Views: Undo / Redo view change, Save / Restore Active View, Show Home Grid
 - [ ] Edit Mesh: Face / Edge / Polygon / Element selection; Delete, Hide / Unhide All,
       Weld, Detach, Create; Rotate and Scale at vertex level; Soft Selection
@@ -50,6 +51,26 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.3 verification
+- [x] Builds warning-free; thirty-five test programs pass (MinGW + Wine)
+- [x] `test_clone`: a copied Edit Mesh-over-Box evaluates the same and is independent;
+      cloning Sphere01 and its child gives Sphere02 with Box02 under it, both exactly on the
+      originals; the child alone keeps the original parent; instances share; copying the
+      seven instances gives seven boxes on one new object; undo / redo; Summary Info's
+      totals equal R3.1's dialog for the seven samples it was shown with (Teapot01 (Teapot)
+      530 / 1024, …); Save Selected keeps a child whose parent is left out where it was
+- [x] Under Wine: one box selected, Edit > Clone, OK: Select All reports 8 objects; undo
+      twice removes the clone; Select All reports 7
+- [x] Investigated: after the Clone dialog, menu keys sent without a target window were
+      lost — X kept its focus on the destroyed dialog (no window manager). Debug output
+      showed the menu opened but no command arrived; keys sent to the main window work.
+      A test-display artefact, not a maxlike fault (Windows returns focus on closing).
+- [ ] On Windows: Clone (both options), Save Selected, Summary Info (and Save to File...)
+- [ ] Unverified: the Clone Options dialog (no R3.1 screenshot; Controller options and
+      Reference not offered), whether R3 keeps instance relations among copies, Summary
+      Info's layout (converted, not pixel-checked), its Memory Usage figures and the
+      Material column (R3's "default (Std)" shown for every object), Save to File's format
 
 ## Step 9.2 verification
 - [x] Builds warning-free; thirty-four test programs pass (MinGW + Wine)

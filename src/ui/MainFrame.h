@@ -112,6 +112,7 @@ private:
     bool updateDuringSpinnerDrag_ = true;              // Views > Update During Spinner Drag (NOTE: no effect yet)
     struct SavedView { bool saved = false; view::OrthoView ortho; view::PerspectiveView perspective; };
     std::map<int, SavedView> savedViews_;              // Views > Save Active ... View, per view type
+    std::wstring description_;                         // File > Summary Info's Description (NOTE: not saved yet)
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;

@@ -43,6 +43,8 @@ add_executable(maxlike WIN32
     src/ui/ParametersSpec.h
     src/ui/ModifiersDialog.cpp
     src/ui/ModifiersDialog.h
+    src/ui/Dialogs.cpp
+    src/ui/Dialogs.h
     src/ui/CommandTable.cpp
     src/ui/CommandTable.h
     src/ui/MenuSpec.cpp
@@ -121,6 +123,10 @@ add_executable(maxlike WIN32
     src/scene/CreationTool.h
     src/scene/MoveMath.cpp
     src/scene/MoveMath.h
+    src/scene/Clone.cpp
+    src/scene/Clone.h
+    src/scene/Summary.cpp
+    src/scene/Summary.h
     src/io/Cfb.cpp
     src/io/Cfb.h
     src/io/Chunks.cpp
@@ -168,7 +174,7 @@ else()
     target_link_options(maxlike PRIVATE -municode -static)
 endif()
 
-target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32 comdlg32 shell32) # msimg32: TransparentBlt; comctl32: tooltips; shell32: drag-and-drop, command line
+target_link_libraries(maxlike PRIVATE glad opengl32 user32 gdi32 msimg32 comctl32 comdlg32 shell32 psapi) # msimg32: TransparentBlt; comctl32: tooltips; shell32: drag-and-drop, command line
 
 # ---- Unit tests (console program; run with: ctest --test-dir build -C Debug) ----
 enable_testing()
@@ -230,3 +236,5 @@ maxlike_add_test(test_native_file tests/test_native_file.cpp src/io/NativeFile.c
 target_compile_definitions(test_native_file PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
 maxlike_add_test(test_merge tests/test_merge.cpp src/io/Merge.cpp src/io/NativeFile.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 target_compile_definitions(test_merge PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
+maxlike_add_test(test_clone tests/test_clone.cpp src/scene/Clone.cpp src/scene/Summary.cpp src/io/NativeFile.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+target_compile_definitions(test_clone PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")

@@ -3,6 +3,7 @@
 #include "scene/CreationTool.h"
 #include "scene/Modifier.h"
 #include "scene/Primitives.h"
+#include <algorithm>
 #include <cstring>
 #include <functional>
 #include <map>
@@ -104,6 +105,15 @@ bool IsNativeFile(const std::vector<uint8_t>& bytes) {
 }
 
 std::vector<uint8_t> SaveNative(const scene::Scene& scene) {
+    std::vector<scene::Node::Id> all;
+    for (const auto& n : scene.Nodes()) all.push_back(n->GetId());
+    return SaveNative(scene, all);
+}
+
+std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<scene::Node::Id>& only) {
+    std::vector<const scene::Node*> saved;
+    for (const auto& n : scene.Nodes())
+        if (std::find(only.begin(), only.end(), n->GetId()) != only.end()) saved.push_back(n.get());
     Writer w;
     w.bytes.insert(w.bytes.end(), kMagic, kMagic + 8);
     w.Put(kVersion);
@@ -116,7 +126,7 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene) {
         index[o] = static_cast<int32_t>(order.size());
         order.push_back(o);
     };
-    for (const auto& n : scene.Nodes()) visit(n->GetObject().get());
+    for (const scene::Node* n : saved) visit(n->GetObject().get());
     w.Container(0x1100, [&] {
         for (const scene::Object* o : order)
             w.Container(0x1110, [&] {
@@ -165,15 +175,25 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene) {
     });
     // Nodes, with parents as positions in this list.
     std::map<const scene::Node*, int32_t> nodeIndex;
-    for (size_t i = 0; i < scene.Nodes().size(); ++i) nodeIndex[scene.Nodes()[i].get()] = static_cast<int32_t>(i);
+    for (size_t i = 0; i < saved.size(); ++i) nodeIndex[saved[i]] = static_cast<int32_t>(i);
     w.Container(0x1200, [&] {
-        for (const auto& n : scene.Nodes())
+        for (const scene::Node* n : saved)
             w.Container(0x1210, [&] {
+                const bool parentSaved = n->Parent() && nodeIndex.count(n->Parent());
                 w.Leaf(0x0001, [&] { w.Text(n->Name()); });
                 w.Leaf(0x0002, [&] { w.Put(n->WireColor()); });
-                w.Leaf(0x0003, [&] { w.Put(n->Parent() ? nodeIndex.at(n->Parent()) : int32_t{-1}); });
+                w.Leaf(0x0003, [&] { w.Put(parentSaved ? nodeIndex.at(n->Parent()) : int32_t{-1}); });
                 w.Leaf(0x0004, [&] { w.Put(n->GetObject() ? index.at(n->GetObject().get()) : int32_t{-1}); });
-                PutPrs(w, 0x0005, n->Transform());
+                if (parentSaved || !n->Parent()) {
+                    PutPrs(w, 0x0005, n->Transform());
+                } else {
+                    // Its parent is left out: its world transform becomes its own,
+                    // decomposed by the scene's own rule on a scratch top-level node.
+                    scene::Scene scratch;
+                    scene::Node* t = scratch.CreateNode("t");
+                    scene::Scene::SetWorldMatrix(t, n->WorldMatrix());
+                    PutPrs(w, 0x0005, t->Transform());
+                }
                 PutPrs(w, 0x0006, n->ObjectOffset());
             });
     });

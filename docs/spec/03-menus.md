@@ -80,6 +80,12 @@ List`; R3 keeps them in 3dsmax.ini).
   scene (Yes saves, Cancel stops); the startup scene counts as saved.
 - `edit.select_all`, `edit.select_none`, `edit.select_invert`: one undoable "Select" step
   each; `views.redraw_all` redraws every viewport (9.1).
+- `edit.clone` asks Copy / Instance and a name (one object), then adds the clones as one
+  undoable step and selects them; a clone's parent is the parent's clone when both are
+  cloned. `file.save_selected` writes only the selection to a `.mlk` (a node whose parent
+  is left out keeps its world position). `file.summary_info` shows R3's Summary Info
+  dialog: scene and mesh totals, memory, the objects table, Description, Save to File...
+  (step 9.3).
 - `file.save` writes the scene to its `.mlk` file, or asks for a name (Save As) if it has
   none or was opened from a `.max` file; `file.save_as` always asks (Phase 8, step 8.7).
   Saving marks the scene clean.

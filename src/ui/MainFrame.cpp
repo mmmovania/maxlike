@@ -1,4 +1,7 @@
 #include "ui/MainFrame.h"
+#include "scene/Summary.h"
+#include "scene/Clone.h"
+#include "ui/Dialogs.h"
 #include "win/App.h"
 #include "ui/RecentFiles.h"
 #include <cctype>
@@ -995,6 +998,55 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "views.redraw_all") { viewports_.Redraw(); return; }
+    if (command == "edit.clone") {
+        const auto selection = scene_.Selection();
+        if (selection.empty()) return;
+        const scene::Node* first = scene_.FindById(selection.front());
+        const std::string suggested = first ? scene_.UniqueName(scene::NameBase(first->Name())) : "";
+        const ui::CloneChoice choice = ui::ShowCloneDialog(Hwnd(), std::wstring(suggested.begin(), suggested.end()), selection.size() == 1);
+        if (!choice.ok) return;
+        std::string name;
+        for (wchar_t c : choice.name) name += static_cast<char>(c < 0x80 ? c : '?');
+        const auto ids = scene::CloneNodes(scene_, selection, choice.instance, name);
+        // One undo step: the clones, then the clones selected (as R3 leaves them).
+        auto macro = std::make_unique<scene::MacroCommand>("Clone");
+        macro->Add(std::make_unique<scene::AddedNodesCommand>("Clone", ids));
+        macro->Add(std::make_unique<scene::SelectCommand>(ids));
+        undo_.Execute(std::move(macro), scene_);
+        modifyIndex_ = 0;
+        subObject_ = false;
+        UpdateSelectionStatus();
+        UpdateModifyPanel();
+        viewports_.Redraw();
+        return;
+    }
+    if (command == "file.save_selected") {
+        if (scene_.Selection().empty()) return;
+        wchar_t path[MAX_PATH] = L"";
+        OPENFILENAMEW ofn{};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = Hwnd();
+        ofn.lpstrFilter = L"maxlike (*.mlk)\0*.mlk\0";
+        ofn.lpstrFile = path;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.lpstrTitle = L"Save File As";
+        ofn.lpstrDefExt = L"mlk";
+        ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+        if (!GetSaveFileNameW(&ofn)) return;
+        // The selected objects only; the scene itself stays as it is (not marked saved).
+        const std::vector<uint8_t> bytes = io::SaveNative(scene_, scene_.Selection());
+        HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        DWORD written = 0;
+        const bool ok = file != INVALID_HANDLE_VALUE && WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr) && written == bytes.size();
+        if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        if (!ok) MessageBoxW(Hwnd(), L"Could not save the selected objects.", kAppName, MB_OK | MB_ICONWARNING);
+        else statusArea_.SetPrompt(1, L"Saved " + std::to_wstring(scene_.Selection().size()) + L" selected objects");
+        return;
+    }
+    if (command == "file.summary_info") {
+        ui::ShowSummaryDialog(Hwnd(), scene::Summarize(scene_), description_);
+        return;
+    }
     if (command.rfind("file.recent.", 0) == 0) {
         const size_t n = static_cast<size_t>(std::atoi(command.c_str() + 12));
         if (n >= 1 && n <= recentFiles_.size() && ConfirmDiscard()) OpenFile(recentFiles_[n - 1]);

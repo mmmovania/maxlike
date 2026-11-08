@@ -24,6 +24,9 @@ inline constexpr char kNativeExtension[] = ".mlk";
 
 bool IsNativeFile(const std::vector<uint8_t>& bytes);
 std::vector<uint8_t> SaveNative(const scene::Scene& scene);
+// Only the nodes `only` (File > Save Selected): a node whose parent is not saved becomes
+// top-level with its world transform, so it stays where it is.
+std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<scene::Node::Id>& only);
 // Adds the file's nodes to `scene` (normally empty). False and `error` if it cannot be read.
 bool LoadNative(const std::vector<uint8_t>& bytes, scene::Scene& scene, std::string& error);
 
