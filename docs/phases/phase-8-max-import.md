@@ -25,8 +25,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] **8.5 File > Open**: `io::ImportMax` (nodes, links, colours, transforms, offsets,
       shared objects, a report) and `MainFrame::OpenFile` (File > Open…, drag-and-drop,
       command line; the scene replaced only if the file reads)
-- [ ] 8.6 The samples: R3.1's vertex/face counts, transforms, colours and instances
-      (needs the `.max` files)
+- [x] **8.6 Against R3.1**: saved viewports read and restored (`io::ReadViewports`);
+      wireframes with back faces culled; the ortho grid's zoom-dependent shade and
+      subdivision; compared with R3.1 screenshots of two opened samples
 - [ ] 8.7 Native save in an own chunked format; wrap-up
 
 ## Step 8.1 verification
@@ -132,6 +133,24 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [ ] On Windows: File > Open…, drag-and-drop, double-clicking a `.max` file associated
       with maxlike (the command line)
 - [ ] Compare an opened sample with R3.1 (a screenshot of the same file open in R3.1)
+
+## Step 8.6 verification
+- [x] Builds warning-free; thirty-two test programs pass (MinGW + Wine)
+- [x] `test_max_viewports`: the four views of every sample; instances' Top width
+      400 × 0.79068 (R3.1's 2.73 px per unit), its perspective camera 15° up, 45°
+- [x] `test_ortho_grid`: shade and spacing for the six measured views (all exact); Phase
+      2's 180 default lines unchanged; `test_primitives`: culled edges
+- [x] Under Wine against `r3.1-open-instances.png` / `r3.1-open-parent-child-link.png`:
+      all views framed like R3.1; ortho views 979 / 2,053 / 2,970 and 774 / 2,557 / 822
+      differing pixels (from 14,000–40,000 before the grid shade; line rasterisation and
+      labels remain); perspective views ~80,000 (the larger home grid, and lighter
+      shading in R3.1: open)
+- [x] Default window, Modify panels (Bend 0, Edit Mesh 0): unchanged
+- [x] Found: R3.1 restores saved viewports; culls back faces in wireframe; darkens minor
+      grid lines with spacing and subdivides zoomed-in grids; draws a larger perspective
+      grid for a distant camera (rule unknown)
+- [ ] On Windows: open both samples and compare with the screenshots
+- [ ] Open: the perspective grid's extent; perspective shading; the cull flag's bit
 
 ## Notes
 - Compression: none of the R3.1 samples were compressed (`max-format.md` §1); zlib is

@@ -58,6 +58,12 @@ public:
     ViewType Type() const { return type_; }
     const wchar_t* Name() const;
     void SetType(ViewType type);
+    // A view restored from a file (Phase 8): what the ortho and perspective cameras show.
+    void SetViewState(const view::OrthoView& ortho, const view::PerspectiveView& perspective) {
+        ortho_ = ortho;
+        perspective_ = perspective;
+        if (Hwnd()) InvalidateRect(Hwnd(), nullptr, FALSE);
+    }
     bool ShowGrid() const { return showGrid_; }
     void SetShowGrid(bool show);
 

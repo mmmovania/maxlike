@@ -2,6 +2,7 @@
 #include <shellapi.h>
 #include <commdlg.h>
 #include "io/MaxImport.h"
+#include "io/MaxViewports.h"
 #include "ui/ModifiersDialog.h"
 #include <cwchar>
 #include <algorithm>
@@ -244,6 +245,27 @@ bool MainFrame::OpenFile(const std::wstring& path) {
     UpdateModifyPanel();
     UpdateCreatePanel();
     viewports_.Redraw();
+    // R3 restores the viewports saved in the file.
+    {
+        std::vector<io::MaxViewport> views;
+        std::string ignored;
+        io::ReadViewports(bytes, views, ignored);
+        for (const io::MaxViewport& v : views) {
+            static const int kTypes[8] = {static_cast<int>(ViewType::Left), static_cast<int>(ViewType::Right),
+                                          static_cast<int>(ViewType::Top), static_cast<int>(ViewType::Bottom),
+                                          static_cast<int>(ViewType::Front), static_cast<int>(ViewType::Back), -1,
+                                          static_cast<int>(ViewType::Perspective)};
+            const int type = v.type >= 0 && v.type < 8 ? kTypes[v.type] : -1;
+            if (type < 0) {
+                report.notes.push_back("viewport " + std::to_string(v.slot + 1) + ": a User or Camera view is not supported; left as it was");
+                continue;
+            }
+            const auto viewType = static_cast<ViewType>(type);
+            viewports_.ApplySavedView(v.slot, viewType,
+                                      viewType == ViewType::Perspective ? view::OrthoView{} : io::ToOrthoView(v),
+                                      viewType == ViewType::Perspective ? io::ToPerspectiveView(v) : view::PerspectiveView{});
+        }
+    }
     SetDocumentName(fileName);
     std::wstring prompt = L"Opened " + fileName + L": " + std::to_wstring(report.nodes) +
                           (report.nodes == 1 ? L" object" : L" objects");

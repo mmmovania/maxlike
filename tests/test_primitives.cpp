@@ -313,6 +313,19 @@ int main() {
     GridEdgeCount();
     NegativeHeightBuildsDown();
     Pyramid();
+    // VisibleEdges with a face filter (wireframes with back faces culled, as R3.1 draws
+    // them): a box seen from above shows its top's four edges plus the side edges that
+    // belong to front faces; with every face shown, all 12 visible edges.
+    {
+        scene::BoxObject box(20, 20, 20);
+        const scene::Mesh m = box.Evaluate();
+        std::vector<bool> top(m.faces.size());
+        for (size_t i = 0; i < m.faces.size(); ++i) top[i] = m.FaceNormal(i).z > 0.5;
+        CHECK(m.VisibleEdges().size() == 12);
+        CHECK(m.VisibleEdges(&top).size() == 4);
+        std::vector<bool> none(m.faces.size(), false);
+        CHECK(m.VisibleEdges(&none).empty());
+    }
     if (failures == 0) std::printf("primitives: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

@@ -30,8 +30,10 @@ struct Mesh {
     size_t FaceCount() const { return faces.size(); }
     Bounds GetBounds() const;
     math::Vec3 FaceNormal(size_t face) const;    // unit length, from the winding
-    // Every visible edge once (a, b with a < b), for wireframe display.
-    std::vector<std::pair<uint32_t, uint32_t>> VisibleEdges() const;
+    // Every visible edge once (a, b with a < b), for wireframe display. With `faceShown`
+    // (one flag per face), only the edges of the faces shown: R3.1 draws wireframes with
+    // back faces culled, so an edge appears when a face it belongs to faces the viewer.
+    std::vector<std::pair<uint32_t, uint32_t>> VisibleEdges(const std::vector<bool>* faceShown = nullptr) const;
     // Checks indices are in range; returns false if not.
     bool Valid() const;
 

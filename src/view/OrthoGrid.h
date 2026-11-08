@@ -25,6 +25,19 @@ struct OrthoView {
 inline constexpr double kGridSpacing = 10.0;   // world units between lines
 inline constexpr int    kMajorEvery  = 10;     // every 10th line is major
 
+// Zoomed in, R3 subdivides the grid by tens (measured, r3.1-open-instances.png: its Left
+// view, 10 units = 185 px, draws 1-unit lines 18.5 px apart; parent_child_link's views,
+// where 1 unit would be 4.9 px, keep 10). The world spacing drawn: 10 units, divided by
+// 10 while the finer lines would be at least kSubdivideGap px apart. NOTE: the
+// threshold is only known to lie in (4.9, 18.5].
+inline constexpr double kSubdivideGap = 10.0;
+double OrthoGridSpacing(int w, const OrthoView& v);
+
+// The minor lines' grey level: darker as they spread apart, from #A0A0A0 towards the
+// major lines' #747474 (measured at six spacings, 18.5 to 48.6 px; floor(160 - 0.8674 g)
+// reproduces all six, and at the default 21.6 px gives Phase 2's #8D8D8D).
+int OrthoMinorShade(int w, const OrthoView& v);
+
 // Pixel column of world coordinate `u` / pixel row (top-down) of world coordinate `v`.
 int ColumnOf(double u, int width, int height, const OrthoView& view);
 int RowOf(double v, int width, int height, const OrthoView& view);

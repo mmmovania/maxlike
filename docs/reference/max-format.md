@@ -402,16 +402,45 @@ Max is **Z-up and right-handed**; three.js is Y-up. Rotating the scene root by �
 
 ---
 
+## 10a. Saved viewports (Config stream) ✔ verified (maxlike step 8.6)
+
+R3 restores the viewports saved with a file. They are in the **Config** stream, inside the
+top-level container `0x2080`, one 80-byte leaf per viewport in layout order: `0x2810`
+top-left, `0x2811` top-right, `0x2812` bottom-left, `0x2813` bottom-right.
+
+| Offset | Contents |
+|---|---|
+| 0 | `i32`, 1 for ortho views, 0 for perspective (meaning unverified) |
+| 4 | `i32` view type, the SDK's `VIEW_*`: 0 Left, 1 Right, 2 Top, 3 Bottom, 4 Front, 5 Back, 6 User, 7 Perspective |
+| 8 | 3 × 4 `f32` view matrix, rows (row vectors: view = world · R + T) |
+| 56 | Ortho: `f32` zoom. Perspective: `f32` field of view (radians, horizontal), then `f32` target distance |
+
+- Ortho views show **400 × zoom** world units across the viewport (calibrated on
+  R3.1's screenshot of `instances.max`; a zoom of 1 is R3's default 400-unit view); the
+  world point at the centre is the negated translation, along the view's right and up.
+- Perspective: the eye is −T·Rᵀ, the view direction the negated third column of R, the
+  target `distance` ahead (instances: 15° above the ground, looking along +Y, 45°).
+- `0x2910`–`0x2912` hold 80-byte records of the same layout (perhaps the views' undo
+  state; not read). `0x2825` appears to describe the layout (unverified).
+- Every sample saves four viewports: Top, Front, Left, Perspective. `box.max` is zoomed
+  to the box (Top zoom 0.36), not at the default views.
+
+Imported into maxlike, both R3.1 screenshots (`r3.1-open-instances.png`,
+`r3.1-open-parent-child-link.png`) are matched in framing in all four views; the ortho
+views differ by 774–2,970 pixels each (single-pixel line rasterisation and the labels).
+
+---
+
 ## 11. Open questions and next samples
 
 | Topic | Sample that would settle it |
 |---|---|
 | Editable Mesh in a real file (§7.3) | A box and a teapot converted to Editable Mesh, with moved vertices and a deleted face |
-| Pivot offsets with real values (§4) | A box whose pivot was moved with *Affect Pivot Only* |
-| Linked hierarchy (§4) | A box linked to a rotated parent |
+| The perspective home grid's extent | R3.1 screenshots of the Perspective view at several distances (instances.max shows x −400…+300, far edge y = 400; parent_child_link and the default ±200) |
+| The node flag for Backface Cull | A file with an object whose Backface Cull is turned off |
 | Material slot and colours (§9) | A box with a Standard material; a mesh with Multi/Sub-Object material IDs |
 | Plane length/width segment ids (§7.1) | A plane with different segment counts (e.g. 2 × 6) |
 | Sphere slice angles: degrees or radians | A sphere with *Slice On*, from 0° to 90° |
-| Other modifiers (Bend, Taper, Twist) | A segmented box with one modifier each |
+| Other modifiers (Bend, Taper, Twist) | A segmented box with one modifier each (still needed: no sample has one) |
 | Edit Mesh topology changes (§8.3) | An Edit Mesh that deletes and extrudes faces |
 | Newer Max versions (compression, PB2 everywhere) | Any file saved from Max 2010 or later |

@@ -8,6 +8,7 @@
 #include <map>
 
 static int failures = 0;
+#define CHECK(cond) do { if (!(cond)) { ++failures; std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); } } while (0)
 enum K { m, M, A };
 struct Expect { int pixel; K kind; };
 
@@ -102,6 +103,34 @@ int main() {
         Check("Left", 863, 423, cols, std::size(cols), rows, std::size(rows));
     }
     PanAndZoom();
+    // Zoom-dependent rules, measured in R3.1 with the samples' saved views
+    // (r3.1-open-instances.png, r3.1-open-parent-child-link.png) and the default: the
+    // minor lines' grey level and the spacing drawn, for six views (865-px wide but one).
+    {
+        struct View { int w; double zoom; int shade; double spacing; };
+        const View views[] = {{865, 0.116806, 143, 1},  // instances Left: subdivided
+                              {865, 1.0, 141, 10},      // default: #8D8D8D
+                              {865, 0.79068, 136, 10},  // instances Top / Front
+                              {864, 0.47003, 120, 10},  // parent_child_link Front
+                              {865, 0.47003, 120, 10},  // parent_child_link Left
+                              {865, 0.445, 117, 10}};   // parent_child_link Top
+        for (const View& t : views) {
+            view::OrthoView v;
+            v.width = 400 * t.zoom;
+            CHECK(view::OrthoMinorShade(t.w, v) == t.shade);
+            CHECK(view::OrthoGridSpacing(t.w, v) == t.spacing);
+        }
+        // The subdivided view's lines are 1 unit apart; every tenth (10 units) is major.
+        view::OrthoView left;
+        left.width = 400 * 0.116806;
+        int minors = 0, majors = 0;
+        for (const auto& l : view::OrthoGridLines(865, 423, left)) { minors += l.kind == view::LineKind::Minor; majors += l.kind == view::LineKind::Major; }
+        CHECK(minors > 30 && majors >= 4);
+        // Far out the shade stays between #A0A0A0 and the major lines' #747474.
+        view::OrthoView wide, close;
+        wide.width = 40000; close.width = 0.5;
+        CHECK(view::OrthoMinorShade(865, wide) <= 160 && view::OrthoMinorShade(865, close) >= 116);
+    }
     if (failures == 0) std::printf("ortho grid: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

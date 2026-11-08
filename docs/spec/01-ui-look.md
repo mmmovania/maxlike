@@ -7,7 +7,7 @@ Measured from `docs/reference/screenshots/max-r3.1-default-1920x1040.png`
 | Element | Value |
 |---|---|
 | Viewport background (all views, incl. perspective) | `#B0B0B0` |
-| Minor grid lines | `#8D8D8D` |
+| Minor grid lines | `#8D8D8D` at the default zoom; varies with spacing (below) |
 | Major grid lines (every 10th) | `#747474` |
 | Home-grid axes through origin | `#000000` |
 | Viewport label text | `#E5E5E5` |
@@ -139,12 +139,26 @@ Code: `src/view/Tripod.*`, `src/ui/LabelText.*`, `Viewport::DrawLabelAndTripod`.
 Label and tripod positions: see "Viewport labels and axis tripods" above (measured).
 Other views from the label menu: Bottom (y down), Back (x left), Right (y right).
 
+Zoom-dependent ortho grid (step 8.6, measured in six views of `r3.1-open-*.png` and the
+default; `view::OrthoGridSpacing`, `view::OrthoMinorShade`):
+- Minor lines darken as they spread apart: grey level floor(160 − 0.8674 × g) for g pixels
+  between lines, clamped to 116..160 (#747474..#A0A0A0): 143 at 18.5 px, 141 (#8D8D8D) at
+  the default 21.6, 136 at 27.3, 120 at 46.0, 117 at 48.6 — all six exact.
+- Zoomed in, the grid subdivides by tens: instances' Left view (10 units = 185 px) draws
+  1-unit lines 18.5 px apart with every tenth major. The threshold lies in (4.9, 18.5] px
+  (10 used; NOTE: unverified).
+- The perspective home grid is ±200 at the default view, but R3.1 draws it larger for a
+  distant camera (instances.max: x −400…+300, far edge 400); NOTE: the rule is not known,
+  so maxlike keeps ±200.
+
 ## Objects in the viewports (Phase 3)
 Code: `Viewport::DrawScene`, `Viewport::DrawShaded`, `src/gl/MeshRenderer.*`.
 
-- Wireframe: visible edges only (a quad's diagonal is hidden), all of them (no
-  hidden-line removal), in the node's wire colour. Ortho views map points through the
-  grid's pixel formula, so edges on grid lines land on the grid's pixels.
+- Wireframe: visible edges only (a quad's diagonal is hidden), of the faces turned
+  towards the viewer (back faces culled: R3.1's default for new objects, measured on the
+  sphere in `r3.1-open-parent-child-link.png`; step 8.6), in the node's wire colour. Ortho
+  views map points through the grid's pixel formula, so edges on grid lines land on the
+  grid's pixels. NOTE: picking still considers every edge.
 - Selected objects (step 6.2): white wireframes (R3.1 screenshots); in shaded views
   white brackets at the bounding-box corners, a quarter of each edge long (measured
   roughly from `r3.1-box-created.png`). Status line: "None Selected", "1 Object
