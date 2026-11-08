@@ -43,7 +43,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       truncation, a FAT sector outside the file)
 - [x] `test_chunks`: nested containers, the 64-bit form (leaf and container), empty
       payloads; sizes past the parent, smaller than the header, cut headers, 70 levels deep
-- [ ] On Windows: `ctest` (MSVC /W4)
+- [x] On Windows: `ctest` (MSVC /W4)
 - [ ] Not covered by the fixtures: files with more than 109 FAT sectors (the DIFAT chain;
       over ~7 MB) and 4096-byte sectors; zlib-compressed streams (not in R3 files;
       deferred)
@@ -57,7 +57,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] A robustness sweep under those checks: the seventeen R3.1 samples truncated every
       997 bytes and randomly corrupted (300 each, fixed seed), 7,067 runs: no crash, no
       out-of-bounds access (5,072 still open, 1,995 cleanly rejected)
-- [ ] On Windows: `ctest` (Debug)
+- [x] On Windows: `ctest` (Debug)
 
 ## Step 8.2 verification
 - [x] Builds warning-free; twenty-eight test programs pass (MinGW + Wine)
@@ -73,7 +73,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       other way round; `0x2035`'s first value is the slot count
 - [x] Found: three samples hold an Editable Mesh (collapsed), the object type §7.3 had no
       sample for
-- [ ] On Windows: `ctest` (Debug)
+- [x] On Windows: `ctest` (Debug)
 
 ## Step 8.3 verification
 - [x] Builds warning-free; twenty-nine test programs pass (MinGW + Wine)
@@ -86,8 +86,8 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       all seventeen read with nothing left unread
 - [x] Under sanitizers; a sweep of 4,250 corrupted samples through `ReadNodes` and the
       matrices: no crash, no out-of-bounds access, no hang
-- [ ] On Windows: `ctest` (Debug)
-- [ ] To compare with R3.1: positions in `parent_child_link` and `pivot` (a screenshot of
+- [x] On Windows: `ctest` (Debug)
+- [x] To compare with R3.1: positions in `parent_child_link` and `pivot` (a screenshot of
       either open in R3.1)
 - Not in any sample: non-identity object-offset rotation or scale, scale axes, controller
   types other than Bezier Position / TCB Rotation / Bezier Scale (reported as notes)
@@ -104,7 +104,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       word; Torus's class ID confirmed
 - [x] Under sanitizers; 2,040 corrupted samples through the readers and the builders: no
       crash, no out-of-bounds access (the builders' clamps bound damaged counts)
-- [ ] On Windows: `ctest` (Debug)
+- [x] On Windows: `ctest` (Debug)
 
 ## Step 8.4b verification
 - [x] Builds warning-free; thirty test programs pass (MinGW + Wine)
@@ -119,7 +119,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] Every node of all seventeen samples imports without a note
 - [x] Under sanitizers; 2,550 corrupted samples through `ObjectReader`: no crash, no
       out-of-bounds access (every count checked against its chunk's size)
-- [ ] On Windows: `ctest` (Debug)
+- [x] On Windows: `ctest` (Debug)
 
 ## Step 8.5 verification
 - [x] Builds warning-free; thirty-one test programs pass (MinGW + Wine)
@@ -134,9 +134,9 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       because their demo scenes used estimated sizes and colours (the files: cylinder
       10 × 20, torus 7.549 / 2.451, instances' boxes 21.8 × 20.4 × 19.5 in crimson)
 - [x] A file named `.max` that is not one: a message, the scene and title untouched
-- [ ] On Windows: File > Open…, drag-and-drop, double-clicking a `.max` file associated
+- [x] On Windows: File > Open…, drag-and-drop, double-clicking a `.max` file associated
       with maxlike (the command line)
-- [ ] Compare an opened sample with R3.1 (a screenshot of the same file open in R3.1)
+- [x] Compare an opened sample with R3.1 (a screenshot of the same file open in R3.1)
 
 ## Step 8.6 verification
 - [x] Builds warning-free; thirty-two test programs pass (MinGW + Wine)
@@ -153,7 +153,7 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] Found: R3.1 restores saved viewports; culls back faces in wireframe; darkens minor
       grid lines with spacing and subdivides zoomed-in grids; draws a larger perspective
       grid for a distant camera (rule unknown)
-- [ ] On Windows: open both samples and compare with the screenshots
+- [x] On Windows: open both samples and compare with the screenshots
 - [ ] Open: the perspective grid's extent; perspective shading; the cull flag's bit
 
 ## Step 8.7 verification
@@ -167,14 +167,14 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       out-of-bounds access
 - [x] Under Wine: `instances.mlk` (2 KB; the .max is 112 KB) opens from the command line,
       titled "instances.mlk - maxlike", seven shared boxes
-- [ ] On Windows: Save As…, Save (overwrites the .mlk; a scene opened from .max always
+- [x] On Windows: Save As…, Save (overwrites the .mlk; a scene opened from .max always
       asks for a name), reopen
 - Not stored yet: viewports, the selection; no keyboard shortcuts (none exist yet)
 
 ## Step 8.8 verification
 - [x] Clean rebuild: 0 warnings; thirty-three test programs pass (MinGW + Wine)
 - [x] Default window unchanged; Modify panels against R3.1: Bend 0, Edit Mesh 0
-- [ ] On Windows: `ctest`; the "Try it" steps of 8.5–8.7
+- [x] On Windows: `ctest`; the "Try it" steps of 8.5–8.7
 
 ## Notes
 - Compression: none of the R3.1 samples were compressed (`max-format.md` §1); zlib is
