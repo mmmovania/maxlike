@@ -16,8 +16,12 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
 - [x] **8.4a Primitives**: `io::ReadParamBlock` (old ParamBlock and ParamBlock2),
       `io::ReadPrimitive` (class → `scene::MakePrimitive`, parameters by index, radii
       clamped, Slice reported)
-- [ ] 8.4b Editable Mesh; Derived Objects with Edit Mesh and Bend / Taper / Twist (checks
-      Phase 7's parameter indices)
+- [x] **8.4b Editable Mesh and modifier stacks**: `io::ReadEditableMesh` (vertices, faces,
+      smoothing, material IDs, edge visibility); `io::ObjectReader` (each object built once,
+      so instances stay shared; Derived Objects with Edit Mesh's vertex moves; other
+      modifiers and edits reported)
+- [ ] Bend / Taper / Twist from files: no sample has them (Phase 7's parameter indices stay
+      unverified until one does)
 - [ ] 8.5 File > Open (and drag-and-drop) into the scene, with a report of what was skipped
 - [ ] 8.6 The samples: R3.1's vertex/face counts, transforms, colours and instances
       (needs the `.max` files)
@@ -93,6 +97,21 @@ Acceptance criteria: see `docs/spec/02-plan.md`, Phase 8.
       word; Torus's class ID confirmed
 - [x] Under sanitizers; 2,040 corrupted samples through the readers and the builders: no
       crash, no out-of-bounds access (the builders' clamps bound damaged counts)
+- [ ] On Windows: `ctest` (Debug)
+
+## Step 8.4b verification
+- [x] Builds warning-free; thirty test programs pass (MinGW + Wine)
+- [x] R3.1's collapsed Box equals maxlike's 60-unit Box in every field (found and fixed:
+      maxlike's Box had no material IDs; now each side has Max's)
+- [x] R3.1's collapsed teapot equals maxlike's in all 530 points (found and fixed: Max's
+      teapot data has control point 16 at x = −0.874 where the common data has −0.784;
+      derived from 12 rim points that all imply exactly this one change)
+- [x] `teapot_smoothinggroups`: 56 flat faces, 968 in group 1
+- [x] `instances.max`: seven nodes share one imported object; its Edit Mesh turns the top
+      vertices +25.00° (measured on the evaluated mesh), the bottom unmoved
+- [x] Every node of all seventeen samples imports without a note
+- [x] Under sanitizers; 2,550 corrupted samples through `ObjectReader`: no crash, no
+      out-of-bounds access (every count checked against its chunk's size)
 - [ ] On Windows: `ctest` (Debug)
 
 ## Notes

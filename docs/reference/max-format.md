@@ -253,6 +253,8 @@ All primitives build in object space with Max's Z-up axes. Unless noted, they si
 | Plane | `0x081F1DFC, 0x77566F65` | PB2 | 0 length (Y), 1 width (X), 2 length segs ◐, 3 width segs ◐, 4 render scale, 5 render density, 6 mapping | ✔; centred, facing +Z |
 
 Teapot proportions (Blinn-scaled Utah data, in units of the radius): height 1.575, handle reach 1.5, spout reach ≈ 1.71.
+Max's teapot data has control point 16 = (−0.874, −1.4, 2.4) where the common Utah datasets
+have −0.784 (digits transposed); verified by R3.1's collapsed teapot (§7.3).
 
 *Verified by maxlike (step 8.4a):* every class ID above as the samples record it, matched
 on both words; importing each sample's parameters into maxlike's primitives reproduces
@@ -271,7 +273,7 @@ Index-based edits (§8.3) need Max's own vertex order. For a 1 × 1 × 1 segment
 
 This was confirmed by applying the Edit Mesh deltas in `instances.max`: they rotate vertices 4–7 rigidly by exactly +25°, which matches the viewport. Faces (two per side, each side its own smoothing group): bottom `0 2 3, 3 1 0`; top `4 5 7, 7 6 4`; front `0 1 5, 5 4 0`; right `1 3 7, 7 5 1`; back `3 2 6, 6 7 3`; left `2 0 4, 4 6 2`.
 
-### 7.3 Editable Mesh ◐ (structure from community sources; samples now exist: `box_editmesh`, `teapot_edit_mesh`, `teapot_smoothinggroups` hold an Editable Mesh)
+### 7.3 Editable Mesh (class `0xE44F10B3`, superclass `0x10`) ✔ verified (maxlike step 8.4b: `box_editmesh`, `teapot_edit_mesh`, `teapot_smoothinggroups`)
 
 Mesh data lives in child `0x08FE` of the object:
 
@@ -280,7 +282,13 @@ Mesh data lives in child `0x08FE` of the object:
 | `0x0914` | `u32 count`, then `count × f32[3]` vertices |
 | `0x0912` | `u32 count`, then `count ×` 20-byte faces: `u32 a, b, c`, `u32 smoothingGroups`, `u32 flags` |
 
-In the face flags, the high 16 bits are thought to hold the material ID and the low bits edge visibility ○.
+Face flags: bits 0–2 are edge visibility (A = a→b, B = b→c, C = c→a; the 3ds Max SDK's
+`EDGE_A/B/C`) ✔; the high 16 bits are the material ID as stored (R3's panel shows it + 1) ✔;
+bit 6 (`0x40`) is set on every face in the samples (meaning unknown). Verified: R3.1's
+collapsed Box equals maxlike's Box in every field, and the collapsed teapot's 530 points
+equal maxlike's teapot (with Max's control point, §7.1). Also in `0x08FE`: `0x0906`,
+`0x0908`, `0x0924`, `0x0928`, `0x092A` (unknown). The object's first reference is a
+Master Point Controller (vertex animation; not read).
 
 ### 7.4 Editable Poly ○ unverified (Max 4 and later; cannot exist in R3.1 files)
 
@@ -368,6 +376,10 @@ Example from `instances.max` (top face of the box twisted +25°):
 ```
 
 Topology edits (delete, extrude, and so on) and smoothing-group or material changes made in Edit Mesh are not decoded yet.
+
+*Verified by maxlike (step 8.4b):* imported into maxlike's own Edit Mesh, these moves turn
+vertices 4–7 by +25.00° about the box's axis at unchanged radius, with 0–3 unmoved; the
+modifier context transform (`0x2510`) is identity (maxlike reports any other).
 
 ---
 

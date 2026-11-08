@@ -1,6 +1,8 @@
 #pragma once
 #include "io/MaxScene.h"
+#include "scene/Modifier.h"
 #include "scene/Object.h"
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,5 +31,28 @@ int PrimitiveTypeOf(const ClassEntry& c);
 // The primitive at scene-list index `object`, with its parameters; null (and a note) if
 // it is not one of the ten or its block cannot be read.
 std::shared_ptr<scene::Object> ReadPrimitive(const MaxScene& scene, size_t object, std::vector<std::string>& notes);
+
+// An Editable Mesh (class 0xE44F10B3; §7.3): its stored vertices and faces, with
+// smoothing groups, material IDs (the face flags' high 16 bits) and edge visibility (the
+// low 3 bits), as a scene::MeshObject. Null and a note if it cannot be read.
+std::shared_ptr<scene::Object> ReadEditableMesh(const MaxScene& scene, size_t object, std::vector<std::string>& notes);
+
+// Reads any supported object (a primitive, an Editable Mesh, or a Derived Object with Edit
+// Mesh's vertex moves; §8), building each scene-list index once: nodes that reference the
+// same object get the same scene::Object, so instances stay instances.
+class ObjectReader {
+public:
+    explicit ObjectReader(const MaxScene& scene) : scene_(scene) {}
+    std::shared_ptr<scene::Object> Read(size_t object);
+    const std::vector<std::string>& Notes() const { return notes_; }
+
+private:
+    std::shared_ptr<scene::Object> Build(size_t object, int depth);
+    std::shared_ptr<scene::Modifier> ReadModifier(size_t object, const std::vector<Chunk>& context);
+
+    const MaxScene& scene_;
+    std::map<size_t, std::shared_ptr<scene::Object>> built_;
+    std::vector<std::string> notes_;
+};
 
 } // namespace io
