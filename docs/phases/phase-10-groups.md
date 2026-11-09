@@ -23,8 +23,31 @@ items still buildable without new R3.1 evidence.
 - [x] **10.5** Rotate and Scale at Edit Mesh's sub-object levels: about the selection's
       centre (or the reference system's origin), in the reference system's frame, rigid
       even on scaled objects; one undo step per drag
-- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Soft Selection
+- [x] **10.6** Soft Selection: the rollout's contents (Use Soft Selection, Edge Distance,
+      Affect Backfacing, Falloff, Pinch, Bubble); Max's affect-region curve; vertices
+      coloured by weight; Move, Rotate and Scale carry neighbours by their weights
+- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons
 - [ ] Wrap-up
+
+## Step 10.6 verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_soft_selection`: the curve at its ends and middle against hand-computed values,
+      with Pinch and Bubble; never increasing with distance, within 0..1; on a 10 x 10
+      plane the selected corner weighs 1, a neighbour by its distance, exactly the vertices
+      within the falloff are affected; Edge Distance 1 limits it to the edge neighbours
+- [x] Under Wine on `teapot.max`: Edit Mesh, one vertex selected, Use Soft Selection: the
+      vertices around it are coloured from red through yellow and green to blue; dragging
+      the vertex 30 px raises it fully and its neighbours partly (a smooth bulge), those
+      beyond the falloff stay
+- [x] Found: the rollout's rows were first placed from 8, but row tops are measured from
+      the title (the first row of the others is at 24), so "Use Soft Selection" sat under
+      the title and a click ticked Edge Distance; rows now start at 26
+- [x] The Edit Mesh panel with Soft Selection closed (the default) still matches R3.1
+      pixel for pixel
+- [ ] On Windows: Edge Distance, Pinch and Bubble by eye; Rotate and Scale with soft
+      selection; faces and edges with soft selection
+- [ ] Unverified: the rollout's layout (from memory; R3's falloff curve display not built),
+      the weight colours, distances in the object's space, Affect Backfacing (not applied)
 
 ## Step 10.5 verification
 - [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)

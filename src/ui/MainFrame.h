@@ -98,6 +98,7 @@ private:
         std::vector<math::Vec3> points;
         math::Mat4 objectToWorld;
         math::Vec3 centre{0, 0, 0};
+        std::vector<double> weights;       // Soft Selection (10.6): one per vertex; empty = all 1
     } vertexMove_;
     std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices or faces
     scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it

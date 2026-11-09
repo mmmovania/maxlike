@@ -21,6 +21,13 @@ EditMeshModifier::EditMeshModifier(size_t expectedVertexCount, std::vector<Move>
     params_.Define(kTessByFace, ParamType::Int, 0);
     params_.Define(kExplodeAngle, ParamType::Float, 24);
     params_.Define(kExplodeToElements, ParamType::Int, 0);
+    params_.Define(kUseSoftSelection, ParamType::Bool, 0);
+    params_.Define(kEdgeDistance, ParamType::Bool, 0);
+    params_.Define(kEdgeIterations, ParamType::Int, 1);
+    params_.Define(kAffectBackfacing, ParamType::Bool, 1);
+    params_.Define(kFalloff, ParamType::Float, 20);
+    params_.Define(kPinch, ParamType::Float, 0);
+    params_.Define(kBubble, ParamType::Float, 0);
 }
 
 bool EditMeshModifier::Apply(Mesh& mesh) const {

@@ -34,7 +34,7 @@ Requires Visual Studio 2019+ (Desktop development with C++) and CMake 3.20+.
 ```sh
 cmake -S . -B build
 cmake --build build --config Debug
-ctest --test-dir build -C Debug      # 39 unit-test programs
+ctest --test-dir build -C Debug      # 40 unit-test programs
 build\Debug\maxlike.exe
 ```
 

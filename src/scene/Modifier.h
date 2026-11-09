@@ -107,7 +107,9 @@ public:
     // outside a parameter block).
     enum { kIgnoreBackfacing = 0, kPlanarThresh, kExtrudeAmount, kChamferAmount, kSplit, kRefineEnds,
            kWeldThreshold, kNormalLocal, kWeldTargetPixels, kTessTension, kTessByFace, kExplodeAngle,
-           kExplodeToElements };
+           kExplodeToElements,
+           // Soft Selection (Phase 10.6), after the others so no index moves.
+           kUseSoftSelection, kEdgeDistance, kEdgeIterations, kAffectBackfacing, kFalloff, kPinch, kBubble };
     EditMeshModifier(size_t expectedVertexCount, std::vector<Move> moves);
     std::string ClassName() const override { return "Edit Mesh"; }
     bool Apply(Mesh& mesh) const override;

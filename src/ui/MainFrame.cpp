@@ -1,4 +1,5 @@
 #include "ui/MainFrame.h"
+#include "scene/SoftSelection.h"
 #include "scene/Groups.h"
 #include "scene/Arrange.h"
 #include "scene/TypeIn.h"
@@ -945,7 +946,7 @@ bool MainFrame::CreateRegions() {
                 std::sort(verts.begin(), verts.end());
                 verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
             }
-            vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix()), {}, node->ObjectMatrix(), {}};
+            vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix()), {}, node->ObjectMatrix(), {}, {}};
             // Positions now: the input with the current moves; the centre is the vertices'
             // average, or the reference system's origin (Use Transform Coordinate Center).
             // NOTE: R3's sub-object centre rules are unverified.
@@ -960,6 +961,22 @@ bool MainFrame::CreateRegions() {
             }
             dragFrame_ = viewports_.ActiveView().CurrentFrame();
             vertexMove_.centre = centre_ == 2 ? dragFrame_.origin : verts.empty() ? sum : sum * (1.0 / static_cast<double>(verts.size()));
+            // Soft Selection (10.6): every vertex the falloff reaches joins, with its weight;
+            // the centre stays the selection's.
+            const auto& sp = mod->Params();
+            if (sp.Int(scene::EditMeshModifier::kUseSoftSelection, 0) != 0) {
+                const int edges = sp.Int(scene::EditMeshModifier::kEdgeDistance, 0) != 0 ? sp.Int(scene::EditMeshModifier::kEdgeIterations, 1) : -1;
+                const auto w = scene::soft::Weights(at, verts, sp.Float(scene::EditMeshModifier::kFalloff, 20),
+                                                    sp.Float(scene::EditMeshModifier::kPinch, 0), sp.Float(scene::EditMeshModifier::kBubble, 0), edges);
+                vertexMove_.vertices.clear();
+                vertexMove_.points.clear();
+                for (uint32_t v = 0; v < w.size(); ++v)
+                    if (w[v] > 0) {
+                        vertexMove_.vertices.push_back(v);
+                        vertexMove_.points.push_back(at.verts[v]);
+                        vertexMove_.weights.push_back(w[v]);
+                    }
+            }
             return;
         }
         for (scene::Node::Id id : scene_.Selection()) {
@@ -1017,10 +1034,17 @@ bool MainFrame::CreateRegions() {
             // Move: one offset in the object's space. Rotate and Scale (10.5): a world-space
             // turn or scale about the centre, in the reference system's frame, applied to each
             // vertex in world space and taken back to object space.
+            const auto& wts = vertexMove_.weights;
             if (tool_ == Tool::Move) {
                 const math::Vec3 d = math::TransformPoint(vertexMove_.worldToObject, delta) -
                                      math::TransformPoint(vertexMove_.worldToObject, {0, 0, 0});
-                vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, d));
+                if (wts.empty()) {
+                    vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, d));
+                } else {
+                    std::vector<math::Vec3> deltas;
+                    for (double w : wts) deltas.push_back(d * w);
+                    vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, deltas));
+                }
                 ShowCoordinates(delta);
             } else {
                 const math::Vec3& c = vertexMove_.centre;
@@ -1035,7 +1059,8 @@ bool MainFrame::CreateRegions() {
                     change = math::Translation(c) * scene::tools::FrameScale(dragFrame_, s) * math::Translation(c * -1.0);
                     ShowCoordinates(scene::move::ScalePercent(f));
                 }
-                const auto deltas = scene::tools::SubObjectDeltas(vertexMove_.points, vertexMove_.objectToWorld, change);
+                auto deltas = scene::tools::SubObjectDeltas(vertexMove_.points, vertexMove_.objectToWorld, change);
+                for (size_t i = 0; i < wts.size() && i < deltas.size(); ++i) deltas[i] = deltas[i] * wts[i];   // Soft Selection
                 vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, deltas));
             }
             viewports_.Redraw();

@@ -144,7 +144,8 @@ From Phase 9's inventory, still buildable without new evidence:
 - [x] The modifier gizmo (10.3).
 - [x] Viewports and the selection in `.mlk` files (10.4).
 - [x] Rotate and Scale at Edit Mesh's sub-object levels (10.5).
-- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Soft Selection.
+- [x] Soft Selection (10.6).
+- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons.
 - Waiting for R3.1 evidence (list B of the inventory): dialogs built from memory (New,
   Clone, Detach, Mirror, Array, Transform Type-In), Edit Mesh's look at sub-object levels,
   the Select By / Region / Grids submenus, the perspective grid's extent, Bend / Taper /

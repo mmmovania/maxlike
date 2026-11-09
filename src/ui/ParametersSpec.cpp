@@ -242,8 +242,20 @@ std::vector<Spec> ModifierRollouts(const std::string& name) {
     sel.contentHeight = 195;                 // frame's shadow line at title + 209
     Spec soft;
     soft.title = L"Soft Selection";
-    soft.startsOpen = false;                 // NOTE: its contents are not built yet
-    soft.contentHeight = 40;
+    soft.startsOpen = false;                 // closed, as in R3.1's screenshot
+    // NOTE: the contents are from memory (the rollout was only ever seen closed); R3's
+    // falloff curve display is not built.
+    // Row tops are measured from the rollout's title, as in the other rollouts (the first
+    // row below the title starts at 24 or later).
+    soft.rows = {check(L"Use Soft Selection", EditMeshModifier::kUseSoftSelection, 26, 12, true),
+                 check(L"Edge Distance:", EditMeshModifier::kEdgeDistance, 46, 12, true),
+                 [] { Row r{L"", EditMeshModifier::kEdgeIterations, Kind::Int, 1, 999, 1, 44};
+                      r.fieldLeft = 104; r.fieldWidth = 40; r.arrowsLeft = 145; return r; }(),
+                 check(L"Affect Backfacing", EditMeshModifier::kAffectBackfacing, 66, 12, true),
+                 spinner(L"Falloff:", EditMeshModifier::kFalloff, 88, 92, 52, 145, true, 0, 1e6),
+                 spinner(L"Pinch:", EditMeshModifier::kPinch, 108, 92, 52, 145, true, -10, 10),
+                 spinner(L"Bubble:", EditMeshModifier::kBubble, 128, 92, 52, 145, true, -10, 10)};
+    soft.contentHeight = 150;
     Spec geo;
     geo.title = L"Edit Geometry";
     geo.groups = {{90, 157, L"", 0, 14, 165}, {163, 233, L"", 0, 14, 165}, {243, 298, L"Weld", 49, 14, 166, 21, 23},

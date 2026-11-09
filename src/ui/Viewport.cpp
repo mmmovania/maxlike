@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "scene/SoftSelection.h"
 #include "scene/Groups.h"
 #include "scene/TypeIn.h"
 #include "scene/MeshTopology.h"
@@ -611,18 +612,42 @@ void Viewport::DrawVertices(int w, int h) {
         return;
     }
     const auto& sel = vertexEditing_.mod->SelectedVertices();
-    for (int pass = 0; pass < 2; ++pass) {
+    // Each vertex's colour group: 0 unselected (blue), 17 selected (red); with Soft Selection
+    // on, 1..16 by weight, from blue through green and yellow to red (NOTE: R3's exact hues
+    // unverified).
+    std::vector<int> group(pts.size(), 0);
+    std::vector<uint32_t> selOut;
+    for (size_t i = 0; i < pts.size(); ++i)
+        if (std::binary_search(sel.begin(), sel.end(), v.vertexMap[i])) { group[i] = 17; selOut.push_back(static_cast<uint32_t>(i)); }
+    const auto& sp = vertexEditing_.mod->Params();
+    if (sp.Int(scene::EditMeshModifier::kUseSoftSelection, 0) != 0 && !selOut.empty()) {
+        const int edges = sp.Int(scene::EditMeshModifier::kEdgeDistance, 0) != 0 ? sp.Int(scene::EditMeshModifier::kEdgeIterations, 1) : -1;
+        const auto w = scene::soft::Weights(v.mesh, selOut, sp.Float(scene::EditMeshModifier::kFalloff, 20),
+                                            sp.Float(scene::EditMeshModifier::kPinch, 0), sp.Float(scene::EditMeshModifier::kBubble, 0), edges);
+        for (size_t i = 0; i < pts.size() && i < w.size(); ++i)
+            if (group[i] == 0 && w[i] > 0) group[i] = 1 + std::min(15, static_cast<int>(w[i] * 16));
+    }
+    for (int g = 0; g <= 17; ++g) {
         std::vector<float> run;
         for (size_t i = 0; i < pts.size(); ++i) {
-            const bool selected = std::binary_search(sel.begin(), sel.end(), v.vertexMap[i]);
-            if (selected != (pass == 1)) continue;
+            if (group[i] != g) continue;
             const int cx = static_cast<int>(std::floor(pts[i].x)), cy = static_cast<int>(std::floor(pts[i].y));
             static const int kHalf[5] = {0, 1, 2, 1, 0};
             for (int dy = -2; dy <= 2; ++dy)
                 for (int dx = -kHalf[dy + 2]; dx <= kHalf[dy + 2]; ++dx)
                     run.insert(run.end(), {cx + dx + 0.5f, cy + dy + 0.5f, 0.0f});
         }
-        if (!run.empty()) lines_->DrawPoints(run, toClip, pass == 1 ? 1.0f : 0.0f, 0.0f, pass == 1 ? 0.0f : 1.0f);
+        if (run.empty()) continue;
+        float r = 0, gr = 0, b = 1;                                   // unselected: blue
+        if (g == 17) { r = 1; gr = 0; b = 0; }                        // selected: red
+        else if (g > 0) {
+            // Hue from 240 (blue, weight ~0) to 0 (red, weight 1).
+            const double hue = 240.0 * (1.0 - (g - 0.5) / 16.0), x = 1.0 - std::fabs(std::fmod(hue / 60.0, 2.0) - 1.0);
+            const int sector = static_cast<int>(hue / 60.0);
+            const double rgb[6][3] = {{1, x, 0}, {x, 1, 0}, {0, 1, x}, {0, x, 1}, {x, 0, 1}, {1, 0, x}};
+            r = static_cast<float>(rgb[sector][0]); gr = static_cast<float>(rgb[sector][1]); b = static_cast<float>(rgb[sector][2]);
+        }
+        lines_->DrawPoints(run, toClip, r, gr, b);
     }
 }
 
