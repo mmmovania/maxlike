@@ -139,6 +139,10 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                                 w.Leaf(0x0001, [&] { w.Text(m->ClassName()); });
                                 w.Leaf(0x0002, [&] { w.Put(static_cast<uint8_t>(m->Enabled())); });
                                 PutParams(w, m->Params());
+                                if (auto* dm = dynamic_cast<const scene::DeformModifier*>(m.get())) {   // Phase 10.3
+                                    PutPrs(w, 0x0060, dm->GetGizmo().transform);
+                                    w.Leaf(0x0061, [&] { const math::Vec3& c = dm->GetGizmo().center; w.Put(c.x); w.Put(c.y); w.Put(c.z); });
+                                }
                                 if (auto* em = dynamic_cast<const scene::EditMeshModifier*>(m.get())) {
                                     w.Leaf(0x0050, [&] { w.Put(static_cast<uint64_t>(em->ExpectedVertexCount())); });
                                     w.Leaf(0x0051, [&] {
@@ -311,6 +315,15 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
                     }
                     if (!GetParams(d, Child(mk, 0x0020), mod->Params())) return bad("damaged modifier parameters");
                     if (const Chunk* k = Child(mk, 0x0002)) { size_t p = k->begin; uint8_t on = 1; Get(d, p, k->end, on); mod->SetEnabled(on != 0); }
+                    if (auto dm = std::dynamic_pointer_cast<scene::DeformModifier>(mod)) {
+                        scene::DeformModifier::Gizmo g;
+                        if (Child(mk, 0x0060) && !GetPrs(d, Child(mk, 0x0060), g.transform)) return bad("damaged gizmo");
+                        if (const Chunk* k = Child(mk, 0x0061)) {
+                            size_t p = k->begin;
+                            if (!Get(d, p, k->end, g.center.x) || !Get(d, p, k->end, g.center.y) || !Get(d, p, k->end, g.center.z)) return bad("damaged gizmo centre");
+                        }
+                        dm->SetGizmo(g);
+                    }
                     derived->AddModifier(mod);
                 }
             obj = derived;

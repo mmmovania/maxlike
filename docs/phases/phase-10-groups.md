@@ -14,11 +14,30 @@ items still buildable without new R3.1 evidence.
 - [x] **10.2** Tools > Align (Alt+A): pick the target, then align position (minimum,
       centre, pivot or maximum of the current and target objects, per world axis),
       orientation (local axes) and scale; one undo step; groups by their members' bounds
-- [ ] The modifier gizmo
+- [x] **10.3** The modifier gizmo: Bend, Taper and Twist deform in their gizmo's space
+      about its centre; the gizmo is drawn as the input's box deformed by the modifier
+      (orange; yellow at its sub-object level); Sub-Object levels Gizmo (Move, Rotate,
+      Scale) and Center (Move), one undo step per drag; kept in `.mlk` files and clones
 - [ ] Viewports and the selection in `.mlk` files
 - [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
       sub-object level; Soft Selection
 - [ ] Wrap-up
+
+## Step 10.3 verification
+- [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)
+- [x] `test_modifiers`: Phase 7's deformation tests pass unchanged (run against the code
+      before and after the change); a centre offset equals moving the gizmo by it; a
+      moved gizmo equals shifting, deforming and shifting back; the lattice is the box's
+      twelve edges, and bent, its corners are exactly the bent box's corners; the centre
+      in object space follows the gizmo. `test_native_file`: a gizmo survives saving and
+      loading, the loaded object evaluating bit-identically
+- [x] Under Wine with `--demo-scene deform`: the bent box in Modify shows an orange cage
+      bent like it; at Sub-Object the cage is yellow; dragging the gizmo 60 px changes the
+      bend; Ctrl+Z restores every view pixel for pixel
+- [ ] On Windows: Rotate and Scale of the gizmo, Center level, Taper and Twist, undo
+- [ ] Unverified: R3's gizmo colours (orange, yellow), its lattice's subdivisions, where a
+      press must be to drag the gizmo (anywhere here), rotation about the centre; gizmos
+      in `.max` files are not read
 
 ## Step 10.2 verification
 - [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)

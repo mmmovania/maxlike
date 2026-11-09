@@ -26,6 +26,8 @@ std::shared_ptr<Modifier> CopyModifier(const std::shared_ptr<Modifier>& m) {
     else return m;                                          // unknown: shared
     CopyParams(m->Params(), out->Params());
     out->SetEnabled(m->Enabled());
+    if (auto from = std::dynamic_pointer_cast<DeformModifier>(m))      // the gizmo too (Phase 10.3)
+        if (auto to = std::dynamic_pointer_cast<DeformModifier>(out)) to->SetGizmo(from->GetGizmo());
     return out;
 }
 

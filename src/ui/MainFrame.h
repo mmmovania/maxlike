@@ -125,6 +125,16 @@ private:
     ui::TypeInDialog typeIn_;                          // Tools > Transform Type-In (F12)
     bool attachPick_ = false;                          // Group > Attach: the next click picks the group
     bool alignPick_ = false;                           // Tools > Align: the next click picks the target
+    // A deformer's gizmo being dragged (10.3): the modifier, its gizmo at the start, and the
+    // object's world matrix and rotation (movements become object space).
+    struct GizmoMove {
+        bool active = false;
+        std::shared_ptr<scene::DeformModifier> mod;
+        scene::DeformModifier::Gizmo start;
+        math::Mat4 objectWorld;
+        math::Quat objectRotation;
+    } gizmoMove_;
+    std::shared_ptr<scene::DeformModifier> GizmoEditingMod() const;   // non-null at a deformer's sub-object level
     void UpdateTypeIn();                         // File > Summary Info's Description (NOTE: not saved yet)
 
     // Regions, in the order of FrameLayout.

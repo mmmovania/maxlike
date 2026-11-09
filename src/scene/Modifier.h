@@ -1,4 +1,5 @@
 #pragma once
+#include "scene/Node.h"
 #include "scene/Object.h"
 #include "scene/ParamBlock.h"
 #include <algorithm>
@@ -40,30 +41,58 @@ private:
 // lower and upper limits (h values) and the rest follows rigidly.
 // NOTE: the parameter indices follow memory of R3's parameter blocks, and the Twist
 // bias and Taper curve formulas are approximations; all unverified.
-class BendModifier : public Modifier {
+// Bend, Taper and Twist share a gizmo and a centre (Phase 10.3): points are taken into
+// the gizmo's frame, relative to the centre (gizmo space), deformed there, and brought
+// back. With the identity gizmo and a zero centre nothing is transformed, so the results
+// are exactly Phase 7's (verified against R3.1).
+class DeformModifier : public Modifier {
+public:
+    bool Apply(Mesh& mesh) const final;
+    struct Gizmo {
+        PRS transform;                       // the gizmo in the object's space
+        math::Vec3 center{0, 0, 0};          // the centre, in the gizmo's space
+    };
+    const Gizmo& GetGizmo() const { return gizmo_; }
+    void SetGizmo(const Gizmo& g) { gizmo_ = g; }
+    // The gizmo as R3 draws it: the input's bounding box in gizmo space, each edge in
+    // `segments` pieces, deformed by this modifier; pairs of object-space points.
+    std::vector<std::pair<math::Vec3, math::Vec3>> GizmoLines(const Mesh& input, int segments = 8) const;
+    math::Vec3 CenterPoint() const;          // the centre in object space
+
+protected:
+    virtual void Deform(Mesh& mesh) const = 0;   // in gizmo space
+
+private:
+    Gizmo gizmo_;
+};
+
+class BendModifier : public DeformModifier {
 public:
     enum { kAngle = 0, kDirection, kAxis, kLimit, kLower, kUpper };
     BendModifier();
     std::string ClassName() const override { return "Bend"; }
-    bool Apply(Mesh& mesh) const override;
+protected:
+    void Deform(Mesh& mesh) const override;
 };
 
-class TaperModifier : public Modifier {
+class TaperModifier : public DeformModifier {
 public:
     enum { kAmount = 0, kCurve, kAxis, kEffect, kSymmetry, kLimit, kLower, kUpper };
     // kEffect: which perpendicular axes are scaled: 0 the first, 1 the second, 2 both (as
     // the rollout's X / Y / XY radios; R3's default is both).
     TaperModifier();
     std::string ClassName() const override { return "Taper"; }
-    bool Apply(Mesh& mesh) const override;
+protected:
+    void Deform(Mesh& mesh) const override;
 };
 
-class TwistModifier : public Modifier {
+class TwistModifier : public DeformModifier {
 public:
     enum { kAngle = 0, kBias, kAxis, kLimit, kLower, kUpper };
     TwistModifier();
     std::string ClassName() const override { return "Twist"; }
-    bool Apply(Mesh& mesh) const override;
+protected:
+    void Deform(Mesh& mesh) const override;
 };
 
 // Edit Mesh, vertex moves only (local data 0x4000: 0x0100 vertex count, 0x0140 moves).

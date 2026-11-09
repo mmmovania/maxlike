@@ -199,6 +199,11 @@ std::shared_ptr<scene::EditMeshModifier> MainFrame::VertexEditingMod() const {
     return std::dynamic_pointer_cast<scene::EditMeshModifier>(CurrentModifier());
 }
 
+std::shared_ptr<scene::DeformModifier> MainFrame::GizmoEditingMod() const {
+    if (!subObject_ || !commandPanel_.InModify()) return nullptr;
+    return std::dynamic_pointer_cast<scene::DeformModifier>(CurrentModifier());
+}
+
 scene::Mesh MainFrame::EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
     scene::Node* node = nullptr;
     const auto stack = const_cast<MainFrame*>(this)->SelectedStack(&node);
@@ -241,6 +246,7 @@ void MainFrame::UpdateModifyPanel() {
             if (base->ClassName() == scene::PrimitiveBaseName(t)) info.baseType = t;
         if (std::dynamic_pointer_cast<scene::EditMeshModifier>(mod))
             info.subObjectLevels = {L"Vertex", L"Edge", L"Face", L"Polygon", L"Element"};
+        if (std::dynamic_pointer_cast<scene::DeformModifier>(mod)) info.subObjectLevels = {L"Gizmo", L"Center"};
         if (info.subObjectLevels.empty()) subObject_ = false;
         info.subObjectOn = subObject_;
         info.subObjectLevel = subLevel_;
@@ -254,6 +260,23 @@ void MainFrame::UpdateModifyPanel() {
         }
     }
     commandPanel_.SetModifyInfo(info);
+    // A deformer shown in the Modify panel draws its gizmo; at sub-object level it is edited.
+    {
+        ui::Viewport::GizmoEditing gizmo;
+        scene::Node* gnode = nullptr;
+        const auto gstack = commandPanel_.InModify() ? SelectedStack(&gnode) : nullptr;
+        if (const auto dm = std::dynamic_pointer_cast<scene::DeformModifier>(commandPanel_.InModify() ? CurrentModifier() : nullptr); dm && gstack && gnode) {
+            const auto& mods = gstack->Modifiers();
+            for (size_t i = 0; i < mods.size(); ++i)
+                if (mods[i] == dm) gizmo.index = i;
+            gizmo.on = true;
+            gizmo.node = gnode->GetId();
+            gizmo.stack = gstack;
+            gizmo.mod = dm;
+            gizmo.level = subObject_ ? subLevel_ : -1;
+        }
+        viewports_.SetGizmoEditing(gizmo);
+    }
     // The views draw and pick vertices while an Edit Mesh is at Vertex level.
     if (!VertexEditingMod() || subLevel_ != 0) weldTargetMode_ = false;   // Weld > Target ends with the level
     ui::Viewport::VertexEditing editing;
@@ -874,6 +897,15 @@ bool MainFrame::CreateRegions() {
     // Moving: a live preview from the starting positions, then one "Move" undo step.
     viewports_.onMoveBegin = [this] {
         moving_.clear();
+        if (const auto dm = GizmoEditingMod()) {
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            if (!node) return;
+            gizmoMove_ = {true, dm, dm->GetGizmo(), node->ObjectMatrix(),
+                          scene::typein::WorldRotation(*node) * node->ObjectOffset().rotation};
+            dragFrame_ = viewports_.ActiveView().CurrentFrame();
+            return;
+        }
         if (const auto mod = VertexEditingMod()) {
             scene::Node* node = nullptr;
             SelectedStack(&node);
@@ -918,6 +950,37 @@ bool MainFrame::CreateRegions() {
     // Move follows the mouse in the world; Rotate and Scale follow its vertical movement,
     // each object about its own pivot (NOTE: R3's pivot options are not implemented yet).
     viewports_.onMoveDrag = [this](const math::Vec3& delta, int up) {
+        if (gizmoMove_.active) {
+            // In the object's space: Move shifts the gizmo (Gizmo) or its centre (Center);
+            // Rotate turns the gizmo about its centre; Scale scales it (Gizmo level only).
+            const math::Mat4 inv = math::AffineInverse(gizmoMove_.objectWorld);
+            const math::Vec3 d = math::TransformPoint(inv, delta) - math::TransformPoint(inv, {0, 0, 0});
+            scene::DeformModifier::Gizmo g = gizmoMove_.start;
+            if (tool_ == Tool::Move) {
+                if (subLevel_ == 0) g.transform.position = g.transform.position + d;
+                else {
+                    const math::Mat4 gi = math::AffineInverse(g.transform.Matrix());
+                    g.center = g.center + (math::TransformPoint(gi, d) - math::TransformPoint(gi, {0, 0, 0}));
+                }
+                ShowCoordinates(delta);
+            } else if (subLevel_ == 0 && tool_ == Tool::Rotate) {
+                const int axis = scene::move::RotationAxis(constraint_);
+                const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);
+                const math::Quat& o = gizmoMove_.objectRotation;
+                const math::Quat q = math::Quat{-o.x, -o.y, -o.z, o.w} * turn * o;        // the turn in object space
+                const math::Vec3 pc = gizmoMove_.mod->CenterPoint();
+                g.transform.position = pc + q.Rotate(g.transform.position - pc);
+                g.transform.rotation = (q * g.transform.rotation).Normalized();
+                ShowCoordinates(scene::move::RotationDegrees(axis, up));
+            } else if (subLevel_ == 0 && tool_ == Tool::Scale) {
+                const math::Vec3 f = scene::move::DragScale(scaleMode_, constraint_, up);
+                g.transform.scale = {g.transform.scale.x * f.x, g.transform.scale.y * f.y, g.transform.scale.z * f.z};
+                ShowCoordinates(scene::move::ScalePercent(f));
+            }
+            gizmoMove_.mod->SetGizmo(g);
+            viewports_.Redraw();
+            return;
+        }
         if (vertexMove_.active) {
             // Vertices move in the object's own space (NOTE: Rotate and Scale at vertex
             // level are not implemented; only Move drags vertices).
@@ -984,6 +1047,14 @@ bool MainFrame::CreateRegions() {
         UpdateTypeIn();                                 // Absolute shows the result; Offset returns to neutral
     };
     viewports_.onMoveEnd = [this](bool commit) {
+        if (gizmoMove_.active) {
+            gizmoMove_.active = false;
+            const auto after = gizmoMove_.mod->GetGizmo();
+            gizmoMove_.mod->SetGizmo(gizmoMove_.start);         // so the command records the real "before"
+            if (commit) undo_.Execute(std::make_unique<scene::GizmoCommand>(gizmoMove_.mod, gizmoMove_.start, after), scene_);
+            viewports_.Redraw();
+            return;
+        }
         if (vertexMove_.active) {
             vertexMove_.active = false;
             const auto after = vertexMove_.mod->Moves();

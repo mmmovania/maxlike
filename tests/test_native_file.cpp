@@ -150,6 +150,30 @@ int main() {
         CHECK(back.Find("Group02") && back.Find("Group02")->IsGroupHead() && back.Find("Group02")->GroupOpen());
         CHECK(back.Find("Box01") && !back.Find("Box01")->IsGroupHead() && back.Find("Box01")->Parent() == back.Find("Group01"));
     }
+    // A deformer's gizmo and centre (Phase 10.3) survive saving and loading.
+    {
+        scene::Scene g, back;
+        auto bend = std::make_shared<scene::BendModifier>();
+        bend->Params().Set(scene::BendModifier::kAngle, 45);
+        scene::DeformModifier::Gizmo gz;
+        gz.transform.position = {1, 2, 3};
+        gz.transform.rotation = math::Quat::FromAxisAngle({0, 0, 1}, 0.25);
+        gz.transform.scale = {1, 2, 0.5};
+        gz.center = {0, 0, 7};
+        bend->SetGizmo(gz);
+        auto derived = std::make_shared<scene::DerivedObject>(std::make_shared<scene::BoxObject>(10, 10, 20));
+        derived->AddModifier(bend);
+        g.CreateNode("Box01")->SetObject(derived);
+        std::string error;
+        CHECK(io::LoadNative(io::SaveNative(g), back, error));
+        auto d2 = back.Find("Box01") ? std::dynamic_pointer_cast<scene::DerivedObject>(back.Find("Box01")->GetObject()) : nullptr;
+        auto b2 = d2 ? std::dynamic_pointer_cast<scene::BendModifier>(d2->Modifiers()[0]) : nullptr;
+        CHECK(b2 && b2->GetGizmo().center.z == 7 && b2->GetGizmo().transform.scale.y == 2 && b2->GetGizmo().transform.position.x == 1);
+        const scene::Mesh a = derived->Evaluate(), c = d2 ? d2->Evaluate() : scene::Mesh{};
+        bool same = a.verts.size() == c.verts.size();
+        for (size_t i = 0; same && i < a.verts.size(); ++i) same = math::Length(a.verts[i] - c.verts[i]) == 0;
+        CHECK(same);
+    }
     if (failures == 0) std::printf("native file: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

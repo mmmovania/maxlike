@@ -344,6 +344,37 @@ void Viewport::DrawScene(int w, int h) {
         lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
     }
     DrawOpenGroups(w, h);
+    DrawGizmo(w, h);
+}
+
+// The gizmo: its lattice (the input's box, deformed by the modifier) and the centre as a
+// small cross. NOTE: R3's colours from memory: orange, yellow at the sub-object level
+// being edited.
+void Viewport::DrawGizmo(int w, int h) {
+    const GizmoEditing& g = gizmoEditing_;
+    if (!g.on || !g.mod || !g.stack || !scene_) return;
+    const scene::Node* node = scene_->FindById(g.node);
+    if (!node) return;
+    const math::Mat4 m = node->ObjectMatrix();
+    const scene::Mesh input = g.stack->EvaluateUpTo(g.index);
+    std::vector<gl::LineRenderer::Line> lattice, centre;
+    for (const auto& [a, b] : g.mod->GizmoLines(input)) {
+        double ax, ay, bx, by, d;
+        if (!WorldToWindow(math::TransformPoint(m, a), ax, ay, d) || !WorldToWindow(math::TransformPoint(m, b), bx, by, d)) continue;
+        lattice.push_back({static_cast<float>(ax), static_cast<float>(ay), 0.0f, static_cast<float>(bx), static_cast<float>(by), 0.0f});
+    }
+    double cx, cy, d;
+    if (WorldToWindow(math::TransformPoint(m, g.mod->CenterPoint()), cx, cy, d)) {
+        const float x = static_cast<float>(std::floor(cx)) + 0.5f, y = static_cast<float>(std::floor(cy)) + 0.5f;
+        centre.push_back({x - 4, y, 0, x + 5, y, 0});
+        centre.push_back({x, y - 4, 0, x, y + 5, 0});
+    }
+    const math::Mat4 toClip = math::PixelToClip(w, h);
+    const float orange[3] = {1.0f, 0.55f, 0.0f}, yellow[3] = {1.0f, 1.0f, 0.0f};
+    const float* lc = g.level == 0 ? yellow : orange;
+    const float* cc = g.level == 1 ? yellow : orange;
+    if (!lattice.empty()) lines_->Draw(lattice, toClip, lc[0], lc[1], lc[2]);
+    if (!centre.empty()) lines_->Draw(centre, toClip, cc[0], cc[1], cc[2]);
 }
 
 // An open group shows its members' bounding box (NOTE: pink in R3, from memory; drawn
@@ -860,6 +891,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
     glDisable(GL_DEPTH_TEST);
     DrawBrackets(w, h, toClip);
     DrawOpenGroups(w, h);
+    DrawGizmo(w, h);
 }
 
 void Viewport::SetShowGrid(bool show) {
@@ -1049,6 +1081,16 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (gizmoEditing_.on && gizmoEditing_.level >= 0 && transformTool_ && onMoveBegin && scene_) {
+            // A deformer's gizmo or centre (10.3): a press anywhere drags it (NOTE: in R3 the
+            // press may need to be on the gizmo; unverified). The drag plane passes through the
+            // centre.
+            const scene::Node* node = scene_->FindById(gizmoEditing_.node);
+            moving_ = true;
+            moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            movePivot_ = node ? math::TransformPoint(node->ObjectMatrix(), gizmoEditing_.mod->CenterPoint()) : math::Vec3{0, 0, 0};
+            SetCapture(Hwnd());
+            onMoveBegin();
         } else if (vertexEditing_.on && vertexEditing_.weldTarget && vertexEditing_.level == 0 && onWeldTarget) {
             // Weld > Target: press on a vertex; where it is released decides the target.
             const EditedMeshView v = EditedView();

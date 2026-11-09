@@ -13,7 +13,8 @@
 //   0x1100 objects: 0x1110 object { 0x0001 u32 kind (1 primitive, 2 mesh, 3 derived);
 //     primitive: 0x0010 u32 type, 0x0020 params; mesh: 0x0030 vertices, 0x0031 faces;
 //     derived: 0x0040 u32 base, 0x0041 { 0x0042 modifier { 0x0001 class, 0x0002 u8 on,
-//     0x0020 params, Edit Mesh: 0x0050 u64 count, 0x0051 moves, 0x0052 selection,
+//     0x0020 params, Bend / Taper / Twist (Phase 10.3): 0x0060 gizmo transform, 0x0061
+//     f64 centre[3]; Edit Mesh: 0x0050 u64 count, 0x0051 moves, 0x0052 selection,
 //     Phase 9: 0x0053 selected faces, 0x0054 deleted faces, 0x0055 deleted vertices,
 //     0x0056 selected edges, 0x0057 hidden faces, 0x0058 hidden vertices (each u32 n,
 //     n x u32), 0x0059 welds (u32 n, n x (u32 from, u32 to)) } } }. Every Edit Mesh

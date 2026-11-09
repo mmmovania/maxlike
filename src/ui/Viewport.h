@@ -104,6 +104,17 @@ public:
     // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
     // Phase 9.9: the reference coordinate system and the transform centre (0 each pivot,
     // 1 the selection's centre, 2 the system's origin).
+    // A deformer's gizmo (Phase 10.3): drawn while the modifier is shown in the Modify
+    // panel; at its sub-object levels (0 Gizmo, 1 Center) a transform tool drags it.
+    struct GizmoEditing {
+        bool on = false;
+        scene::Node::Id node = 0;
+        std::shared_ptr<scene::DerivedObject> stack;
+        size_t index = 0;                          // the modifier's place in the stack
+        std::shared_ptr<scene::DeformModifier> mod;
+        int level = -1;                            // -1 not at sub-object level
+    };
+    void SetGizmoEditing(const GizmoEditing& g) { gizmoEditing_ = g; if (Hwnd()) InvalidateRect(Hwnd(), nullptr, FALSE); }
     void SetReferenceSystem(scene::move::RefCoord system, int centre) {
         refCoord_ = system;
         centre_ = centre;
@@ -171,6 +182,7 @@ private:
     bool moving_ = false;                // dragging the selection with a transform tool
     bool transformTool_ = false;
     VertexEditing vertexEditing_;
+    GizmoEditing gizmoEditing_;
     scene::move::RefCoord refCoord_ = scene::move::RefCoord::View;
     int centre_ = 0;
     bool weldDragging_ = false;
@@ -208,6 +220,7 @@ private:
                          std::vector<std::vector<view::Triangle2>>* surfaces) const;
     void DrawBrackets(int width, int height, const math::Mat4& worldToClip);
     void DrawOpenGroups(int width, int height);     // Phase 10: open groups' outlines
+    void DrawGizmo(int width, int height);          // Phase 10.3: a deformer's gizmo and centre
     void DrawTransformAxes(int width, int height);
     view::AxesStyle axesStyle_ = view::AxesStyle::Tripod;
     bool axesActive_[3] = {true, true, false};   // R3's default constraint: XY

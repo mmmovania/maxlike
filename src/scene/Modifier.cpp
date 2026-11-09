@@ -314,11 +314,11 @@ BendModifier::BendModifier() {
 
 // A point at height h on the arc of radius r (bending towards +a), in the (a, h) plane;
 // beyond the limits it continues along the tangent.
-bool BendModifier::Apply(Mesh& mesh) const {
+void BendModifier::Deform(Mesh& mesh) const {
     const double angle = params_.Float(kAngle) * kPi / 180;
     const Frame f = FrameFor(params_.Int(kAxis, 2));
     const double L = Extent(mesh, f.h);
-    if (std::fabs(angle) < 1e-12 || L <= 0) return true;
+    if (std::fabs(angle) < 1e-12 || L <= 0) return;
     const double r = L / angle;
     const bool limit = params_.Bool(kLimit);
     const double lo = std::min(params_.Float(kLower), 0.0), hi = std::max(params_.Float(kUpper), 0.0);
@@ -342,7 +342,7 @@ bool BendModifier::Apply(Mesh& mesh) const {
         At(v, f.b) = s * na + c * b;
         At(v, f.h) = nh;
     }
-    return true;
+    return;
 }
 
 TaperModifier::TaperModifier() {
@@ -354,11 +354,11 @@ TaperModifier::TaperModifier() {
     LimitDefaults(params_, kLimit, kLower, kUpper);
 }
 
-bool TaperModifier::Apply(Mesh& mesh) const {
+void TaperModifier::Deform(Mesh& mesh) const {
     const double amount = params_.Float(kAmount), curve = params_.Float(kCurve);
     const Frame f = FrameFor(params_.Int(kAxis, 2));
     const double L = Extent(mesh, f.h);
-    if ((amount == 0 && curve == 0) || L <= 0) return true;
+    if ((amount == 0 && curve == 0) || L <= 0) return;
     const int effect = params_.Int(kEffect);
     const bool symmetry = params_.Bool(kSymmetry), limit = params_.Bool(kLimit);
     const double lo = std::min(params_.Float(kLower), 0.0), hi = std::max(params_.Float(kUpper), 0.0);
@@ -371,7 +371,7 @@ bool TaperModifier::Apply(Mesh& mesh) const {
         if (effect != 1) At(v, f.a) *= scale;
         if (effect != 0) At(v, f.b) *= scale;
     }
-    return true;
+    return;
 }
 
 TwistModifier::TwistModifier() {
@@ -381,11 +381,11 @@ TwistModifier::TwistModifier() {
     LimitDefaults(params_, kLimit, kLower, kUpper);
 }
 
-bool TwistModifier::Apply(Mesh& mesh) const {
+void TwistModifier::Deform(Mesh& mesh) const {
     const double angle = params_.Float(kAngle) * kPi / 180;
     const Frame f = FrameFor(params_.Int(kAxis, 2));
     const double L = Extent(mesh, f.h);
-    if (std::fabs(angle) < 1e-12 || L <= 0) return true;
+    if (std::fabs(angle) < 1e-12 || L <= 0) return;
     const double bias = std::clamp(params_.Float(kBias), -100.0, 100.0);
     const bool limit = params_.Bool(kLimit);
     const double lo = std::min(params_.Float(kLower), 0.0), hi = std::max(params_.Float(kUpper), 0.0);
@@ -400,7 +400,64 @@ bool TwistModifier::Apply(Mesh& mesh) const {
         At(v, f.a) = c * a - s * b;
         At(v, f.b) = s * a + c * b;
     }
+    return;
+}
+
+// ---- the gizmo (Phase 10.3) ---------------------------------------------------------------
+
+namespace {
+bool IsIdentity(const DeformModifier::Gizmo& g) {
+    const PRS& t = g.transform;
+    return t.position.x == 0 && t.position.y == 0 && t.position.z == 0 && t.rotation.x == 0 && t.rotation.y == 0 &&
+           t.rotation.z == 0 && t.scale.x == 1 && t.scale.y == 1 && t.scale.z == 1 && g.center.x == 0 && g.center.y == 0 &&
+           g.center.z == 0;
+}
+} // namespace
+
+bool DeformModifier::Apply(Mesh& mesh) const {
+    if (IsIdentity(gizmo_)) { Deform(mesh); return true; }        // exactly Phase 7's path
+    const math::Mat4 g = gizmo_.transform.Matrix(), inv = math::AffineInverse(g);
+    for (auto& v : mesh.verts) v = math::TransformPoint(inv, v) - gizmo_.center;
+    Deform(mesh);
+    for (auto& v : mesh.verts) v = math::TransformPoint(g, v + gizmo_.center);
     return true;
+}
+
+math::Vec3 DeformModifier::CenterPoint() const { return math::TransformPoint(gizmo_.transform.Matrix(), gizmo_.center); }
+
+std::vector<std::pair<math::Vec3, math::Vec3>> DeformModifier::GizmoLines(const Mesh& input, int segments) const {
+    std::vector<std::pair<math::Vec3, math::Vec3>> out;
+    if (input.verts.empty() || segments < 1) return out;
+    const math::Mat4 g = gizmo_.transform.Matrix(), inv = math::AffineInverse(g);
+    // The input's bounding box in gizmo space.
+    math::Vec3 lo{1e300, 1e300, 1e300}, hi{-1e300, -1e300, -1e300};
+    for (const auto& v : input.verts) {
+        const math::Vec3 p = math::TransformPoint(inv, v) - gizmo_.center;
+        lo = {std::min(lo.x, p.x), std::min(lo.y, p.y), std::min(lo.z, p.z)};
+        hi = {std::max(hi.x, p.x), std::max(hi.y, p.y), std::max(hi.z, p.z)};
+    }
+    // Its twelve edges in pieces, as object-space points, deformed together (so the
+    // modifier sees the box's own extent, which equals the input's).
+    Mesh lattice;
+    for (int c = 0; c < 8; ++c)
+        for (int k = 1; k <= 4; k <<= 1) {
+            if (c & k) continue;
+            for (int i = 0; i <= segments; ++i) {
+                const double t = static_cast<double>(i) / segments;
+                const int lo3[3] = {c & 1, c & 2, c & 4};
+                auto at = [&](int bit, double lov, double hiv, int set) {
+                    const double base = (set ? hiv : lov);
+                    return (k == bit) ? lov + (hiv - lov) * t : base;
+                };
+                const math::Vec3 p{at(1, lo.x, hi.x, lo3[0]), at(2, lo.y, hi.y, lo3[1]), at(4, lo.z, hi.z, lo3[2])};
+                lattice.verts.push_back(math::TransformPoint(g, p + gizmo_.center));
+            }
+        }
+    Apply(lattice);
+    const size_t perEdge = static_cast<size_t>(segments) + 1;
+    for (size_t e = 0; e + perEdge <= lattice.verts.size(); e += perEdge)
+        for (size_t i = 0; i < static_cast<size_t>(segments); ++i) out.push_back({lattice.verts[e + i], lattice.verts[e + i + 1]});
+    return out;
 }
 
 } // namespace scene
