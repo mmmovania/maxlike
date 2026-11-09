@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "scene/TypeIn.h"
 #include "scene/MeshTopology.h"
 #include "scene/MoveMath.h"
 #include "gl/GLContext.h"
@@ -346,23 +347,29 @@ void Viewport::DrawScene(int w, int h) {
 // shows the world axes, the tripod the object's own axes (measured, step 6.4a).
 void Viewport::DrawTransformAxes(int w, int h) {
     if (!scene_ || scene_->Selection().empty()) return;
-    math::Vec3 pivot{0, 0, 0};
     const scene::Node* first = nullptr;
     int count = 0;
     for (scene::Node::Id id : scene_->Selection())
         if (const scene::Node* n = scene_->FindById(id)) {
-            pivot = pivot + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
             if (!first) first = n;
             ++count;
         }
     if (!count) return;
-    pivot = pivot * (1.0 / count);
+    const math::Vec3 pivot = TransformCenter();
     double px = 0, py = 0, depth = 0;
     if (!WorldToWindow(pivot, px, py, depth)) return;
 
-    // Screen directions: world axes from the view; local axes through the object's rotation.
+    // Screen directions: the reference system's axes; a single object's tripod its own.
     double axes[3][2];
-    ScreenAxes(axes);
+    {
+        const scene::move::Frame frame = CurrentFrame();
+        math::Vec3 right, up;
+        OrthoBasis(right, up);
+        for (int a = 0; a < 3; ++a) {
+            axes[a][0] = math::Dot(frame.axis[a], right);
+            axes[a][1] = math::Dot(frame.axis[a], up);
+        }
+    }
     if (axesStyle_ == view::AxesStyle::Tripod && count == 1) {
         const math::Mat4 m = first->WorldMatrix();
         double world[3][2];
@@ -596,15 +603,66 @@ bool Viewport::MouseRay(int x, int y, math::Vec3& origin, math::Vec3& dir) const
 // the pivot (the constraint's plane, or for one axis the plane containing it that faces
 // the camera), and the movement is kept to the allowed axes.
 math::Vec3 Viewport::MoveDelta(int x, int y) const {
+    // Constraints and drag planes in the reference coordinate system (9.9).
+    const scene::move::Frame frame = CurrentFrame();
     math::Vec3 o0, d0, o1, d1;
     if (!MouseRay(moveStart_.x, moveStart_.y, o0, d0) || !MouseRay(x, y, o1, d1)) return {0, 0, 0};
-    if (type_ != ViewType::Perspective) return scene::move::Constrain(o1 - o0, axesActive_);
+    if (type_ != ViewType::Perspective) return scene::move::ConstrainInFrame(o1 - o0, axesActive_, frame);
     math::Vec3 n, h0, h1;
     const math::Vec3 forward = math::Normalize(perspective_.target - perspective_.Eye());
-    if (!scene::move::DragPlaneNormal(axesActive_, forward, n)) n = forward;   // all axes: the view plane
+    if (!scene::move::DragPlaneNormalInFrame(axesActive_, forward, frame, n)) n = forward;   // all axes: the view plane
     if (!scene::move::RayPlane(o0, d0, movePivot_, n, h0) || !scene::move::RayPlane(o1, d1, movePivot_, n, h1))
         return {0, 0, 0};
-    return scene::move::Constrain(h1 - h0, axesActive_);
+    return scene::move::ConstrainInFrame(h1 - h0, axesActive_, frame);
+}
+
+// The reference frame for this view (View and Screen depend on it) and the first
+// selected object (Parent, Local).
+scene::move::Frame Viewport::CurrentFrame() const {
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    const scene::Node* first = nullptr;
+    if (scene_)
+        for (scene::Node::Id id : scene_->Selection())
+            if ((first = scene_->FindById(id))) break;
+    math::Quat parentQ, localQ;
+    math::Vec3 parentPivot{0, 0, 0}, localPivot{0, 0, 0};
+    const bool hasParent = first && first->Parent();
+    if (first) {
+        localQ = scene::typein::WorldRotation(*first);
+        localPivot = math::TransformPoint(first->WorldMatrix(), {0, 0, 0});
+    }
+    if (hasParent) {
+        parentQ = scene::typein::WorldRotation(*first->Parent());
+        parentPivot = math::TransformPoint(first->Parent()->WorldMatrix(), {0, 0, 0});
+    }
+    return scene::move::MakeFrame(refCoord_, type_ == ViewType::Perspective, right, up,
+                                  hasParent ? &parentQ : nullptr, parentPivot, first ? &localQ : nullptr, localPivot);
+}
+
+// Where transforms centre and the gizmo sits: the pivots' average (Use Pivot Point
+// Center), the centre of the selection's world bounding box (Use Selection Center), or
+// the reference system's origin (Use Transform Coordinate Center).
+math::Vec3 Viewport::TransformCenter() const {
+    if (centre_ == 2) return CurrentFrame().origin;
+    math::Vec3 sum{0, 0, 0}, lo{1e300, 1e300, 1e300}, hi{-1e300, -1e300, -1e300};
+    int count = 0;
+    for (scene::Node::Id id : scene_->Selection()) {
+        const scene::Node* n = scene_->FindById(id);
+        if (!n) continue;
+        sum = sum + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
+        ++count;
+        if (centre_ == 1 && n->GetObject()) {
+            const math::Mat4 m = n->ObjectMatrix();
+            for (const auto& v : n->GetObject()->Evaluate().verts) {
+                const math::Vec3 w = math::TransformPoint(m, v);
+                lo = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
+                hi = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
+            }
+        }
+    }
+    if (centre_ == 1 && lo.x <= hi.x) return (lo + hi) * 0.5;
+    return count ? sum * (1.0 / count) : sum;
 }
 
 bool Viewport::WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const {
@@ -985,7 +1043,7 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             if (!scene_->IsSelected(id)) onSelect({id}, false, (wp & MK_CONTROL) != 0, false);
             moving_ = true;
             moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            movePivot_ = SelectionPivot();
+            movePivot_ = TransformCenter();      // the drag plane through the transform centre (9.9)
             SetCapture(Hwnd());
             if (onMoveBegin) onMoveBegin();
         } else if (onSelect) {

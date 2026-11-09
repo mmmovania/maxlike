@@ -10,6 +10,7 @@
 #include "view/Picking.h"
 #include "view/TransformAxes.h"
 #include "scene/Modifier.h"
+#include "scene/MoveMath.h"
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
@@ -101,6 +102,15 @@ public:
     std::function<void(uint32_t from, uint32_t to)> onWeldTarget;   // input vertex indices
 
     // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
+    // Phase 9.9: the reference coordinate system and the transform centre (0 each pivot,
+    // 1 the selection's centre, 2 the system's origin).
+    void SetReferenceSystem(scene::move::RefCoord system, int centre) {
+        refCoord_ = system;
+        centre_ = centre;
+        if (Hwnd()) InvalidateRect(Hwnd(), nullptr, FALSE);
+    }
+    scene::move::Frame CurrentFrame() const;
+    math::Vec3 TransformCenter() const;
     void SetTransformTool(bool on) { transformTool_ = on; }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
         axesStyle_ = style;
@@ -161,6 +171,8 @@ private:
     bool moving_ = false;                // dragging the selection with a transform tool
     bool transformTool_ = false;
     VertexEditing vertexEditing_;
+    scene::move::RefCoord refCoord_ = scene::move::RefCoord::View;
+    int centre_ = 0;
     bool weldDragging_ = false;
     uint32_t weldFrom_ = 0;
     // Edit Mesh's output as the views see it, with the maps back to its input indices

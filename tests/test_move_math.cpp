@@ -79,6 +79,35 @@ int main() {
         CHECK(std::fabs(e.x - 30) < 1e-9 && std::fabs(e.y - 20) < 1e-9 && std::fabs(e.z - 40) < 1e-9);
         CHECK(Near(EulerXYZDegrees({0, 0, 0, 1}), {0, 0, 0}));
     }
+    // Reference coordinate systems (9.9).
+    {
+        using namespace scene::move;
+        const bool onlyY[3] = {false, true, false}, onlyX[3] = {true, false, false};
+        // View in the Front view (right = +X, up = +Z): "Y" is up the screen, world Z.
+        const Frame front = MakeFrame(RefCoord::View, false, {1, 0, 0}, {0, 0, 1}, nullptr, {}, nullptr, {});
+        CHECK(Near(front.axis[1], {0, 0, 1}) && Near(front.axis[2], {0, -1, 0}));
+        CHECK(Near(ConstrainInFrame({3, 4, 5}, onlyY, front), {0, 0, 5}));
+        // View in Perspective is World; Screen follows the camera even there.
+        const Frame persp = MakeFrame(RefCoord::View, true, {1, 0, 0}, {0, 0.6, 0.8}, nullptr, {}, nullptr, {});
+        CHECK(Near(persp.axis[1], {0, 1, 0}));
+        const Frame screen = MakeFrame(RefCoord::Screen, true, {1, 0, 0}, {0, 0.6, 0.8}, nullptr, {}, nullptr, {});
+        CHECK(Near(screen.axis[1], {0, 0.6, 0.8}));
+        // Local: the object's rotation (90 degrees about Z), at its pivot; its X is world Y.
+        const math::Quat q = math::Quat::FromAxisAngle({0, 0, 1}, 3.14159265358979323846 / 2);
+        const Frame local = MakeFrame(RefCoord::Local, false, {1, 0, 0}, {0, 1, 0}, nullptr, {}, &q, {7, 8, 9});
+        CHECK(Near(local.axis[0], {0, 1, 0}) && Near(local.origin, {7, 8, 9}));
+        CHECK(Near(ConstrainInFrame({3, 4, 5}, onlyX, local), {0, 4, 0}));
+        // Parent without a parent: the world.
+        const Frame parent = MakeFrame(RefCoord::Parent, false, {1, 0, 0}, {0, 1, 0}, nullptr, {}, &q, {});
+        CHECK(Near(parent.axis[0], {1, 0, 0}));
+        // Rotation about the frame's axis: Local X (world Y) turns world X towards -Z.
+        const math::Quat turn = DragRotationInFrame(0, 180, local);   // 90 degrees
+        CHECK(Near(turn.Rotate({1, 0, 0}), {0, 0, -1}));
+        // A drag plane in the frame: Front's "Y" constraint in perspective gives a plane
+        // containing world Z.
+        math::Vec3 n;
+        CHECK(DragPlaneNormalInFrame(onlyY, {0, 1, 0}, front, n) && std::fabs(math::Dot(n, {0, 0, 1})) < 1e-9);
+    }
     if (failures == 0) std::printf("move math: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

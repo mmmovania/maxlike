@@ -72,6 +72,12 @@ private:
         bool hasParent; math::Mat4 parentWorld; math::Quat parentRotation;
     };
     std::vector<Moving> moving_;
+    // Phase 9.9: the reference coordinate system, the transform centre (0 each pivot, 1
+    // the selection's centre, 2 the system's origin), and both as captured when a drag starts.
+    scene::move::RefCoord refCoord_ = scene::move::RefCoord::View;
+    int centre_ = 0;
+    scene::move::Frame dragFrame_;
+    math::Vec3 dragCentre_{0, 0, 0};
     void DeleteSelection();
     scene::Node* NameColorTarget() const;          // whose name and colour the panel shows
     // The Modify tab: the stack entry shown (0 = top) and filling the panel from the

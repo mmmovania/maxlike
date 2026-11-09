@@ -39,8 +39,10 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
 - [x] **9.8** Transform Type-In (Tools menu, F12): a modeless floater, Absolute:World and
       Offset:World X / Y / Z for Move, Rotate (degrees) and Scale (percent); Enter applies
       the group typed in, one undo step; follows the tool and the selection
-- [ ] Reference coordinate systems other than View (World, Local, Screen) and transform
-      centres other than each pivot
+- [x] **9.9** Reference coordinate systems (View, Screen, World, Parent, Local, Grid; Pick
+      not yet) for Move's constraints and drag planes, Rotate's axis and the gizmo; transform
+      centres (pivot, selection centre, system origin) for Rotate and the gizmo. Corrects
+      View in ortho views: R3 uses the screen's axes there (Front: Y is up the screen)
 - [ ] The modifier gizmo in the views
 - [ ] Viewports and the selection in `.mlk` files
 - [ ] Group menu; Tools: Mirror, Array, Align
@@ -67,6 +69,22 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.9 verification
+- [x] Builds warning-free; thirty-seven test programs pass (MinGW + Wine)
+- [x] `test_move_math`: View in the Front view makes "Y" world Z and constrains to it; View
+      in Perspective is World, Screen follows the camera; Local follows the object's
+      rotation and pivot, Parent without a parent is World; rotation about a frame axis;
+      a drag plane in the frame
+- [x] Under Wine on `box.max`: Move, Y, a drag up in the Front view raises the box by the
+      60 px dragged; the Top view is unchanged (before this step, "Y" there was world Y,
+      into the screen)
+- [ ] On Windows: each system with Move and Rotate in each view; the three centres with
+      several objects; the gizmo's orientation in Local and Parent
+- [ ] Unverified: R3 draws a gizmo per object with Use Pivot Point Center and several
+      objects (one at the pivots' average here); Local / Parent with several objects (the
+      first selected object's axes here); Scale in non-local systems (always the objects'
+      own axes here); Pick; the Transform Type-In's offsets stay World
 
 ## Step 9.8 verification
 - [x] Builds warning-free; thirty-seven test programs pass (MinGW + Wine)

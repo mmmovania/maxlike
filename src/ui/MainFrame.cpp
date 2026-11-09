@@ -864,6 +864,9 @@ bool MainFrame::CreateRegions() {
                 m.parentRotation = p->Transform().rotation * m.parentRotation;
             moving_.push_back(m);
         }
+        // The frame and centre of the view being dragged in, fixed for the whole drag.
+        dragFrame_ = viewports_.ActiveView().CurrentFrame();
+        dragCentre_ = viewports_.ActiveView().TransformCenter();
     };
     // Move follows the mouse in the world; Rotate and Scale follow its vertical movement,
     // each object about its own pivot (NOTE: R3's pivot options are not implemented yet).
@@ -880,7 +883,7 @@ bool MainFrame::CreateRegions() {
             return;
         }
         const int axis = scene::move::RotationAxis(constraint_);
-        const math::Quat turn = scene::move::DragRotation(axis, up);
+        const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);   // about the frame's axis (9.9)
         const math::Vec3 factors = scene::move::DragScale(scaleMode_, constraint_, up);
         if (tool_ == Tool::Move) ShowCoordinates(delta);
         if (tool_ == Tool::Rotate) ShowCoordinates(scene::move::RotationDegrees(axis, up));
@@ -893,6 +896,11 @@ bool MainFrame::CreateRegions() {
                 math::Vec3 local = world;
                 if (m.hasParent && !scene::move::InverseTransformPoint(m.parentWorld, world, local)) continue;
                 n->Transform().position = local;
+            } else if (tool_ == Tool::Rotate && centre_ != 0) {
+                // About the selection's centre or the system's origin: each object orbits it.
+                n->Transform() = m.start;
+                const math::Mat4 world = math::Translation(dragCentre_) * turn.ToMat4() * math::Translation(dragCentre_ * -1.0) * n->WorldMatrix();
+                scene::Scene::SetWorldMatrix(n, world);
             } else if (tool_ == Tool::Rotate) {
                 n->Transform().rotation = scene::move::RotateInParent(m.parentRotation, turn, m.start.rotation);
             } else if (tool_ == Tool::Scale) {
@@ -1010,6 +1018,16 @@ bool MainFrame::CreateRegions() {
     // Toolbar buttons and menu items share one command handler.
     mainToolbar_.onCommand = [this](const std::string& command) { OnCommand(command); };
     mainToolbar_.onComboChanged = [this](const std::string& command, const std::wstring& text) {
+        if (command == "tool.ref_coord") {
+            using RC = scene::move::RefCoord;
+            static const std::pair<const wchar_t*, RC> kSystems[] = {{L"View", RC::View}, {L"Screen", RC::Screen}, {L"World", RC::World},
+                                                                     {L"Parent", RC::Parent}, {L"Local", RC::Local}, {L"Grid", RC::Grid}, {L"Pick", RC::Pick}};
+            for (const auto& [label, system] : kSystems)
+                if (text == label) refCoord_ = system;
+            if (refCoord_ == RC::Pick) statusArea_.SetPrompt(1, L"Pick (not implemented yet): World is used");
+            viewports_.SetReferenceSystem(refCoord_, centre_);
+            return;
+        }
         const std::wstring name(command.begin(), command.end()); // command names are ASCII
         statusArea_.SetPrompt(1, name + L" = " + text + L"  (not implemented yet)");
     };
@@ -1168,6 +1186,11 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "views.redraw_all") { viewports_.Redraw(); return; }
+    if (command == "tool.pivot_point" || command == "tool.pivot_selection" || command == "tool.pivot_transform") {
+        centre_ = command == "tool.pivot_point" ? 0 : command == "tool.pivot_selection" ? 1 : 2;
+        viewports_.SetReferenceSystem(refCoord_, centre_);
+        return;
+    }
     if (command == "tools.transform_type_in") { typeIn_.Show(Hwnd()); UpdateTypeIn(); return; }
     if (command == "edit.clone") {
         const auto selection = scene_.Selection();

@@ -33,6 +33,7 @@ public:
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
     void SetTransformTool(bool on) { for (auto& v : views_) v.SetTransformTool(on); }
+    void SetReferenceSystem(scene::move::RefCoord s, int centre) { for (auto& v : views_) v.SetReferenceSystem(s, centre); }
     void SetVertexEditing(const Viewport::VertexEditing& e) { for (auto& v : views_) v.SetVertexEditing(e); }
     std::function<void(const std::vector<uint32_t>&, bool, bool, bool)> onVertexSelect;
     std::function<void(uint32_t, uint32_t)> onWeldTarget;
