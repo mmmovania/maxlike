@@ -152,6 +152,7 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                                     list(0x0053, em->SelectedFaces());      // Phase 9.4
                                     list(0x0054, em->DeletedFaces());
                                     list(0x0055, em->DeletedVertices());
+                                    list(0x0056, em->SelectedEdges());      // Phase 9.5
                                 }
                             });
                     });
@@ -284,7 +285,8 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
                         };
                         scene::EditMeshModifier::State state;
                         if (!readList(0x0052, selected) || !readList(0x0053, state.selectedFaces) ||
-                            !readList(0x0054, state.deletedFaces) || !readList(0x0055, state.deletedVertices)) return bad("damaged Edit Mesh data");
+                            !readList(0x0054, state.deletedFaces) || !readList(0x0055, state.deletedVertices) ||
+                            !readList(0x0056, state.selectedEdges)) return bad("damaged Edit Mesh data");
                         auto em = std::make_shared<scene::EditMeshModifier>(static_cast<size_t>(expected), moves);
                         state.moves = moves;
                         state.selectedVertices = selected;

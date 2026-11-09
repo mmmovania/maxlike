@@ -1,5 +1,6 @@
 // Edit Mesh's Face level and Delete (Phase 9.4): deletions by input index with maps back,
 // undo of the whole state, and face picking.
+#include "scene/MeshTopology.h"
 #include "scene/Modifier.h"
 #include "scene/Primitives.h"
 #include "scene/Undo.h"
@@ -82,6 +83,46 @@ int main() {
         CHECK(view::PickFace(p, depth, faces, nullptr, 9, 9) == -1);
         CHECK(view::PickFacesInRect(p, faces, nullptr, -1, -1, 1, 1).size() == 2);
         CHECK(view::PickFacesInRect(p, faces, &skip, 9, -1, 11, 1) == std::vector<int>{0});
+    }
+    // Polygons, elements and edges (9.5): a box side is a polygon of its two triangles,
+    // the box one element; two boxes in one mesh are two elements; an edge has two faces.
+    {
+        for (uint32_t f = 0; f < 12; ++f) {
+            const auto p = scene::PolygonOf(box, f);
+            CHECK(p.size() == 2 && (p[0] / 2 == f / 2) && (p[1] / 2 == f / 2));
+            CHECK(scene::ElementOf(box, f).size() == 12);
+        }
+        CHECK(scene::ExpandToPolygons(box, {0, 5}) == (std::vector<uint32_t>{0, 1, 4, 5}));
+        scene::Mesh two = box;
+        const uint32_t n = static_cast<uint32_t>(two.verts.size());
+        for (const auto& v : box.verts) two.verts.push_back({v.x + 50, v.y, v.z});
+        for (auto f : box.faces) { for (auto& v : f.v) v += n; two.faces.push_back(f); }
+        CHECK(scene::ElementOf(two, 0).size() == 12 && scene::ElementOf(two, 12).size() == 12 && scene::ElementOf(two, 12)[0] == 12);
+        CHECK(scene::ExpandToElements(two, {3}).size() == 12);
+        CHECK(scene::FacesOnEdge(box, scene::EdgeId(0, 0)).size() == 2);
+        // Deleting an edge deletes the faces on both sides.
+        scene::EditMeshModifier em(8, {});
+        em.SetSelectedEdges({scene::EdgeId(2, 0)});
+        const auto s = em.AfterDeletingEdges(box, false);
+        CHECK(s.deletedFaces.size() == 2 && s.selectedEdges.empty());
+        uint32_t a, b;
+        CHECK(scene::EdgeVertices(box, scene::EdgeId(2, 0), a, b));
+        for (uint32_t f : s.deletedFaces) {
+            int has = 0;
+            for (uint32_t v : box.faces[f].v) has += (v == a || v == b);
+            CHECK(has == 2);
+        }
+    }
+    // Picking edges: the nearest segment within the tolerance; rectangles take segments
+    // with an end inside.
+    {
+        const std::vector<view::Point2> p = {{0, 0}, {100, 0}, {0, 50}, {100, 50}};
+        const std::vector<view::Seg> segs = {{0, 1}, {2, 3}, {0, 2}};
+        CHECK(view::PickNearestSegment(p, segs, 50, 2, 4) == 0);
+        CHECK(view::PickNearestSegment(p, segs, 50, 48, 4) == 1);
+        CHECK(view::PickNearestSegment(p, segs, 50, 25, 4) == -1);
+        CHECK(view::PickNearestSegment(p, segs, 1, 25, 4) == 2);
+        CHECK(view::PickSegmentsInRect(p, segs, 90, -5, 110, 5) == std::vector<int>{0});
     }
     if (failures == 0) std::printf("edit mesh: all tests passed\n");
     return failures == 0 ? 0 : 1;

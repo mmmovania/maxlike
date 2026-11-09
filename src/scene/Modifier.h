@@ -98,6 +98,9 @@ public:
     // Mesh, so edits never renumber each other; Edited() gives the output with maps back.
     const std::vector<uint32_t>& SelectedFaces() const { return selectedFaces_; }
     void SetSelectedFaces(std::vector<uint32_t> f);
+    // Edge level (9.5): edges as input face * 3 + side (scene::EdgeId).
+    const std::vector<uint32_t>& SelectedEdges() const { return selectedEdges_; }
+    void SetSelectedEdges(std::vector<uint32_t> e);
     const std::vector<uint32_t>& DeletedFaces() const { return deletedFaces_; }
     const std::vector<uint32_t>& DeletedVertices() const { return deletedVerts_; }
     void SetDeleted(std::vector<uint32_t> faces, std::vector<uint32_t> vertices);
@@ -106,8 +109,9 @@ public:
     struct State {
         std::vector<Move> moves;
         std::vector<uint32_t> selectedVertices, selectedFaces, deletedFaces, deletedVertices;
+        std::vector<uint32_t> selectedEdges;
     };
-    State GetState() const { return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_}; }
+    State GetState() const { return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_}; }
     void SetState(const State& s);
 
     // The input with the moves applied, then the deleted faces and vertices removed (a
@@ -118,12 +122,15 @@ public:
     // face uses), or the selected vertices with their faces. Selections lose what is deleted.
     State AfterDeletingFaces(const Mesh& input, bool isolated) const;
     State AfterDeletingVertices() const;
+    // Deleting edges deletes the faces on both sides of each (and, if `isolated`, the
+    // vertices no remaining face uses). NOTE: R3's behaviour assumed.
+    State AfterDeletingEdges(const Mesh& input, bool isolated) const;
 
 private:
     size_t expected_;
     std::vector<Move> moves_;
     std::vector<uint32_t> selected_;
-    std::vector<uint32_t> selectedFaces_, deletedFaces_, deletedVerts_;
+    std::vector<uint32_t> selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_;
 };
 
 // A base object with a stack of modifiers. Index 0 is the bottom of the stack (applied

@@ -24,8 +24,12 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
       Ignore Backfacing honoured; Move drags the faces' vertices) and Delete (faces, with
       or without isolated vertices; vertices with their faces), one undo step each; kept
       in `.mlk` files and clones
-- [ ] Edit Mesh: Edge / Polygon / Element selection; Hide / Unhide All, Weld, Detach,
-      Create; Rotate and Scale at sub-object level; Soft Selection
+- [x] **9.5** Edit Mesh at Edge, Polygon and Element level: edges picked by distance
+      (visible ones), polygons (faces joined across hidden edges) and elements (faces
+      joined by vertices) selected as faces; Move and Delete at every level (an edge's
+      Delete removes the faces on both sides)
+- [ ] Edit Mesh: Hide / Unhide All, Weld, Detach, Create; Rotate and Scale at sub-object
+      level; Soft Selection
 - [ ] Transform Type-In (Tools menu; `scene::move::EulerXYZDegrees` exists since 6.4d)
 - [ ] Reference coordinate systems other than View (World, Local, Screen) and transform
       centres other than each pivot
@@ -55,6 +59,19 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.5 verification
+- [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)
+- [x] `test_edit_mesh`: every box side is a polygon of its two triangles, the box one
+      element, two boxes in one mesh two elements; expansion of selections; an edge has two
+      faces and deleting it deletes exactly those; segment picking (nearest within the
+      tolerance, rectangles crossing)
+- [x] Under Wine on `box.max`, clicks in the Top view: Face selects a triangle (diagonal
+      drawn), Polygon the top square (outline only), Element the box, Edge the front edge
+- [ ] On Windows: the four levels by click and region; Move and Delete at each
+- [ ] Unverified: R3's look at Edge / Polygon / Element level (red outlines here), whether
+      it shows hidden edges at Edge level, its counts' wording ("N Edges Selected"; faces
+      counted at Polygon and Element), and its Delete at Edge level
 
 ## Step 9.4 verification
 - [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)

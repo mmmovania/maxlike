@@ -42,4 +42,11 @@ int PickFace(const std::vector<Point2>& points, const std::vector<double>& depth
 std::vector<int> PickFacesInRect(const std::vector<Point2>& points, const std::vector<Tri>& faces,
                                  const std::vector<bool>* skip, double x0, double y0, double x1, double y1);
 
+// Edges (Edit Mesh at Edge level, Phase 9.5): segments between points. The nearest within
+// `tolerance` pixels, or -1; and those with an end inside a rectangle (crossing).
+struct Seg { uint32_t a, b; };
+int PickNearestSegment(const std::vector<Point2>& points, const std::vector<Seg>& segs, double x, double y, double tolerance);
+std::vector<int> PickSegmentsInRect(const std::vector<Point2>& points, const std::vector<Seg>& segs,
+                                    double x0, double y0, double x1, double y1);
+
 } // namespace view

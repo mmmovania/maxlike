@@ -1,4 +1,5 @@
 #include "scene/Modifier.h"
+#include "scene/MeshTopology.h"
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
@@ -43,6 +44,7 @@ std::vector<uint32_t> Without(const std::vector<uint32_t>& v, const std::vector<
 } // namespace
 
 void EditMeshModifier::SetSelectedFaces(std::vector<uint32_t> f) { selectedFaces_ = SortedUnique(std::move(f)); }
+void EditMeshModifier::SetSelectedEdges(std::vector<uint32_t> e) { selectedEdges_ = SortedUnique(std::move(e)); }
 
 void EditMeshModifier::SetDeleted(std::vector<uint32_t> faces, std::vector<uint32_t> vertices) {
     deletedFaces_ = SortedUnique(std::move(faces));
@@ -53,6 +55,7 @@ void EditMeshModifier::SetState(const State& s) {
     moves_ = s.moves;
     SetSelectedVertices(s.selectedVertices);
     SetSelectedFaces(s.selectedFaces);
+    SetSelectedEdges(s.selectedEdges);
     SetDeleted(s.deletedFaces, s.deletedVertices);
 }
 
@@ -110,6 +113,20 @@ EditMeshModifier::State EditMeshModifier::AfterDeletingFaces(const Mesh& input, 
     }
     s.selectedFaces.clear();
     s.selectedVertices = Without(s.selectedVertices, s.deletedVertices);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterDeletingEdges(const Mesh& input, bool isolated) const {
+    // The faces on both sides of each selected edge, deleted as selected faces would be.
+    EditMeshModifier copy = *this;
+    std::vector<uint32_t> faces;
+    for (uint32_t e : selectedEdges_)
+        for (uint32_t f : FacesOnEdge(input, e)) faces.push_back(f);
+    copy.SetSelectedFaces(faces);
+    State s = copy.AfterDeletingFaces(input, isolated);
+    s.selectedFaces = selectedFaces_;
+    s.selectedFaces = Without(s.selectedFaces, s.deletedFaces);
+    s.selectedEdges.clear();
     return s;
 }
 

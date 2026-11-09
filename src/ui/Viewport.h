@@ -93,7 +93,7 @@ public:
         std::shared_ptr<scene::DerivedObject> stack;
         size_t upTo = 0;
         std::shared_ptr<scene::EditMeshModifier> mod;
-        int level = 0;                            // 0 Vertex, 2 Face (Phase 9.4)
+        int level = 0;                            // 0 Vertex, 1 Edge, 2 Face, 3 Polygon, 4 Element
     };
     void SetVertexEditing(const VertexEditing& v) { vertexEditing_ = v; InvalidateRect(Hwnd(), nullptr, FALSE); }
     std::function<void(const std::vector<uint32_t>& vertices, bool region, bool ctrl, bool alt)> onVertexSelect;
@@ -169,8 +169,15 @@ private:
         std::vector<math::Vec3> world;
         std::vector<view::Tri> tris;
         std::vector<bool> backFacing;
+        std::vector<view::Seg> segs;              // visible edges of the output faces
+        std::vector<uint32_t> segEdge, segFace;   // each one's input edge id, output face
     };
     EditedMeshView EditedView() const;
+    // Picking at the current level, as Edit Mesh's input indices (vertices, edges or faces;
+    // polygons and elements expanded to their faces). `pivot`: where a drag starts.
+    std::vector<uint32_t> SubObjectsAt(const EditedMeshView& v, double x, double y, math::Vec3* pivot) const;
+    std::vector<uint32_t> SubObjectsIn(const EditedMeshView& v, double x0, double y0, double x1, double y1) const;
+    const std::vector<uint32_t>& SubObjectSelection() const;
     std::vector<view::Point2> VertexPixels(std::vector<math::Vec3>* world = nullptr) const;
     void DrawVertices(int width, int height);
     POINT moveStart_{};

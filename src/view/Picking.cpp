@@ -122,4 +122,29 @@ std::vector<int> PickFacesInRect(const std::vector<Point2>& p, const std::vector
     return out;
 }
 
+int PickNearestSegment(const std::vector<Point2>& p, const std::vector<Seg>& segs, double x, double y, double tolerance) {
+    int best = -1;
+    double bestDist = tolerance;
+    for (size_t i = 0; i < segs.size(); ++i) {
+        if (segs[i].a >= p.size() || segs[i].b >= p.size()) continue;
+        const Point2 &a = p[segs[i].a], &b = p[segs[i].b];
+        const double dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+        double t = len2 > 0 ? ((x - a.x) * dx + (y - a.y) * dy) / len2 : 0;
+        t = t < 0 ? 0 : (t > 1 ? 1 : t);
+        const double d = std::hypot(a.x + t * dx - x, a.y + t * dy - y);
+        if (d <= bestDist) { bestDist = d; best = static_cast<int>(i); }
+    }
+    return best;
+}
+
+std::vector<int> PickSegmentsInRect(const std::vector<Point2>& p, const std::vector<Seg>& segs, double x0, double y0, double x1, double y1) {
+    if (x1 < x0) std::swap(x0, x1);
+    if (y1 < y0) std::swap(y0, y1);
+    auto inside = [&](uint32_t i) { return i < p.size() && p[i].x >= x0 && p[i].x <= x1 && p[i].y >= y0 && p[i].y <= y1; };
+    std::vector<int> out;
+    for (size_t i = 0; i < segs.size(); ++i)
+        if (inside(segs[i].a) || inside(segs[i].b)) out.push_back(static_cast<int>(i));
+    return out;
+}
+
 } // namespace view

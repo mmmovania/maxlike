@@ -1,4 +1,5 @@
 #include "ui/MainFrame.h"
+#include "scene/MeshTopology.h"
 #include "scene/Summary.h"
 #include "scene/Clone.h"
 #include "ui/Dialogs.h"
@@ -109,12 +110,14 @@ void MainFrame::DeleteSelection() {
     // faces) or faces, as one undo step.
     if (const auto mod = VertexEditingMod()) {
         scene::EditMeshModifier::State after;
-        if (subLevel_ == 2) {
-            if (mod->SelectedFaces().empty()) return;
+        if (subLevel_ >= 1) {
+            // Edges delete the faces on both sides; faces, polygons and elements themselves.
+            if ((subLevel_ == 1 ? mod->SelectedEdges() : mod->SelectedFaces()).empty()) return;
             // NOTE: R3's question and its wording are unverified.
             const int answer = MessageBoxW(Hwnd(), L"Delete isolated vertices?", kAppName, MB_YESNOCANCEL | MB_ICONQUESTION);
             if (answer == IDCANCEL) return;
-            after = mod->AfterDeletingFaces(EditMeshInput(mod), answer == IDYES);
+            const scene::Mesh input = EditMeshInput(mod);
+            after = subLevel_ == 1 ? mod->AfterDeletingEdges(input, answer == IDYES) : mod->AfterDeletingFaces(input, answer == IDYES);
         } else {
             if (mod->SelectedVertices().empty()) return;
             after = mod->AfterDeletingVertices();
@@ -169,7 +172,7 @@ std::shared_ptr<scene::DerivedObject> MainFrame::SelectedStack(scene::Node** nod
 }
 
 std::shared_ptr<scene::EditMeshModifier> MainFrame::VertexEditingMod() const {
-    if (!subObject_ || (subLevel_ != 0 && subLevel_ != 2) || !commandPanel_.InModify()) return nullptr;
+    if (!subObject_ || subLevel_ < 0 || subLevel_ > 4 || !commandPanel_.InModify()) return nullptr;
     return std::dynamic_pointer_cast<scene::EditMeshModifier>(CurrentModifier());
 }
 
@@ -221,8 +224,10 @@ void MainFrame::UpdateModifyPanel() {
         if (const auto em = std::dynamic_pointer_cast<scene::EditMeshModifier>(mod)) {
             // NOTE: R3's wording for one vertex or none is unverified.
             // NOTE: R3's wording at Face level is unverified.
-            info.selectionText = subLevel_ == 2 ? std::to_wstring(em->SelectedFaces().size()) + L" Faces Selected"
-                                                : std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected";
+            // (Polygon and Element count faces here; NOTE: R3's wording at those levels too.)
+            info.selectionText = subLevel_ == 0 ? std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected"
+                               : subLevel_ == 1 ? std::to_wstring(em->SelectedEdges().size()) + L" Edges Selected"
+                                                : std::to_wstring(em->SelectedFaces().size()) + L" Faces Selected";
         }
     }
     commandPanel_.SetModifyInfo(info);
@@ -685,7 +690,6 @@ bool MainFrame::CreateRegions() {
     commandPanel_.onSubObjectLevel = [this](int level) {
         subLevel_ = level;
         subObject_ = true;                                      // a level icon or the combo enters sub-object mode
-        if (level != 0 && level != 2) statusArea_.SetPrompt(1, L"This sub-object level is not implemented yet");
         UpdateModifyPanel();
         viewports_.Redraw();
     };
@@ -693,9 +697,10 @@ bool MainFrame::CreateRegions() {
     viewports_.onVertexSelect = [this](const std::vector<uint32_t>& verts, bool, bool ctrl, bool alt) {
         const auto mod = VertexEditingMod();
         if (!mod) return;
-        // Vertices or faces (Edit Mesh's input indices), by the level shown.
-        const bool faces = subLevel_ == 2;
-        const std::vector<uint32_t>& current = faces ? mod->SelectedFaces() : mod->SelectedVertices();
+        // Vertices, edges or faces (Edit Mesh's input indices), by the level shown; Polygon
+        // and Element select faces.
+        const int kind = subLevel_ == 0 ? 0 : subLevel_ == 1 ? 1 : 2;
+        const std::vector<uint32_t>& current = kind == 0 ? mod->SelectedVertices() : kind == 1 ? mod->SelectedEdges() : mod->SelectedFaces();
         std::vector<uint32_t> next = current;
         if (ctrl) next.insert(next.end(), verts.begin(), verts.end());
         else if (alt) next.erase(std::remove_if(next.begin(), next.end(), [&](uint32_t v) {
@@ -705,7 +710,7 @@ bool MainFrame::CreateRegions() {
         next.erase(std::unique(next.begin(), next.end()), next.end());
         if (next == current) return;
         auto state = mod->GetState();
-        (faces ? state.selectedFaces : state.selectedVertices) = next;
+        (kind == 0 ? state.selectedVertices : kind == 1 ? state.selectedEdges : state.selectedFaces) = next;
         undo_.Execute(std::make_unique<scene::EditMeshStateCommand>("Select", mod, state), scene_);
         UpdateModifyPanel();
         viewports_.Redraw();
@@ -738,11 +743,19 @@ bool MainFrame::CreateRegions() {
             SelectedStack(&node);
             // At Face level the selected faces' vertices move (each once).
             std::vector<uint32_t> verts = mod->SelectedVertices();
-            if (subLevel_ == 2) {
+            if (subLevel_ >= 1) {
+                // Edges move their two vertices; faces, polygons and elements their faces'.
                 verts.clear();
                 const scene::Mesh input = EditMeshInput(mod);
-                for (uint32_t f : mod->SelectedFaces())
-                    if (f < input.faces.size()) verts.insert(verts.end(), input.faces[f].v, input.faces[f].v + 3);
+                if (subLevel_ == 1) {
+                    for (uint32_t e : mod->SelectedEdges()) {
+                        uint32_t a, b;
+                        if (scene::EdgeVertices(input, e, a, b)) { verts.push_back(a); verts.push_back(b); }
+                    }
+                }
+                if (subLevel_ >= 2)
+                    for (uint32_t f : mod->SelectedFaces())
+                        if (f < input.faces.size()) verts.insert(verts.end(), input.faces[f].v, input.faces[f].v + 3);
                 std::sort(verts.begin(), verts.end());
                 verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
             }
