@@ -32,6 +32,11 @@ public:
 
     uint32_t WireColor() const { return wireColor_; }  // 0xRRGGBB
     void SetWireColor(uint32_t rgb) { wireColor_ = rgb; }
+    // Groups (Phase 10): a group head is an object-less node its members are linked
+    // under; while closed, clicking a member selects the whole group.
+    bool IsGroupHead() const { return groupHead_; }
+    bool GroupOpen() const { return groupOpen_; }
+    void SetGroup(bool head, bool open) { groupHead_ = head; groupOpen_ = open; }
 
     // The transform relative to the parent (Max's PRS controller).
     PRS& Transform() { return transform_; }
@@ -57,6 +62,7 @@ private:
     Id id_;
     std::string name_;
     uint32_t wireColor_ = 0x808080;
+    bool groupHead_ = false, groupOpen_ = false;
     PRS transform_;
     PRS objectOffset_;
     Node* parent_ = nullptr;

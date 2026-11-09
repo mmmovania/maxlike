@@ -133,6 +133,8 @@ add_executable(maxlike WIN32
     src/scene/TypeIn.h
     src/scene/Arrange.cpp
     src/scene/Arrange.h
+    src/scene/Groups.cpp
+    src/scene/Groups.h
     src/io/Cfb.cpp
     src/io/Cfb.h
     src/io/Chunks.cpp
@@ -248,3 +250,4 @@ maxlike_add_test(test_edit_mesh tests/test_edit_mesh.cpp src/scene/Modifier.cpp 
 maxlike_add_test(test_typein tests/test_typein.cpp src/scene/TypeIn.cpp src/scene/MoveMath.cpp src/io/MaxImport.cpp src/io/MaxNodes.cpp src/io/MaxObjects.cpp src/io/MaxScene.cpp src/io/Cfb.cpp src/io/Chunks.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/MeshTopology.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
 target_compile_definitions(test_typein PRIVATE MAXLIKE_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/docs/reference/samples")
 maxlike_add_test(test_arrange tests/test_arrange.cpp src/scene/Arrange.cpp src/scene/TypeIn.cpp src/scene/Clone.cpp src/scene/MoveMath.cpp src/scene/CreationTool.cpp src/scene/Creation.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/MeshTopology.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)
+maxlike_add_test(test_groups tests/test_groups.cpp src/scene/Groups.cpp src/scene/Undo.cpp src/scene/Modifier.cpp src/scene/MeshTopology.cpp src/scene/Primitives.cpp src/scene/Mesh.cpp src/scene/ParamBlock.cpp src/scene/Node.cpp src/scene/Scene.cpp src/math/Quat.cpp src/math/Mat4.cpp)

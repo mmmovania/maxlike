@@ -136,10 +136,10 @@ buildable now, needing R3.1 evidence, or separate subsystems; worked through in 
       (9.9); Tools > Mirror and Array, with mirrored objects drawn correctly (9.10).
 - [x] Wrap-up: `docs/tech/phase9-tech-docs.md`, documentation sweep, v0.9.0 (9.11).
 
-## Phase 10 — Groups and the rest of list A (`phase/10-…`)
+## Phase 10 — Groups and the rest of list A (`phase/10-groups`)
 From Phase 9's inventory, still buildable without new evidence:
-- [ ] The Group menu (Group, Ungroup, Open, Close, Explode, Detach, Attach): a hidden
-      group helper its members are linked to; selection and picking through groups.
+- [x] The Group menu (Group, Ungroup, Open, Close, Explode, Detach, Attach): a hidden
+      group helper its members are linked to; selection and picking through groups (10.1).
 - [ ] Tools > Align; the modifier gizmo; viewports and the selection in `.mlk` files.
 - [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
       sub-object level; Soft Selection.

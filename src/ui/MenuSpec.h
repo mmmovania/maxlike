@@ -42,6 +42,9 @@ struct MenuState {
     bool canUndo = false, canRedo = false;
     size_t objects = 0, selected = 0;
     bool savedPerspective = false;   // Views > Save Active Perspective View was used
+    // Groups (Phase 10): selected closed groups, open groups (or things inside them), any
+    // groups, and members of open groups.
+    size_t closedGroups = 0, openGroups = 0, groups = 0, openMembers = 0;
 };
 bool MenuItemEnabled(const std::string& command, const MenuState& state);
 

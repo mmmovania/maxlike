@@ -19,7 +19,8 @@
 //     n x u32), 0x0059 welds (u32 n, n x (u32 from, u32 to)) } } }. Every Edit Mesh
 //     index refers to the mesh coming into it; older files simply lack the newer chunks.
 //   0x1200 nodes: 0x1210 node { 0x0001 name, 0x0002 u32 wire colour, 0x0003 i32 parent,
-//     0x0004 i32 object, 0x0005 transform, 0x0006 object offset }
+//     0x0004 i32 object, 0x0005 transform, 0x0006 object offset,
+//     Phase 10: 0x0007 u8 group flags (1 group head, 2 open) }
 //   params: u32 n, n x (u32 index, f64 value); transforms: f64 position[3], rotation[4]
 //   (x, y, z, w), scale[3].
 namespace io {

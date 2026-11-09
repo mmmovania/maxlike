@@ -194,6 +194,8 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                 w.Leaf(0x0002, [&] { w.Put(n->WireColor()); });
                 w.Leaf(0x0003, [&] { w.Put(parentSaved ? nodeIndex.at(n->Parent()) : int32_t{-1}); });
                 w.Leaf(0x0004, [&] { w.Put(n->GetObject() ? index.at(n->GetObject().get()) : int32_t{-1}); });
+                if (n->IsGroupHead())
+                    w.Leaf(0x0007, [&] { w.Put(static_cast<uint8_t>(1 | (n->GroupOpen() ? 2 : 0))); });
                 if (parentSaved || !n->Parent()) {
                     PutPrs(w, 0x0005, n->Transform());
                 } else {
@@ -332,6 +334,10 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
             if (Get(d, at, k->end, o) && o >= 0 && static_cast<size_t>(o) < objects.size()) p.node->SetObject(objects[static_cast<size_t>(o)]);
         }
         if (!GetPrs(d, Child(nk, 0x0005), p.transform) || !GetPrs(d, Child(nk, 0x0006), p.offset)) return bad("damaged transforms");
+        if (const Chunk* k = Child(nk, 0x0007)) {                        // group flags (Phase 10)
+            size_t at = k->begin; uint8_t f = 0;
+            if (Get(d, at, k->end, f)) p.node->SetGroup((f & 1) != 0, (f & 2) != 0);
+        }
         nodes.push_back(p);
     }
     for (const Pending& p : nodes)

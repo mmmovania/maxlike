@@ -142,6 +142,13 @@ int main() {
         for (const char* c : {"edit.clone", "edit.select_none", "edit.properties", "file.save_selected", "group.group", "edit.select_all", "edit.undo"})
             CHECK(ui::MenuItemEnabled(c, busy));
         CHECK(!ui::MenuItemEnabled("group.ungroup", busy) && !ui::MenuItemEnabled("edit.redo", busy));
+        // Groups (Phase 10): each command needs its kind of selection.
+        ui::MenuState g = busy;
+        g.closedGroups = 1; g.groups = 1;
+        CHECK(ui::MenuItemEnabled("group.open", g) && ui::MenuItemEnabled("group.ungroup", g) && ui::MenuItemEnabled("group.explode", g));
+        CHECK(!ui::MenuItemEnabled("group.close", g) && !ui::MenuItemEnabled("group.detach", g) && ui::MenuItemEnabled("group.attach", g));
+        g.closedGroups = 0; g.openGroups = 1; g.openMembers = 1;
+        CHECK(ui::MenuItemEnabled("group.close", g) && ui::MenuItemEnabled("group.detach", g) && !ui::MenuItemEnabled("group.open", g));
     }
     // Recent files: newest first, one entry per file (case-insensitive), nine at most.
     {

@@ -1,4 +1,5 @@
 #include "ui/MainFrame.h"
+#include "scene/Groups.h"
 #include "scene/Arrange.h"
 #include "scene/TypeIn.h"
 #include "scene/MeshTopology.h"
@@ -145,7 +146,12 @@ void MainFrame::DeleteSelection() {
         return;
     }
     if (scene_.Selection().empty()) return;
-    undo_.Execute(std::make_unique<scene::DeleteSelectionCommand>(), scene_);
+    // A selected group goes with its members: select them all, then delete (one step).
+    const auto all = scene::groups::WithMembers(scene_, scene_.Selection());
+    auto macro = std::make_unique<scene::MacroCommand>("Delete");
+    if (all.size() != scene_.Selection().size()) macro->Add(std::make_unique<scene::SelectCommand>(all));
+    macro->Add(std::make_unique<scene::DeleteSelectionCommand>());
+    undo_.Execute(std::move(macro), scene_);
     UpdateSelectionStatus();
     UpdateModifyPanel();
     UpdateCreatePanel();
@@ -633,7 +639,22 @@ bool MainFrame::CreateRegions() {
     // Selection: a click replaces the selection (Ctrl adds, Alt removes; empty space
     // clears); a region does the same with everything it touches. Each change is one
     // undoable "Select". NOTE: R3's exact modifier rules are from memory.
-    viewports_.onSelect = [this](const std::vector<scene::Node::Id>& ids, bool, bool ctrl, bool alt) {
+    viewports_.onSelect = [this](const std::vector<scene::Node::Id>& picked, bool, bool ctrl, bool alt) {
+        if (attachPick_) {
+            // Group > Attach: the clicked object's group receives the selection.
+            attachPick_ = false;
+            scene::Node* target = picked.empty() ? nullptr : scene_.FindById(picked.front());
+            while (target && !target->IsGroupHead()) target = target->Parent();
+            auto macro = target ? scene::groups::MakeAttach(scene_, scene_.Selection(), target->GetId()) : nullptr;
+            if (!macro) { statusArea_.SetPrompt(1, L"Attach: that is not a group"); return; }   // NOTE: R3's wording unverified
+            undo_.Execute(std::move(macro), scene_);
+            UpdateSelectionStatus();
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
+        // Clicking a member of a closed group selects the group (Phase 10).
+        const std::vector<scene::Node::Id> ids = scene::groups::Selectable(scene_, picked);
         std::vector<scene::Node::Id> next = scene_.Selection();
         if (ctrl) {
             for (auto id : ids) if (!scene_.IsSelected(id)) next.push_back(id);
@@ -1178,15 +1199,67 @@ void MainFrame::OnCommand(const std::string& command) {
     if (command == "edit.select_all" || command == "edit.select_none" || command == "edit.select_invert") {
         std::vector<scene::Node::Id> ids;
         if (command != "edit.select_none")
-            for (const auto& n : scene_.Nodes()) {
+            for (scene::Node::Id id : scene::groups::AllSelectable(scene_)) {     // groups, not their members
                 const auto& sel = scene_.Selection();
-                const bool selected = std::find(sel.begin(), sel.end(), n->GetId()) != sel.end();
-                if (command == "edit.select_all" || !selected) ids.push_back(n->GetId());
+                const bool selected = std::find(sel.begin(), sel.end(), id) != sel.end();
+                if (command == "edit.select_all" || !selected) ids.push_back(id);
             }
         SelectNodes(ids);
         return;
     }
     if (command == "views.redraw_all") { viewports_.Redraw(); return; }
+    if (command.rfind("group.", 0) == 0) {
+        std::unique_ptr<scene::Command> cmd;
+        const auto sel = scene_.Selection();
+        if (command == "group.group") {
+            if (sel.empty()) return;
+            const std::string suggested = scene_.UniqueName("Group");
+            const std::wstring name = ui::AskName(Hwnd(), L"Group", L"Group name:", std::wstring(suggested.begin(), suggested.end()));
+            if (name.empty()) return;
+            std::string n8;
+            for (wchar_t c : name) n8 += static_cast<char>(c < 0x80 ? c : '?');
+            cmd = scene::groups::MakeGroup(scene_, sel, n8);
+        } else if (command == "group.ungroup" || command == "group.explode") {
+            std::vector<scene::Node::Id> heads;
+            for (scene::Node::Id id : sel) if (const scene::Node* n = scene_.FindById(id); n && n->IsGroupHead()) heads.push_back(id);
+            cmd = scene::groups::MakeUngroup(scene_, heads, command == "group.explode");
+        } else if (command == "group.open" || command == "group.close") {
+            // Open: the selected closed groups. Close: the open group of each selected
+            // object (or the selected open group itself); the closed group is selected.
+            auto macro = std::make_unique<scene::MacroCommand>(command == "group.open" ? "Group Open" : "Group Close");
+            std::vector<scene::Node::Id> closedHeads;
+            for (scene::Node::Id id : sel) {
+                scene::Node* n = scene_.FindById(id);
+                if (command == "group.open") {
+                    if (n && n->IsGroupHead() && !n->GroupOpen()) macro->Add(std::make_unique<scene::GroupOpenCommand>(id, true));
+                } else {
+                    for (scene::Node* p = n; p; p = p->Parent())
+                        if (p->IsGroupHead() && p->GroupOpen()) {
+                            if (std::find(closedHeads.begin(), closedHeads.end(), p->GetId()) == closedHeads.end()) {
+                                macro->Add(std::make_unique<scene::GroupOpenCommand>(p->GetId(), false));
+                                closedHeads.push_back(p->GetId());
+                            }
+                            break;
+                        }
+                }
+            }
+            if (!closedHeads.empty()) macro->Add(std::make_unique<scene::SelectCommand>(closedHeads));
+            cmd = std::move(macro);
+        } else if (command == "group.detach") {
+            cmd = scene::groups::MakeDetach(scene_, sel);
+        } else if (command == "group.attach") {
+            if (sel.empty()) return;
+            attachPick_ = true;
+            statusArea_.SetPrompt(1, L"Pick group to attach to");               // NOTE: R3's prompt unverified
+            return;
+        }
+        if (!cmd) return;
+        undo_.Execute(std::move(cmd), scene_);
+        UpdateSelectionStatus();
+        UpdateModifyPanel();
+        viewports_.Redraw();
+        return;
+    }
     if (command == "tool.pivot_point" || command == "tool.pivot_selection" || command == "tool.pivot_transform") {
         centre_ = command == "tool.pivot_point" ? 0 : command == "tool.pivot_selection" ? 1 : 2;
         viewports_.SetReferenceSystem(refCoord_, centre_);
@@ -1210,7 +1283,7 @@ void MainFrame::OnCommand(const std::string& command) {
         };
         const scene::move::Frame frame = viewports_.ActiveView().CurrentFrame();
         const math::Vec3 centre = viewports_.ActiveView().TransformCenter();
-        const std::vector<scene::Node::Id> selection = scene_.Selection();
+        const std::vector<scene::Node::Id> selection = scene::groups::WithMembers(scene_, scene_.Selection());
         if (command == "tools.mirror") {
             static const wchar_t* kNames[] = {L"View", L"Screen", L"World", L"Parent", L"Local", L"Grid", L"Pick"};
             const ui::MirrorChoice c = ui::ShowMirrorDialog(Hwnd(), kNames[static_cast<int>(refCoord_)]);
@@ -1267,11 +1340,13 @@ void MainFrame::OnCommand(const std::string& command) {
         if (!choice.ok) return;
         std::string name;
         for (wchar_t c : choice.name) name += static_cast<char>(c < 0x80 ? c : '?');
-        const auto ids = scene::CloneNodes(scene_, selection, choice.instance, name);
-        // One undo step: the clones, then the clones selected (as R3 leaves them).
+        const auto ids = scene::CloneNodes(scene_, scene::groups::WithMembers(scene_, selection), choice.instance,
+                                           selection.size() == 1 ? name : "");
+        // One undo step: the clones, then the clones selected (as R3 leaves them; a cloned
+        // group is selected as a group).
         auto macro = std::make_unique<scene::MacroCommand>("Clone");
         macro->Add(std::make_unique<scene::AddedNodesCommand>("Clone", ids));
-        macro->Add(std::make_unique<scene::SelectCommand>(ids));
+        macro->Add(std::make_unique<scene::SelectCommand>(scene::groups::Selectable(scene_, ids)));
         undo_.Execute(std::move(macro), scene_);
         modifyIndex_ = 0;
         subObject_ = false;
@@ -1294,7 +1369,7 @@ void MainFrame::OnCommand(const std::string& command) {
         ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
         if (!GetSaveFileNameW(&ofn)) return;
         // The selected objects only; the scene itself stays as it is (not marked saved).
-        const std::vector<uint8_t> bytes = io::SaveNative(scene_, scene_.Selection());
+        const std::vector<uint8_t> bytes = io::SaveNative(scene_, scene::groups::WithMembers(scene_, scene_.Selection()));
         HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
         DWORD written = 0;
         const bool ok = file != INVALID_HANDLE_VALUE && WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr) && written == bytes.size();
@@ -1367,6 +1442,12 @@ void MainFrame::UpdateMenu(HMENU menu) {
     state.canRedo = undo_.CanRedo();
     state.objects = scene_.Nodes().size();
     state.selected = scene_.Selection().size();
+    for (scene::Node::Id id : scene_.Selection()) {
+        const scene::Node* n = scene_.FindById(id);
+        if (!n) continue;
+        if (n->IsGroupHead()) { ++state.groups; (n->GroupOpen() ? state.openGroups : state.closedGroups)++; }
+        else if (n->Parent() && n->Parent()->IsGroupHead() && n->Parent()->GroupOpen()) { ++state.openMembers; ++state.openGroups; }
+    }
     const int activeType = static_cast<int>(viewports_.ActiveView().Type());
     state.savedPerspective = savedViews_[activeType].saved;
     const std::wstring viewName = viewports_.ActiveView().Name();

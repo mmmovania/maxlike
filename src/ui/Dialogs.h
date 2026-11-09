@@ -54,6 +54,10 @@ struct ArrayChoice {
 };
 ArrayChoice ShowArrayDialog(HWND parent);
 
+// A name asked for in a small dialog (Group > Group: "Group name:"; NOTE: from memory).
+// Empty if cancelled.
+std::wstring AskName(HWND parent, const std::wstring& title, const std::wstring& label, const std::wstring& suggested);
+
 // The Summary as text (Save to File...).
 std::wstring SummaryText(const scene::Summary& summary, const std::wstring& description);
 

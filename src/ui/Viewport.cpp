@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "scene/Groups.h"
 #include "scene/TypeIn.h"
 #include "scene/MeshTopology.h"
 #include "scene/MoveMath.h"
@@ -337,10 +338,38 @@ void Viewport::DrawScene(int w, int h) {
             const float ex = len > 0 ? 0.5f * dx / len : 0.5f, ey = len > 0 ? 0.5f * dy / len : 0.0f;
             lines.push_back({x0, y0, 0, x1 + ex, y1 + ey, 0});
         }
-        // Selected objects are white (measured, R3.1 screenshots).
-        const uint32_t c = scene_->IsSelected(node->GetId()) ? 0xFFFFFF : node->WireColor();
+        // Selected objects are white (measured, R3.1 screenshots); so are the members of a
+        // selected group.
+        const uint32_t c = scene::groups::ShownSelected(*scene_, *node) ? 0xFFFFFF : node->WireColor();
         lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
     }
+    DrawOpenGroups(w, h);
+}
+
+// An open group shows its members' bounding box (NOTE: pink in R3, from memory; drawn
+// here as the box's twelve edges in #FF80FF).
+void Viewport::DrawOpenGroups(int w, int h) {
+    std::vector<gl::LineRenderer::Line> lines;
+    for (const auto& node : scene_->Nodes()) {
+        if (!node->IsGroupHead() || !node->GroupOpen()) continue;
+        math::Vec3 lo, hi;
+        if (!scene::groups::Bounds(*node, lo, hi)) continue;
+        view::Point2 px[8];
+        bool visible = true;
+        for (int c = 0; c < 8; ++c) {
+            const math::Vec3 p{c & 1 ? hi.x : lo.x, c & 2 ? hi.y : lo.y, c & 4 ? hi.z : lo.z};
+            double x = 0, y = 0, depth = 0;
+            visible = visible && WorldToWindow(p, x, y, depth);
+            px[c] = {x, y};
+        }
+        if (!visible) continue;
+        for (int c = 0; c < 8; ++c)
+            for (int k = 1; k <= 4; k <<= 1)
+                if (!(c & k))
+                    lines.push_back({static_cast<float>(px[c].x), static_cast<float>(px[c].y), 0.0f,
+                                     static_cast<float>(px[c | k].x), static_cast<float>(px[c | k].y), 0.0f});
+    }
+    if (!lines.empty()) lines_->Draw(lines, math::PixelToClip(w, h), 1.0f, 0.5f, 1.0f);
 }
 
 // The axes at the selection's pivot (one object: its pivot; several: the average of
@@ -739,11 +768,22 @@ void Viewport::DrawBrackets(int /*w*/, int /*h*/, const math::Mat4& worldToClip)
     using Line = gl::LineRenderer::Line;
     std::vector<Line> lines;
     for (const auto& node : scene_->Nodes()) {
-        if (!node->GetObject() || !scene_->IsSelected(node->GetId())) continue;
-        const scene::Bounds b = node->GetObject()->Evaluate().GetBounds();
-        if (b.Empty()) continue;
-        const math::Mat4 m = node->ObjectMatrix();
-        const double lo[3] = {b.min.x, b.min.y, b.min.z}, hi[3] = {b.max.x, b.max.y, b.max.z};
+        // One box per selected object; a selected group gets one box around all its
+        // members (world-aligned), and its members none of their own.
+        if (!scene_->IsSelected(node->GetId())) continue;
+        double lo[3], hi[3];
+        math::Mat4 m = math::Translation({0, 0, 0});
+        if (node->IsGroupHead()) {
+            math::Vec3 a, b;
+            if (!scene::groups::Bounds(*node, a, b)) continue;
+            lo[0] = a.x; lo[1] = a.y; lo[2] = a.z; hi[0] = b.x; hi[1] = b.y; hi[2] = b.z;
+        } else {
+            if (!node->GetObject()) continue;
+            const scene::Bounds b = node->GetObject()->Evaluate().GetBounds();
+            if (b.Empty()) continue;
+            m = node->ObjectMatrix();
+            lo[0] = b.min.x; lo[1] = b.min.y; lo[2] = b.min.z; hi[0] = b.max.x; hi[1] = b.max.y; hi[2] = b.max.z;
+        }
         for (int corner = 0; corner < 8; ++corner) {
             double c[3];
             for (int k = 0; k < 3; ++k) c[k] = (corner >> k) & 1 ? hi[k] : lo[k];
@@ -819,6 +859,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
     }
     glDisable(GL_DEPTH_TEST);
     DrawBrackets(w, h, toClip);
+    DrawOpenGroups(w, h);
 }
 
 void Viewport::SetShowGrid(bool show) {

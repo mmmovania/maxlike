@@ -87,6 +87,7 @@ private:
     std::string name_;
     std::shared_ptr<Object> object_;
     uint32_t color_ = 0;
+    bool groupHead_ = false, groupOpen_ = false;
     PRS transform_, offset_;
     Node::Id parent_ = 0;
     std::vector<ChildState> children_;
@@ -276,6 +277,19 @@ public:
 private:
     std::vector<Node::Id> selected_;
     std::vector<std::unique_ptr<DeleteNodeCommand>> parts_;
+};
+
+// Group > Open / Close (Phase 10): a group head's open flag.
+class GroupOpenCommand : public Command {
+public:
+    GroupOpenCommand(Node::Id head, bool open) : head_(head), open_(open) {}
+    std::string Name() const override { return open_ ? "Group Open" : "Group Close"; }
+    void Do(Scene& scene) override { if (Node* n = scene.FindById(head_)) { before_ = n->GroupOpen(); n->SetGroup(true, open_); } }
+    void Undo(Scene& scene) override { if (Node* n = scene.FindById(head_)) n->SetGroup(true, before_); }
+
+private:
+    Node::Id head_;
+    bool open_, before_ = false;
 };
 
 // Nodes added to the scene outside the undo stack (File > Merge): already present when

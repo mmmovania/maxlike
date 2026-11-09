@@ -409,6 +409,20 @@ ArrayChoice ShowArrayDialog(HWND parent) {
     return c;
 }
 
+std::wstring AskName(HWND parent, const std::wstring& title, const std::wstring& label, const std::wstring& suggested) {
+    // The Detach dialog's mechanics with a plain name field: reuse its procedure's IDs.
+    Template t(title.c_str(), 160, 46);
+    t.Add(L"Static", label.c_str(), 0xFFFF, SS_LEFT, 7, 9, 44, 9);
+    t.Add(L"Edit", L"", kDetachName, ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 53, 7, 100, 12);
+    t.Add(L"Button", L"", kToElement, BS_AUTOCHECKBOX, 0, 0, 0, 0);       // unused (the procedure disables it)
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP, 46, 26, 50, 14);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 103, 26, 50, 14);
+    DetachChoice choice;
+    DetachState st{&choice, suggested};
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, DetachProc, reinterpret_cast<LPARAM>(&st));
+    return choice.ok ? (choice.name.empty() ? suggested : choice.name) : std::wstring();
+}
+
 DetachChoice ShowDetachDialog(HWND parent, const std::wstring& suggestedName) {
     Template t(L"Detach", 160, 70);
     t.Add(L"Static", L"Detach as:", 0xFFFF, SS_LEFT, 7, 9, 36, 9);

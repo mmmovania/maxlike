@@ -1,0 +1,42 @@
+# Phase 10 — Groups and the rest of list A
+
+Branch: `phase/10-groups` (from `main` after Phase 9).
+
+Phase 10 continues Phase 9's inventory (`docs/phases/phase-9-deferred.md`, list A) with the
+items still buildable without new R3.1 evidence.
+
+## Steps
+- [x] **10.1** Groups: Group, Ungroup, Open, Close, Explode, Detach, Attach (Group menu),
+      each one undo step; picking selects a closed group through any member; selected
+      groups draw their members white and get one bracket box; open groups show an
+      outline; Delete, Clone, Save Selected, Mirror and Array take whole groups; group
+      flags kept in `.mlk` files and clones; the Group menu's greying follows the selection
+- [ ] Tools > Align
+- [ ] The modifier gizmo
+- [ ] Viewports and the selection in `.mlk` files
+- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
+      sub-object level; Soft Selection
+- [ ] Wrap-up
+
+## Step 10.1 verification
+- [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)
+- [x] `test_groups`: grouping keeps every member in place and puts the head at their
+      centre; picking any member selects the group, an open group's members one by one;
+      moving the head moves the group; undo / redo of Group, Open, Explode (nested groups),
+      Ungroup, Detach, Attach, with positions checked in the world; undoing restores the
+      selection; Attach refuses a group into itself. `test_native_file`: closed and open
+      heads survive saving and loading. `test_menu_spec`: the Group menu's rules, and R3's
+      empty-scene greying unchanged
+- [x] Under Wine on `instances.max`: Select All, Group: one object, all seven boxes white;
+      clicking one box selects the whole group; Ungroup: seven objects; Ctrl+Z: the group,
+      selected; Group > Open: the outline spans exactly the boxes (x 60..819)
+- [x] Found: Ungroup's macro selected the freed members last, so undo restored the old
+      selection (the group) before the group existed again, and nothing was selected. The
+      selection is now changed first; a new check fails on the old order and passes on
+      the new
+- [ ] On Windows: every Group command with nested groups; Attach by clicking; Delete,
+      Clone, Mirror and Array of a group; saving and reopening
+- [ ] Unverified: R3's group dialog, its pink display of open groups (here an outline in
+      #FF80FF), the head's pivot (here the members' bounding-box centre), whether a group
+      keeps its members' common parent (here top level), the status wording for a
+      selected group, Attach's prompt; groups in `.max` files are not read yet

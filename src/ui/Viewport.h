@@ -207,6 +207,7 @@ private:
     void CollectPickData(std::vector<scene::Node::Id>& ids, std::vector<std::vector<view::Segment2>>& outlines,
                          std::vector<std::vector<view::Triangle2>>* surfaces) const;
     void DrawBrackets(int width, int height, const math::Mat4& worldToClip);
+    void DrawOpenGroups(int width, int height);     // Phase 10: open groups' outlines
     void DrawTransformAxes(int width, int height);
     view::AxesStyle axesStyle_ = view::AxesStyle::Tripod;
     bool axesActive_[3] = {true, true, false};   // R3's default constraint: XY

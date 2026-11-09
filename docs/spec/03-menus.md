@@ -63,7 +63,7 @@ List`; R3 keeps them in 3dsmax.ini).
 - Keyboard shortcut text is omitted until accelerators are implemented.
 
 ## Behaviour so far
-25 of the 114 menu commands work at the end of Phase 9 (counted from `MainFrame` against
+32 of the 114 menu commands work after step 10.1 (25 at the end of Phase 9) (counted from `MainFrame` against
 `MenuSpec`); the rest show the "not implemented yet" prompt below.
 
 - `file.exit` posts `WM_CLOSE` (same path as the close button).
@@ -103,6 +103,11 @@ List`; R3 keeps them in 3dsmax.ini).
 - Toolbar (not menus): `tool.ref_coord` (the reference coordinate system) and
   `tool.pivot_point` / `tool.pivot_selection` / `tool.pivot_transform` (the transform
   centre) work since step 9.9.
+- The Group menu (10.1): `group.group` asks a name ("Group01") and links the topmost
+  selected objects under a new group head; `group.ungroup` / `group.explode` dissolve
+  the selected groups (Explode: nested ones too); `group.open` / `group.close`;
+  `group.detach` takes members out of an open group; `group.attach` links the selection
+  to the group picked next. Each is one undoable step; greyed by the selection.
 - `file.save` writes the scene to its `.mlk` file, or asks for a name (Save As) if it has
   none or was opened from a `.max` file; `file.save_as` always asks (Phase 8, step 8.7).
   Saving marks the scene clean.

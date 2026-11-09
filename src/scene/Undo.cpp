@@ -58,6 +58,8 @@ void DeleteNodeCommand::Do(Scene& scene) {
     name_ = n->Name();
     object_ = n->GetObject();
     color_ = n->WireColor();
+    groupHead_ = n->IsGroupHead();
+    groupOpen_ = n->GroupOpen();
     transform_ = n->Transform();
     offset_ = n->ObjectOffset();
     parent_ = n->Parent() ? n->Parent()->GetId() : 0;
@@ -71,6 +73,7 @@ void DeleteNodeCommand::Undo(Scene& scene) {
     if (!n) return;
     n->SetObject(object_);
     n->SetWireColor(color_);
+    n->SetGroup(groupHead_, groupOpen_);
     n->ObjectOffset() = offset_;
     if (Node* p = scene.FindById(parent_)) scene.Link(n, p);
     n->Transform() = transform_;              // exactly as before (Link may have rounded)

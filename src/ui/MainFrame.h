@@ -123,6 +123,7 @@ private:
     std::wstring description_;
     bool weldTargetMode_ = false;                      // Edit Mesh > Weld > Target pressed
     ui::TypeInDialog typeIn_;                          // Tools > Transform Type-In (F12)
+    bool attachPick_ = false;                          // Group > Attach: the next click picks the group
     void UpdateTypeIn();                         // File > Summary Info's Description (NOTE: not saved yet)
 
     // Regions, in the order of FrameLayout.

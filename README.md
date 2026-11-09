@@ -23,6 +23,7 @@ This is how it looks so far
 | 7 Modify panel (modifier stack, Bend/Taper/Twist, Edit Mesh at Vertex level) | ✔ panels pixel-checked | 0.7.0 |
 | 8 `.max` import (open R3-era files, saved viewports; maxlike's own `.mlk` files) | ✔ samples verified against R3.1 | 0.8.0 |
 | 9 Deferred items (menus and shortcuts as R3.1, File / Edit commands, all Edit Mesh levels, Transform Type-In, coordinate systems, Mirror, Array) | ✔ menus verified against R3.1 | 0.9.0 |
+| 10 Groups and the rest of list A (`docs/phases/phase-10-groups.md`) | in progress | |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 
@@ -33,7 +34,7 @@ Requires Visual Studio 2019+ (Desktop development with C++) and CMake 3.20+.
 ```sh
 cmake -S . -B build
 cmake --build build --config Debug
-ctest --test-dir build -C Debug      # 38 unit-test programs
+ctest --test-dir build -C Debug      # 39 unit-test programs
 build\Debug\maxlike.exe
 ```
 
@@ -58,7 +59,7 @@ use estimated sizes and colours — open the sample itself for the real scene.
 |---|---|
 | `main` | Integrated, always-building code. Phases land here when done. |
 | `spec` | The original specification. Since Phase 1, spec updates travel with the phase that measured or decided them; use `spec` only for spec-only edits between phases. |
-| `phase/0-skeleton` … `phase/9-deferred` | One branch per phase of the plan in `docs/spec/02-plan.md`. |
+| `phase/0-skeleton` … `phase/10-groups` | One branch per phase of the plan in `docs/spec/02-plan.md`. |
 
 ## Workflow
 

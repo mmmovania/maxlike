@@ -238,8 +238,7 @@ bool MenuItemEnabled(const std::string& c, const MenuState& s) {
     static const char* const kNever[] = {
         "file.merge_animation", "views.undo", "views.redo", "views.update_background",
         "views.reset_background_transform", "views.match_camera", "views.add_default_lights",
-        "render.show_last", "trackview.delete", "schematic.delete",
-        "group.open", "group.close", "group.ungroup", "group.explode", "group.detach", "group.attach"};
+        "render.show_last", "trackview.delete", "schematic.delete"};
     for (const char* n : kNever) if (c == n) return false;
     if (c == "edit.undo") return s.canUndo;
     if (c == "edit.redo") return s.canRedo;
@@ -247,6 +246,12 @@ bool MenuItemEnabled(const std::string& c, const MenuState& s) {
     // Need a selection.
     if (c == "file.save_selected" || c == "file.export_selected" || c == "edit.clone" || c == "edit.select_none" ||
         c == "edit.properties" || c == "group.group") return s.selected > 0;
+    // Groups (Phase 10).
+    if (c == "group.open") return s.closedGroups > 0;
+    if (c == "group.close") return s.openGroups > 0;
+    if (c == "group.ungroup" || c == "group.explode") return s.groups > 0;
+    if (c == "group.detach") return s.openMembers > 0;
+    if (c == "group.attach") return s.selected > 0;
     // Need objects.
     if (c == "edit.select_all" || c == "edit.select_invert") return s.objects > 0;
     return true;

@@ -3,6 +3,7 @@
 // objects); modifier stacks keep their settings; saving again gives the same bytes.
 #include "io/MaxImport.h"
 #include "io/NativeFile.h"
+#include "scene/Primitives.h"
 #include "scene/DemoScene.h"
 #include "scene/Modifier.h"
 #include <cstdio>
@@ -132,6 +133,22 @@ int main() {
         std::vector<uint8_t> cut = io::SaveNative(s);
         cut.resize(10);
         CHECK(!io::LoadNative(cut, s, error));
+    }
+    // Group flags (Phase 10): a closed and an open group head survive saving and loading.
+    {
+        scene::Scene g, back;
+        scene::Node* h1 = g.CreateNode("Group01");
+        h1->SetGroup(true, false);
+        scene::Node* h2 = g.CreateNode("Group02");
+        h2->SetGroup(true, true);
+        scene::Node* m = g.CreateNode("Box01");
+        m->SetObject(std::make_shared<scene::BoxObject>(1, 1, 1));
+        g.Link(m, h1);
+        std::string error;
+        CHECK(io::LoadNative(io::SaveNative(g), back, error));
+        CHECK(back.Find("Group01") && back.Find("Group01")->IsGroupHead() && !back.Find("Group01")->GroupOpen());
+        CHECK(back.Find("Group02") && back.Find("Group02")->IsGroupHead() && back.Find("Group02")->GroupOpen());
+        CHECK(back.Find("Box01") && !back.Find("Box01")->IsGroupHead() && back.Find("Box01")->Parent() == back.Find("Group01"));
     }
     if (failures == 0) std::printf("native file: all tests passed\n");
     return failures == 0 ? 0 : 1;

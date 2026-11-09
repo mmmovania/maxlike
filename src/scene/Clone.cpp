@@ -68,6 +68,7 @@ std::vector<Node::Id> CloneNodes(Scene& scene, const std::vector<Node::Id>& ids,
         const std::string newName = (originals.size() == 1 && !name.empty()) ? name : scene.UniqueName(NameBase(n->Name()));
         Node* c = scene.CreateNode(newName);
         c->SetWireColor(n->WireColor());
+        c->SetGroup(n->IsGroupHead(), n->GroupOpen());       // a cloned group head is a group head
         if (n->GetObject()) {
             if (instance) c->SetObject(n->GetObject());
             else {
