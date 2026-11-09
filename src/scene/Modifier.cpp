@@ -57,6 +57,9 @@ void EditMeshModifier::SetState(const State& s) {
     SetSelectedFaces(s.selectedFaces);
     SetSelectedEdges(s.selectedEdges);
     SetDeleted(s.deletedFaces, s.deletedVertices);
+    hiddenFaces_ = SortedUnique(s.hiddenFaces);
+    hiddenVerts_ = SortedUnique(s.hiddenVertices);
+    welds_ = s.welds;
 }
 
 Mesh EditMeshModifier::Edited(const Mesh& input, std::vector<uint32_t>* vertexMap, std::vector<uint32_t>* faceMap) const {
@@ -65,28 +68,38 @@ Mesh EditMeshModifier::Edited(const Mesh& input, std::vector<uint32_t>* vertexMa
         if (mv.vertex < m.verts.size()) m.verts[mv.vertex] = m.verts[mv.vertex] + mv.delta;
     if (vertexMap) vertexMap->clear();
     if (faceMap) faceMap->clear();
-    if (deletedFaces_.empty() && deletedVerts_.empty()) {
+    if (deletedFaces_.empty() && deletedVerts_.empty() && welds_.empty() && hiddenFaces_.empty()) {
         if (vertexMap) for (uint32_t i = 0; i < m.verts.size(); ++i) vertexMap->push_back(i);
         if (faceMap) for (uint32_t i = 0; i < m.faces.size(); ++i) faceMap->push_back(i);
         return m;
     }
+    // Welds: each merged vertex follows its chain to the vertex that remains.
+    std::vector<uint32_t> target(m.verts.size());
+    for (uint32_t i = 0; i < target.size(); ++i) target[i] = i;
+    for (const auto& [from, to] : welds_)
+        if (from < target.size() && to < target.size()) target[from] = to;
+    for (uint32_t i = 0; i < target.size(); ++i)
+        for (int guard = 0; target[target[i]] != target[i] && guard < 64; ++guard) target[i] = target[target[i]];
     std::vector<uint32_t> newIndex(m.verts.size(), UINT32_MAX);
     Mesh out;
     for (uint32_t i = 0; i < m.verts.size(); ++i)
-        if (!Contains(deletedVerts_, i)) {
+        if (!Contains(deletedVerts_, i) && target[i] == i) {
             newIndex[i] = static_cast<uint32_t>(out.verts.size());
             out.verts.push_back(m.verts[i]);
             if (vertexMap) vertexMap->push_back(i);
         }
     for (uint32_t f = 0; f < m.faces.size(); ++f) {
-        if (Contains(deletedFaces_, f)) continue;
+        if (Contains(deletedFaces_, f) || Contains(hiddenFaces_, f)) continue;
         Face face = m.faces[f];
         bool keep = true;
         for (uint32_t& v : face.v) {
-            if (v >= newIndex.size() || newIndex[v] == UINT32_MAX) { keep = false; break; }
+            if (v >= target.size()) { keep = false; break; }
+            v = target[v];
+            if (newIndex[v] == UINT32_MAX) { keep = false; break; }
             v = newIndex[v];
         }
         if (!keep) continue;                                  // a face goes with its vertices
+        if (face.v[0] == face.v[1] || face.v[1] == face.v[2] || face.v[2] == face.v[0]) continue;   // collapsed by a weld
         out.faces.push_back(face);
         if (faceMap) faceMap->push_back(f);
     }
@@ -127,6 +140,66 @@ EditMeshModifier::State EditMeshModifier::AfterDeletingEdges(const Mesh& input, 
     s.selectedFaces = selectedFaces_;
     s.selectedFaces = Without(s.selectedFaces, s.deletedFaces);
     s.selectedEdges.clear();
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterHiding(bool faces) const {
+    State s = GetState();
+    if (faces) {
+        s.hiddenFaces.insert(s.hiddenFaces.end(), selectedFaces_.begin(), selectedFaces_.end());
+        s.hiddenFaces = SortedUnique(s.hiddenFaces);
+        s.selectedFaces.clear();
+    } else {
+        s.hiddenVertices.insert(s.hiddenVertices.end(), selected_.begin(), selected_.end());
+        s.hiddenVertices = SortedUnique(s.hiddenVertices);
+        s.selectedVertices.clear();
+    }
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterUnhidingAll(bool faces) const {
+    State s = GetState();
+    (faces ? s.hiddenFaces : s.hiddenVertices).clear();
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterWelding(const Mesh& input, double threshold, size_t* merged) const {
+    State s = GetState();
+    if (merged) *merged = 0;
+    // Positions after the moves.
+    std::vector<math::Vec3> p = input.verts;
+    for (const Move& mv : moves_)
+        if (mv.vertex < p.size()) p[mv.vertex] = p[mv.vertex] + mv.delta;
+    // Candidates: selected vertices still present (not deleted, not merged away before).
+    std::vector<uint32_t> cand;
+    for (uint32_t v : selected_) {
+        bool gone = v >= p.size() || Contains(deletedVerts_, v);
+        for (const auto& w : welds_) gone = gone || w.first == v;
+        if (!gone) cand.push_back(v);
+    }
+    // Clusters of candidates linked by distances within the threshold (union-find).
+    std::vector<size_t> parent(cand.size());
+    for (size_t i = 0; i < parent.size(); ++i) parent[i] = i;
+    auto find = [&](size_t i) { while (parent[i] != i) i = parent[i] = parent[parent[i]]; return i; };
+    for (size_t i = 0; i < cand.size(); ++i)
+        for (size_t j = i + 1; j < cand.size(); ++j)
+            if (math::Length(p[cand[i]] - p[cand[j]]) <= threshold) parent[find(i)] = find(j);
+    std::vector<std::vector<uint32_t>> clusters(cand.size());
+    for (size_t i = 0; i < cand.size(); ++i) clusters[find(i)].push_back(cand[i]);
+    std::vector<uint32_t> keep;
+    for (auto& c : clusters) {
+        if (c.size() < 2) { if (c.size() == 1) keep.push_back(c[0]); continue; }
+        std::sort(c.begin(), c.end());
+        math::Vec3 avg{0, 0, 0};
+        for (uint32_t v : c) avg = avg + p[v];
+        avg = avg * (1.0 / static_cast<double>(c.size()));
+        const uint32_t rep = c[0];                           // the lowest index remains
+        s.moves = AddToMoves(s.moves, {rep}, avg - p[rep]);
+        for (size_t i = 1; i < c.size(); ++i) s.welds.push_back({c[i], rep});
+        if (merged) *merged += c.size() - 1;
+        keep.push_back(rep);
+    }
+    s.selectedVertices = SortedUnique(keep);
     return s;
 }
 

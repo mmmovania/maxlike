@@ -113,6 +113,50 @@ int main() {
             CHECK(has == 2);
         }
     }
+    // Hide / Unhide All (9.6): hidden faces leave the output and come back; hidden vertices
+    // keep the mesh as it is.
+    {
+        scene::EditMeshModifier em(8, {});
+        em.SetSelectedFaces({2, 3});
+        em.SetState(em.AfterHiding(true));
+        CHECK(em.Edited(box).FaceCount() == 10 && em.SelectedFaces().empty() && em.HiddenFaces().size() == 2);
+        em.SetState(em.AfterUnhidingAll(true));
+        CHECK(em.Edited(box).FaceCount() == 12 && em.HiddenFaces().empty());
+        em.SetSelectedVertices({0, 1});
+        em.SetState(em.AfterHiding(false));
+        CHECK(em.HiddenVertices() == (std::vector<uint32_t>{0, 1}) && em.Edited(box).verts.size() == 8 && em.SelectedVertices().empty());
+    }
+    // Weld Selected (9.6): vertex 1 moved onto vertex 0, both selected; within 0.1 they
+    // merge, faces using both collapse and go, the rest stay valid; out of reach nothing.
+    {
+        const math::Vec3 gap = box.verts[0] - box.verts[1];
+        scene::EditMeshModifier em(8, {{1, gap + math::Vec3{0.05, 0, 0}}});
+        em.SetSelectedVertices({0, 1});
+        size_t merged = 0;
+        const auto none = em.AfterWelding(box, 0.01, &merged);
+        CHECK(merged == 0 && none.welds.empty());
+        const auto s = em.AfterWelding(box, 0.1, &merged);
+        CHECK(merged == 1 && s.welds.size() == 1 && s.welds[0] == std::make_pair(1u, 0u) && s.selectedVertices == std::vector<uint32_t>{0});
+        size_t both = 0;
+        for (const auto& f : box.faces) {
+            int has = 0;
+            for (uint32_t v : f.v) has += (v == 0 || v == 1);
+            both += has == 2;
+        }
+        scene::Scene sc;
+        scene::UndoStack undo;
+        auto shared = std::make_shared<scene::EditMeshModifier>(em);
+        undo.Execute(std::make_unique<scene::EditMeshStateCommand>("Weld", shared, s), sc);
+        const scene::Mesh out = shared->Edited(box);
+        CHECK(out.verts.size() == 7 && out.FaceCount() == 12 - both && both == 2);
+        for (const auto& f : out.faces) {
+            CHECK(f.v[0] != f.v[1] && f.v[1] != f.v[2] && f.v[2] != f.v[0]);
+            for (uint32_t v : f.v) CHECK(v < out.verts.size());
+        }
+        // The merged vertex sits at the average of the two (vertex 0 and its near neighbour).
+        CHECK(math::Length(out.verts[0] - (box.verts[0] + math::Vec3{0.025, 0, 0})) < 1e-9);
+        CHECK(undo.Undo(sc) && shared->Welds().empty() && shared->Edited(box).verts.size() == 8);
+    }
     // Picking edges: the nearest segment within the tolerance; rectangles take segments
     // with an end inside.
     {

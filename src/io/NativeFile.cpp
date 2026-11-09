@@ -153,6 +153,12 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                                     list(0x0054, em->DeletedFaces());
                                     list(0x0055, em->DeletedVertices());
                                     list(0x0056, em->SelectedEdges());      // Phase 9.5
+                                    list(0x0057, em->HiddenFaces());        // Phase 9.6
+                                    list(0x0058, em->HiddenVertices());
+                                    w.Leaf(0x0059, [&] {
+                                        w.Put(static_cast<uint32_t>(em->Welds().size()));
+                                        for (const auto& [from, to] : em->Welds()) { w.Put(from); w.Put(to); }
+                                    });
                                 }
                             });
                     });
@@ -286,7 +292,13 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
                         scene::EditMeshModifier::State state;
                         if (!readList(0x0052, selected) || !readList(0x0053, state.selectedFaces) ||
                             !readList(0x0054, state.deletedFaces) || !readList(0x0055, state.deletedVertices) ||
-                            !readList(0x0056, state.selectedEdges)) return bad("damaged Edit Mesh data");
+                            !readList(0x0056, state.selectedEdges) || !readList(0x0057, state.hiddenFaces) ||
+                            !readList(0x0058, state.hiddenVertices)) return bad("damaged Edit Mesh data");
+                        if (const Chunk* k = Child(mk, 0x0059)) {
+                            size_t p = k->begin; uint32_t n = 0;
+                            if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 8 > k->end - p) return bad("damaged Edit Mesh welds");
+                            for (uint32_t i = 0; i < n; ++i) { uint32_t a = 0, b = 0; Get(d, p, k->end, a); Get(d, p, k->end, b); state.welds.push_back({a, b}); }
+                        }
                         auto em = std::make_shared<scene::EditMeshModifier>(static_cast<size_t>(expected), moves);
                         state.moves = moves;
                         state.selectedVertices = selected;

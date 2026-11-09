@@ -416,6 +416,12 @@ Viewport::EditedMeshView Viewport::EditedView() const {
         if (WorldToWindow(w, x, y, depth)) { v.pixels.push_back({x, y}); v.depth.push_back(depth); }
         else { v.pixels.push_back({-1e9, -1e9}); v.depth.push_back(1e300); }
     }
+    // Hidden vertices (Vertex level): placed off-screen, so neither drawn nor picked.
+    if (vertexEditing_.level == 0) {
+        const auto& hidden = vertexEditing_.mod->HiddenVertices();
+        for (size_t i = 0; i < v.pixels.size(); ++i)
+            if (std::binary_search(hidden.begin(), hidden.end(), v.vertexMap[i])) v.pixels[i] = {-1e9, -1e9};
+    }
     math::Vec3 right, up;
     OrthoBasis(right, up);
     const bool persp = type_ == ViewType::Perspective;

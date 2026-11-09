@@ -110,8 +110,12 @@ public:
         std::vector<Move> moves;
         std::vector<uint32_t> selectedVertices, selectedFaces, deletedFaces, deletedVertices;
         std::vector<uint32_t> selectedEdges;
+        std::vector<uint32_t> hiddenFaces, hiddenVertices;          // 9.6
+        std::vector<std::pair<uint32_t, uint32_t>> welds;           // 9.6: vertex -> the vertex it merged into
     };
-    State GetState() const { return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_}; }
+    State GetState() const {
+        return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_, hiddenFaces_, hiddenVerts_, welds_};
+    }
     void SetState(const State& s);
 
     // The input with the moves applied, then the deleted faces and vertices removed (a
@@ -126,11 +130,27 @@ public:
     // vertices no remaining face uses). NOTE: R3's behaviour assumed.
     State AfterDeletingEdges(const Mesh& input, bool isolated) const;
 
+    // Phase 9.6. Hide: at Vertex level (`faces` false) the selected vertices' markers, at
+    // Face, Polygon and Element level the selected faces (left out of the output; R3 keeps
+    // them flagged in the mesh, NOTE: no visible difference without a renderer). Unhide
+    // All: every hidden vertex or face. Selections lose what is hidden.
+    State AfterHiding(bool faces) const;
+    State AfterUnhidingAll(bool faces) const;
+    const std::vector<uint32_t>& HiddenFaces() const { return hiddenFaces_; }
+    const std::vector<uint32_t>& HiddenVertices() const { return hiddenVerts_; }
+    // Weld Selected: selected vertices closer than `threshold` (in the input's space, after
+    // the moves) merge into one at their average; faces that collapse disappear. `merged`:
+    // how many vertices were merged away (0: nothing within the threshold).
+    State AfterWelding(const Mesh& input, double threshold, size_t* merged) const;
+    const std::vector<std::pair<uint32_t, uint32_t>>& Welds() const { return welds_; }
+
 private:
     size_t expected_;
     std::vector<Move> moves_;
     std::vector<uint32_t> selected_;
     std::vector<uint32_t> selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_;
+    std::vector<uint32_t> hiddenFaces_, hiddenVerts_;
+    std::vector<std::pair<uint32_t, uint32_t>> welds_;
 };
 
 // A base object with a stack of modifiers. Index 0 is the bottom of the stack (applied

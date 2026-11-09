@@ -109,6 +109,9 @@ int main() {
             st.selectedFaces = {0, 1};
             st.deletedFaces = {2, 3};
             st.deletedVertices = {7};
+            st.hiddenFaces = {4};                           // Phase 9.6: hidden and welded
+            st.hiddenVertices = {5};
+            st.welds = {{6, 4}};
             em->SetState(st);
         }
         CHECK(io::LoadNative(io::SaveNative(original), loaded, error));
@@ -117,7 +120,9 @@ int main() {
         CHECK(em2 && em2->SelectedVertices() == (std::vector<uint32_t>{4, 6}) && em2->Moves().size() == 4 && em2->ExpectedVertexCount() == 8);
         CHECK(em2 && em2->SelectedFaces() == (std::vector<uint32_t>{0, 1}) && em2->DeletedFaces() == (std::vector<uint32_t>{2, 3}) &&
               em2->DeletedVertices() == std::vector<uint32_t>{7});
-        CHECK(em2 && d2 && d2->Evaluate().verts.size() == 7);   // the deletion applies after loading
+        CHECK(em2 && em2->HiddenFaces() == std::vector<uint32_t>{4} && em2->HiddenVertices() == std::vector<uint32_t>{5} &&
+              em2->Welds().size() == 1 && em2->Welds()[0] == std::make_pair(6u, 4u));
+        CHECK(em2 && d2 && d2->Evaluate().verts.size() == 6);   // the deletion and the weld apply after loading
     }
     // Damaged or foreign input: an error, nothing created.
     {

@@ -28,8 +28,11 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
       (visible ones), polygons (faces joined across hidden edges) and elements (faces
       joined by vertices) selected as faces; Move and Delete at every level (an edge's
       Delete removes the faces on both sides)
-- [ ] Edit Mesh: Hide / Unhide All, Weld, Detach, Create; Rotate and Scale at sub-object
-      level; Soft Selection
+- [x] **9.6** Edit Mesh: Hide / Unhide All (vertices' markers, or faces left out of the
+      output) and Weld Selected (within the threshold, at the average; collapsed faces go);
+      one undo step each; kept in `.mlk` files and clones
+- [ ] Edit Mesh: Weld Target, Detach, Create, the other Edit Geometry buttons; Rotate and
+      Scale at sub-object level; Soft Selection
 - [ ] Transform Type-In (Tools menu; `scene::move::EulerXYZDegrees` exists since 6.4d)
 - [ ] Reference coordinate systems other than View (World, Local, Screen) and transform
       centres other than each pivot
@@ -59,6 +62,20 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.6 verification
+- [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)
+- [x] `test_edit_mesh`: hiding the top's faces leaves 10, Unhide All 12, hidden vertices
+      keep the mesh; welding two vertices 0.05 apart within 0.1 merges them at their
+      average, the two faces using both collapse and go, the rest stay valid; within 0.01
+      nothing; undo restores. `test_native_file`: hidden faces, vertices and welds survive
+- [x] Under Wine on `box.max`, with the buttons: Polygon > Hide opens the box's top,
+      Unhide All closes it; Vertex level, threshold 70, a corner's two vertices (60 apart)
+      selected, Weld > Selected: "2 Vertices Selected" becomes 1
+- [ ] On Windows: Hide / Unhide All at each level; Weld with several clusters; undo
+- [ ] Unverified: R3 keeps hidden faces in the mesh, flagged (maxlike leaves them out of
+      Edit Mesh's output; no difference without a renderer); Hide at Edge level; the
+      messages for no vertices within the threshold; "1 Vertices Selected" wording
 
 ## Step 9.5 verification
 - [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)

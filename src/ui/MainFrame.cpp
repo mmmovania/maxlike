@@ -685,6 +685,32 @@ bool MainFrame::CreateRegions() {
     };
     commandPanel_.onRolloutButton = [this](const std::wstring& label) {
         if (label == L"Delete" && VertexEditingMod()) { DeleteSelection(); return; }   // Edit Geometry > Delete
+        // Selection > Hide / Unhide All, and Edit Geometry > Weld > Selected (Phase 9.6).
+        if (const auto mod = VertexEditingMod(); mod && (label == L"Hide" || label == L"Unhide All" || label == L"Selected")) {
+            const bool faces = subLevel_ >= 1;
+            scene::EditMeshModifier::State after;
+            std::string name;
+            if (label == L"Hide") {
+                if (subLevel_ == 1) { statusArea_.SetPrompt(1, L"Hide works on vertices and faces"); return; }   // NOTE: R3 at Edge level unverified
+                if ((faces ? mod->SelectedFaces() : mod->SelectedVertices()).empty()) return;
+                after = mod->AfterHiding(faces);
+                name = "Hide";
+            } else if (label == L"Unhide All") {
+                if ((faces ? mod->HiddenFaces() : mod->HiddenVertices()).empty()) return;
+                after = mod->AfterUnhidingAll(faces);
+                name = "Unhide All";
+            } else {
+                if (subLevel_ != 0) { statusArea_.SetPrompt(1, L"Weld works at Vertex level"); return; }
+                size_t merged = 0;
+                after = mod->AfterWelding(EditMeshInput(mod), mod->Params().Float(scene::EditMeshModifier::kWeldThreshold, 0.1), &merged);
+                if (merged == 0) { statusArea_.SetPrompt(1, L"No vertices within weld threshold"); return; }   // NOTE: R3's wording unverified
+                name = "Weld";
+            }
+            undo_.Execute(std::make_unique<scene::EditMeshStateCommand>(name, mod, after), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
         statusArea_.SetPrompt(1, label + L" (not implemented yet)");
     };
     commandPanel_.onSubObjectLevel = [this](int level) {
