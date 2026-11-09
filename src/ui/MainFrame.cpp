@@ -653,6 +653,31 @@ bool MainFrame::CreateRegions() {
             viewports_.Redraw();
             return;
         }
+        if (alignPick_) {
+            // Tools > Align (10.2): the clicked object (its group, if closed) is the target.
+            alignPick_ = false;
+            scene::Node* target = picked.empty() ? nullptr : scene::groups::SelectableFor(scene_.FindById(picked.front()));
+            if (!target || scene_.IsSelected(target->GetId())) { statusArea_.SetPrompt(1, L"Align: pick an object that is not selected"); return; }
+            const std::wstring name(target->Name().begin(), target->Name().end());
+            const ui::AlignChoice c = ui::ShowAlignDialog(Hwnd(), name);
+            if (!c.ok) return;
+            scene::tools::AlignOptions o;
+            for (int i = 0; i < 3; ++i) { o.position[i] = c.position[i]; o.orientation[i] = c.orientation[i]; o.scale[i] = c.scale[i]; }
+            o.current = static_cast<scene::tools::AlignPoint>(c.current);
+            o.target = static_cast<scene::tools::AlignPoint>(c.target);
+            auto macro = std::make_unique<scene::MacroCommand>("Align");
+            const auto& sel = scene_.Selection();
+            for (scene::Node::Id id : sel) {
+                scene::Node* n = scene_.FindById(id);
+                bool under = false;                   // a selected child moves with its parent
+                for (const scene::Node* p = n ? n->Parent() : nullptr; p && !under; p = p->Parent()) under = scene_.IsSelected(p->GetId());
+                if (!n || under) continue;
+                macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), scene::tools::Aligned(*n, *target, o), "Align"));
+            }
+            undo_.Execute(std::move(macro), scene_);
+            viewports_.Redraw();
+            return;
+        }
         // Clicking a member of a closed group selects the group (Phase 10).
         const std::vector<scene::Node::Id> ids = scene::groups::Selectable(scene_, picked);
         std::vector<scene::Node::Id> next = scene_.Selection();
@@ -1266,6 +1291,12 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "tools.transform_type_in") { typeIn_.Show(Hwnd()); UpdateTypeIn(); return; }
+    if (command == "tools.align") {
+        if (scene_.Selection().empty()) { statusArea_.SetPrompt(1, L"Select the objects first"); return; }
+        alignPick_ = true;
+        statusArea_.SetPrompt(1, L"Pick Align Target Object");        // NOTE: R3's prompt unverified
+        return;
+    }
     if (command == "tools.mirror" || command == "tools.array") {
         if (scene_.Selection().empty()) { statusArea_.SetPrompt(1, L"Select the objects first"); return; }
         // The topmost selected objects only: a selected child moves with its parent.

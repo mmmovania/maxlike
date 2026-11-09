@@ -140,7 +140,8 @@ buildable now, needing R3.1 evidence, or separate subsystems; worked through in 
 From Phase 9's inventory, still buildable without new evidence:
 - [x] The Group menu (Group, Ungroup, Open, Close, Explode, Detach, Attach): a hidden
       group helper its members are linked to; selection and picking through groups (10.1).
-- [ ] Tools > Align; the modifier gizmo; viewports and the selection in `.mlk` files.
+- [x] Tools > Align (10.2).
+- [ ] The modifier gizmo; viewports and the selection in `.mlk` files.
 - [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
       sub-object level; Soft Selection.
 - Waiting for R3.1 evidence (list B of the inventory): dialogs built from memory (New,

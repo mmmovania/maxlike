@@ -11,12 +11,27 @@ items still buildable without new R3.1 evidence.
       groups draw their members white and get one bracket box; open groups show an
       outline; Delete, Clone, Save Selected, Mirror and Array take whole groups; group
       flags kept in `.mlk` files and clones; the Group menu's greying follows the selection
-- [ ] Tools > Align
+- [x] **10.2** Tools > Align (Alt+A): pick the target, then align position (minimum,
+      centre, pivot or maximum of the current and target objects, per world axis),
+      orientation (local axes) and scale; one undo step; groups by their members' bounds
 - [ ] The modifier gizmo
 - [ ] Viewports and the selection in `.mlk` files
 - [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
       sub-object level; Soft Selection
 - [ ] Wrap-up
+
+## Step 10.2 verification
+- [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)
+- [x] `test_arrange`: current Minimum X to target Maximum X puts the object flush against
+      the target's side; centres and pivots on all axes; orientation on all three axes
+      gives the target's rotation with the pivot unmoved, on one axis turns that axis onto
+      the target's; scale per axis
+- [x] Under Wine on `instances.max`: the leftmost box aligned to the rightmost (X Position,
+      Center to Center) lands on exactly its extent (x 738..819); the dialog is titled
+      "Align Selection (Box07)"
+- [ ] On Windows: every option combination; a group as target and as selection; undo
+- [ ] Unverified: the dialog's layout (from memory), R3's live preview and Apply button
+      (not built), its rule for one or two orientation axes, the pick prompt
 
 ## Step 10.1 verification
 - [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)

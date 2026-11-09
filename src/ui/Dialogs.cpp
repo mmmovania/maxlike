@@ -409,6 +409,69 @@ ArrayChoice ShowArrayDialog(HWND parent) {
     return c;
 }
 
+namespace {
+constexpr WORD kAlPos = 701, kAlCur = 704, kAlTgt = 708, kAlOri = 712, kAlScale = 715;
+struct AlignState { AlignChoice* c; };
+INT_PTR CALLBACK AlignProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* st = reinterpret_cast<AlignState*>(GetWindowLongPtrW(dlg, DWLP_USER));
+    switch (msg) {
+    case WM_INITDIALOG:
+        SetWindowLongPtrW(dlg, DWLP_USER, lp);
+        CheckRadioButton(dlg, kAlCur, kAlCur + 3, kAlCur + 1);    // Center
+        CheckRadioButton(dlg, kAlTgt, kAlTgt + 3, kAlTgt + 1);
+        return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wp) == IDOK) {
+            AlignChoice& c = *st->c;
+            for (int i = 0; i < 3; ++i) {
+                c.position[i] = IsDlgButtonChecked(dlg, kAlPos + i) == BST_CHECKED;
+                c.orientation[i] = IsDlgButtonChecked(dlg, kAlOri + i) == BST_CHECKED;
+                c.scale[i] = IsDlgButtonChecked(dlg, kAlScale + i) == BST_CHECKED;
+            }
+            for (int i = 0; i < 4; ++i) {
+                if (IsDlgButtonChecked(dlg, kAlCur + i) == BST_CHECKED) c.current = i;
+                if (IsDlgButtonChecked(dlg, kAlTgt + i) == BST_CHECKED) c.target = i;
+            }
+            c.ok = true;
+            EndDialog(dlg, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDCANCEL) { EndDialog(dlg, IDCANCEL); return TRUE; }
+        break;
+    }
+    return FALSE;
+}
+} // namespace
+
+AlignChoice ShowAlignDialog(HWND parent, const std::wstring& targetName) {
+    const std::wstring title = L"Align Selection (" + targetName + L")";
+    Template t(title.c_str(), 190, 176);
+    t.Add(L"Button", L"Align Position (World):", 0xFFFF, BS_GROUPBOX, 5, 3, 180, 84);
+    const wchar_t* axes[3] = {L"X Position", L"Y Position", L"Z Position"};
+    for (int i = 0; i < 3; ++i)
+        t.Add(L"Button", axes[i], static_cast<WORD>(kAlPos + i), BS_AUTOCHECKBOX | WS_TABSTOP, static_cast<short>(12 + 58 * i), 14, 55, 10);
+    t.Add(L"Static", L"Current Object:", 0xFFFF, SS_LEFT, 12, 28, 80, 8);
+    t.Add(L"Static", L"Target Object:", 0xFFFF, SS_LEFT, 100, 28, 80, 8);
+    const wchar_t* points[4] = {L"Minimum", L"Center", L"Pivot Point", L"Maximum"};
+    for (int i = 0; i < 4; ++i) {
+        t.Add(L"Button", points[i], static_cast<WORD>(kAlCur + i), BS_AUTORADIOBUTTON | (i == 0 ? WS_GROUP | WS_TABSTOP : 0), 14, static_cast<short>(38 + 11 * i), 70, 10);
+        t.Add(L"Button", points[i], static_cast<WORD>(kAlTgt + i), BS_AUTORADIOBUTTON | (i == 0 ? WS_GROUP | WS_TABSTOP : 0), 102, static_cast<short>(38 + 11 * i), 70, 10);
+    }
+    t.Add(L"Button", L"Align Orientation (Local):", 0xFFFF, BS_GROUPBOX, 5, 90, 180, 26);
+    t.Add(L"Button", L"Match Scale:", 0xFFFF, BS_GROUPBOX, 5, 119, 180, 26);
+    const wchar_t* axis[3] = {L"X Axis", L"Y Axis", L"Z Axis"};
+    for (int i = 0; i < 3; ++i) {
+        t.Add(L"Button", axis[i], static_cast<WORD>(kAlOri + i), BS_AUTOCHECKBOX | WS_TABSTOP | (i == 0 ? WS_GROUP : 0), static_cast<short>(12 + 58 * i), 101, 50, 10);
+        t.Add(L"Button", axis[i], static_cast<WORD>(kAlScale + i), BS_AUTOCHECKBOX | WS_TABSTOP | (i == 0 ? WS_GROUP : 0), static_cast<short>(12 + 58 * i), 130, 50, 10);
+    }
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP, 79, 155, 50, 14);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 135, 155, 50, 14);
+    AlignChoice c;
+    AlignState st{&c};
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, AlignProc, reinterpret_cast<LPARAM>(&st));
+    return c;
+}
+
 std::wstring AskName(HWND parent, const std::wstring& title, const std::wstring& label, const std::wstring& suggested) {
     // The Detach dialog's mechanics with a plain name field: reuse its procedure's IDs.
     Template t(title.c_str(), 160, 46);

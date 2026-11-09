@@ -21,6 +21,23 @@ struct ArrayStep {
 };
 math::Mat4 ArrayStepMatrix(const ArrayStep& step, const move::Frame& frame, const math::Vec3& centre);
 
+// Tools > Align (Phase 10.2): the current object's chosen point (its world bounding box's
+// minimum, centre or maximum, or its pivot) moved onto the target's on each chosen world
+// axis; optionally its orientation matched to the target's on chosen local axes (all
+// three: the same rotation; one or two: the smallest turn bringing the first chosen axis
+// onto the target's), and its scale matched on chosen axes. Groups use their members'
+// bounds. NOTE: R3's exact rules for partial orientation are from memory.
+enum class AlignPoint { Minimum, Center, Pivot, Maximum };
+struct AlignOptions {
+    bool position[3] = {false, false, false};
+    AlignPoint current = AlignPoint::Center, target = AlignPoint::Center;
+    bool orientation[3] = {false, false, false};
+    bool scale[3] = {false, false, false};
+};
+// The world bounding box of a node (its own mesh, or a group's members); false if none.
+bool WorldBounds(const Node& node, math::Vec3& lo, math::Vec3& hi);
+PRS Aligned(Node& node, const Node& target, const AlignOptions& options);
+
 // A node's PRS once `worldChange` is applied to its world matrix (the node is unchanged).
 PRS Changed(Node& node, const math::Mat4& worldChange);
 

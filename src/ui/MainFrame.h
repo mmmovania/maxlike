@@ -124,6 +124,7 @@ private:
     bool weldTargetMode_ = false;                      // Edit Mesh > Weld > Target pressed
     ui::TypeInDialog typeIn_;                          // Tools > Transform Type-In (F12)
     bool attachPick_ = false;                          // Group > Attach: the next click picks the group
+    bool alignPick_ = false;                           // Tools > Align: the next click picks the target
     void UpdateTypeIn();                         // File > Summary Info's Description (NOTE: not saved yet)
 
     // Regions, in the order of FrameLayout.
