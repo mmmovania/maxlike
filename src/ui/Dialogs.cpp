@@ -166,7 +166,51 @@ INT_PTR CALLBACK SummaryProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
 std::wstring Mb(double bytes) { wchar_t b[32]; std::swprintf(b, 32, L"%.1fM", bytes / (1024.0 * 1024.0)); return b; }
 
+// ---- Detach -------------------------------------------------------------------------------
+
+constexpr WORD kDetachName = 301, kToElement = 302, kAsClone = 303;
+struct DetachState { DetachChoice* choice; std::wstring suggested; };
+
+INT_PTR CALLBACK DetachProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* st = reinterpret_cast<DetachState*>(GetWindowLongPtrW(dlg, DWLP_USER));
+    switch (msg) {
+    case WM_INITDIALOG:
+        SetWindowLongPtrW(dlg, DWLP_USER, lp);
+        st = reinterpret_cast<DetachState*>(lp);
+        SetDlgItemTextW(dlg, kDetachName, st->suggested.c_str());
+        EnableWindow(GetDlgItem(dlg, kToElement), FALSE);   // maxlike keeps one object per mesh
+        return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wp) == IDOK) {
+            wchar_t name[256] = L"";
+            GetDlgItemTextW(dlg, kDetachName, name, 256);
+            st->choice->ok = true;
+            st->choice->name = name;
+            st->choice->asClone = IsDlgButtonChecked(dlg, kAsClone) == BST_CHECKED;
+            EndDialog(dlg, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDCANCEL) { EndDialog(dlg, IDCANCEL); return TRUE; }
+        break;
+    }
+    return FALSE;
+}
+
 } // namespace
+
+DetachChoice ShowDetachDialog(HWND parent, const std::wstring& suggestedName) {
+    Template t(L"Detach", 160, 70);
+    t.Add(L"Static", L"Detach as:", 0xFFFF, SS_LEFT, 7, 9, 36, 9);
+    t.Add(L"Edit", L"", kDetachName, ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 45, 7, 108, 12);
+    t.Add(L"Button", L"Detach To Element", kToElement, BS_AUTOCHECKBOX | WS_TABSTOP, 7, 24, 90, 10);
+    t.Add(L"Button", L"Detach As Clone", kAsClone, BS_AUTOCHECKBOX | WS_TABSTOP, 7, 36, 90, 10);
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP, 46, 50, 50, 14);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 103, 50, 50, 14);
+    DetachChoice choice;
+    DetachState st{&choice, suggestedName};
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, DetachProc, reinterpret_cast<LPARAM>(&st));
+    return choice;
+}
 
 CloneChoice ShowCloneDialog(HWND parent, const std::wstring& suggestedName, bool singleObject) {
     Template t(L"Clone Options", 150, 104);

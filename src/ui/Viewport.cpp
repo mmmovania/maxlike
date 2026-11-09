@@ -945,6 +945,15 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (vertexEditing_.on && vertexEditing_.weldTarget && vertexEditing_.level == 0 && onWeldTarget) {
+            // Weld > Target: press on a vertex; where it is released decides the target.
+            const EditedMeshView v = EditedView();
+            const std::vector<uint32_t> hits = SubObjectsAt(v, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, nullptr);
+            if (!hits.empty()) {
+                weldDragging_ = true;
+                weldFrom_ = hits[0];
+                SetCapture(Hwnd());
+            }
         } else if (vertexEditing_.on && onVertexSelect) {
             // Vertex or Face level: with a transform tool, pressing on a vertex (a face)
             // drags the selection (selecting it first); otherwise a click or region selects.
@@ -1046,6 +1055,19 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_LBUTTONUP:
+        if (weldDragging_) {
+            // Released within the "pixels" threshold of another vertex: weld into it
+            // (NOTE: R3 shows the vertex following the cursor while dragging; not here).
+            weldDragging_ = false;
+            ReleaseCapture();
+            EditedMeshView v = EditedView();
+            for (size_t i = 0; i < v.pixels.size(); ++i)
+                if (v.vertexMap[i] == weldFrom_) v.pixels[i] = {-1e9, -1e9};    // not its own target
+            const double tolerance = vertexEditing_.mod->Params().Int(scene::EditMeshModifier::kWeldTargetPixels, 4);
+            const int hit = view::PickNearestPoint(v.pixels, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, tolerance);
+            if (hit >= 0 && onWeldTarget) onWeldTarget(weldFrom_, v.vertexMap[static_cast<size_t>(hit)]);
+            return 0;
+        }
         if (moving_) {
             moving_ = false;
             ReleaseCapture();

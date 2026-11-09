@@ -31,8 +31,11 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
 - [x] **9.6** Edit Mesh: Hide / Unhide All (vertices' markers, or faces left out of the
       output) and Weld Selected (within the threshold, at the average; collapsed faces go);
       one undo step each; kept in `.mlk` files and clones
-- [ ] Edit Mesh: Weld Target, Detach, Create, the other Edit Geometry buttons; Rotate and
-      Scale at sub-object level; Soft Selection
+- [x] **9.7** Edit Mesh: Weld > Target (drag a vertex onto another within the pixels
+      threshold; the target stays) and Detach (the selected faces as a new Editable Mesh in
+      place, or as a clone), each one undo step
+- [ ] Edit Mesh: Create, the other Edit Geometry buttons; Rotate and Scale at sub-object
+      level; Soft Selection
 - [ ] Transform Type-In (Tools menu; `scene::move::EulerXYZDegrees` exists since 6.4d)
 - [ ] Reference coordinate systems other than View (World, Local, Screen) and transform
       centres other than each pivot
@@ -62,6 +65,26 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.7 verification
+- [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)
+- [x] `test_edit_mesh`: Weld Target merges one vertex into another, which stays put, and
+      cannot weld twice or into itself; Extract gives the top's two faces as a compact
+      4-vertex mesh at the top's height with smoothing and material IDs, and leaves out
+      faces already deleted
+- [x] Under Wine on `box.max`: Detach of the top polygon gives 2 objects (Select All),
+      undone to 1; Weld > Target, dragging a back top corner onto the other, merges them
+      (the Perspective view shows the top collapsed to a triangle)
+- [x] Found while testing: the mouse-up code for the weld drag had been inserted inside the
+      `if (moving_)` block (the `case` has no brace of its own), so it never ran; found with
+      temporary debug output along the chain, moved to the start of the case. Also: the
+      Target button lies below the panel's edge until scrolled; the test collapses the
+      Selection rollout instead (mouse-wheel delivery on the test display is unreliable)
+- [ ] On Windows: Weld > Target (incl. the button reached by scrolling); Detach and
+      Detach As Clone; undo
+- [ ] Unverified: the Detach dialog (from memory), R3 showing the dragged vertex during
+      Weld Target, the prompt for Target mode, whether a detached object keeps the
+      original's parent (here: top level, same world placement)
 
 ## Step 9.6 verification
 - [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)

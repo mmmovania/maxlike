@@ -144,6 +144,12 @@ public:
     State AfterWelding(const Mesh& input, double threshold, size_t* merged) const;
     const std::vector<std::pair<uint32_t, uint32_t>>& Welds() const { return welds_; }
 
+    // Phase 9.7. Weld Target: vertex `from` welded into `to` (which stays where it is).
+    State AfterWeldingTarget(uint32_t from, uint32_t to) const;
+    // Detach: the faces `inputFaces` of the output, as a separate compact mesh (vertices
+    // renumbered, smoothing, material IDs and edges kept).
+    Mesh Extract(const Mesh& input, const std::vector<uint32_t>& inputFaces) const;
+
 private:
     size_t expected_;
     std::vector<Move> moves_;

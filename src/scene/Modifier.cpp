@@ -203,6 +203,34 @@ EditMeshModifier::State EditMeshModifier::AfterWelding(const Mesh& input, double
     return s;
 }
 
+EditMeshModifier::State EditMeshModifier::AfterWeldingTarget(uint32_t from, uint32_t to) const {
+    State s = GetState();
+    if (from == to) return s;
+    for (const auto& w : welds_) if (w.first == from || w.first == to) return s;   // already merged away
+    if (Contains(deletedVerts_, from) || Contains(deletedVerts_, to)) return s;
+    s.welds.push_back({from, to});
+    s.selectedVertices = Without(s.selectedVertices, {from});
+    return s;
+}
+
+Mesh EditMeshModifier::Extract(const Mesh& input, const std::vector<uint32_t>& inputFaces) const {
+    std::vector<uint32_t> faceMap;
+    const Mesh out = Edited(input, nullptr, &faceMap);
+    const std::vector<uint32_t> wanted = SortedUnique(inputFaces);
+    Mesh part;
+    std::vector<uint32_t> newIndex(out.verts.size(), UINT32_MAX);
+    for (size_t f = 0; f < out.faces.size(); ++f) {
+        if (!Contains(wanted, faceMap[f])) continue;
+        Face face = out.faces[f];
+        for (uint32_t& v : face.v) {
+            if (newIndex[v] == UINT32_MAX) { newIndex[v] = static_cast<uint32_t>(part.verts.size()); part.verts.push_back(out.verts[v]); }
+            v = newIndex[v];
+        }
+        part.faces.push_back(face);
+    }
+    return part;
+}
+
 EditMeshModifier::State EditMeshModifier::AfterDeletingVertices() const {
     State s = GetState();
     std::vector<uint32_t> verts = s.deletedVertices;

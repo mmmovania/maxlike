@@ -94,9 +94,11 @@ public:
         size_t upTo = 0;
         std::shared_ptr<scene::EditMeshModifier> mod;
         int level = 0;                            // 0 Vertex, 1 Edge, 2 Face, 3 Polygon, 4 Element
+        bool weldTarget = false;                  // Weld > Target (9.7): drag a vertex onto another
     };
     void SetVertexEditing(const VertexEditing& v) { vertexEditing_ = v; InvalidateRect(Hwnd(), nullptr, FALSE); }
     std::function<void(const std::vector<uint32_t>& vertices, bool region, bool ctrl, bool alt)> onVertexSelect;
+    std::function<void(uint32_t from, uint32_t to)> onWeldTarget;   // input vertex indices
 
     // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
     void SetTransformTool(bool on) { transformTool_ = on; }
@@ -159,6 +161,8 @@ private:
     bool moving_ = false;                // dragging the selection with a transform tool
     bool transformTool_ = false;
     VertexEditing vertexEditing_;
+    bool weldDragging_ = false;
+    uint32_t weldFrom_ = 0;
     // Edit Mesh's output as the views see it, with the maps back to its input indices
     // (what Edit Mesh stores), screen positions, depths, and the faces turned away.
     struct EditedMeshView {

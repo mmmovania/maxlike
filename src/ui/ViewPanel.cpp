@@ -59,6 +59,7 @@ bool ViewPanel::Create(HWND parent) {
         v.onVertexSelect = [this](const std::vector<uint32_t>& vs, bool region, bool ctrl, bool alt) {
             if (onVertexSelect) onVertexSelect(vs, region, ctrl, alt);
         };
+        v.onWeldTarget = [this](uint32_t from, uint32_t to) { if (onWeldTarget) onWeldTarget(from, to); };
         v.navMode = [this] { return mode_; };
         v.onExitMode = [this] { SetNavMode(NavMode::None); };
         v.onZoomAll = [this, i](double factor) {

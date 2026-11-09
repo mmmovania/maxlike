@@ -157,6 +157,30 @@ int main() {
         CHECK(math::Length(out.verts[0] - (box.verts[0] + math::Vec3{0.025, 0, 0})) < 1e-9);
         CHECK(undo.Undo(sc) && shared->Welds().empty() && shared->Edited(box).verts.size() == 8);
     }
+    // Weld Target (9.7): vertex 1 welded into vertex 0, which stays put; twice is once.
+    {
+        scene::EditMeshModifier em(8, {});
+        em.SetSelectedVertices({1});
+        const auto s = em.AfterWeldingTarget(1, 0);
+        CHECK(s.welds.size() == 1 && s.welds[0] == std::make_pair(1u, 0u) && s.selectedVertices.empty());
+        em.SetState(s);
+        const scene::Mesh out = em.Edited(box);
+        CHECK(out.verts.size() == 7 && out.verts[0].x == box.verts[0].x && out.verts[0].y == box.verts[0].y);
+        CHECK(em.AfterWeldingTarget(1, 0).welds.size() == 1 && em.AfterWeldingTarget(2, 2).welds.size() == 1);
+    }
+    // Detach (9.7): the top's two faces as a compact mesh of 4 vertices, in place.
+    {
+        scene::EditMeshModifier em(8, {});
+        const scene::Mesh part = em.Extract(box, {2, 3});
+        CHECK(part.FaceCount() == 2 && part.verts.size() == 4);
+        for (const auto& v : part.verts) CHECK(v.z == box.verts[4].z);         // the top's height
+        for (const auto& f : part.faces) for (uint32_t v : f.v) CHECK(v < 4);
+        CHECK(part.faces[0].smoothing == box.faces[2].smoothing && part.faces[0].materialId == box.faces[2].materialId);
+        // Faces already deleted cannot be detached.
+        em.SetSelectedFaces({2});
+        em.SetState(em.AfterDeletingFaces(box, false));
+        CHECK(em.Extract(box, {2, 3}).FaceCount() == 1);
+    }
     // Picking edges: the nearest segment within the tolerance; rectangles take segments
     // with an end inside.
     {

@@ -232,6 +232,7 @@ void MainFrame::UpdateModifyPanel() {
     }
     commandPanel_.SetModifyInfo(info);
     // The views draw and pick vertices while an Edit Mesh is at Vertex level.
+    if (!VertexEditingMod() || subLevel_ != 0) weldTargetMode_ = false;   // Weld > Target ends with the level
     ui::Viewport::VertexEditing editing;
     if (const auto em = VertexEditingMod()) {
         editing.on = true;
@@ -239,6 +240,7 @@ void MainFrame::UpdateModifyPanel() {
         editing.stack = stack;
         editing.mod = em;
         editing.level = subLevel_;
+        editing.weldTarget = weldTargetMode_ && subLevel_ == 0;
         const auto& mods = stack->Modifiers();
         for (size_t i = 0; i < mods.size(); ++i)
             if (mods[i] == em) editing.upTo = i + 1;
@@ -685,6 +687,42 @@ bool MainFrame::CreateRegions() {
     };
     commandPanel_.onRolloutButton = [this](const std::wstring& label) {
         if (label == L"Delete" && VertexEditingMod()) { DeleteSelection(); return; }   // Edit Geometry > Delete
+        // Weld > Target (9.7): a mode at Vertex level, until pressed again.
+        if (label == L"Target" && VertexEditingMod()) {
+            if (subLevel_ != 0) { statusArea_.SetPrompt(1, L"Weld works at Vertex level"); return; }
+            weldTargetMode_ = !weldTargetMode_;
+            statusArea_.SetPrompt(1, weldTargetMode_ ? L"Drag a vertex onto another vertex to weld it" : L"");   // NOTE: R3's prompt unverified
+            UpdateModifyPanel();
+            return;
+        }
+        // Detach (9.7): the selected faces become a new Editable Mesh in the same place.
+        if (label == L"Detach") {
+            const auto mod = VertexEditingMod();
+            if (!mod || subLevel_ < 2) { statusArea_.SetPrompt(1, L"Detach works on faces"); return; }
+            if (mod->SelectedFaces().empty()) return;
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            if (!node) return;
+            const std::string suggested = scene_.UniqueName("Object");
+            const ui::DetachChoice choice = ui::ShowDetachDialog(Hwnd(), std::wstring(suggested.begin(), suggested.end()));
+            if (!choice.ok) return;
+            std::string name;
+            for (wchar_t c : choice.name) name += static_cast<char>(c < 0x80 ? c : '?');
+            if (name.empty()) name = suggested;
+            const scene::Mesh input = EditMeshInput(mod);
+            scene::Node* part = scene_.CreateNode(name);
+            part->SetObject(std::make_shared<scene::MeshObject>(mod->Extract(input, mod->SelectedFaces())));
+            part->SetWireColor(node->WireColor());
+            scene::Scene::SetWorldMatrix(part, node->WorldMatrix());   // top level, exactly where the faces were
+            part->ObjectOffset() = node->ObjectOffset();
+            auto macro = std::make_unique<scene::MacroCommand>("Detach");
+            macro->Add(std::make_unique<scene::AddedNodesCommand>("Detach", std::vector<scene::Node::Id>{part->GetId()}));
+            if (!choice.asClone) macro->Add(std::make_unique<scene::EditMeshStateCommand>("Detach", mod, mod->AfterDeletingFaces(input, true)));
+            undo_.Execute(std::move(macro), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
         // Selection > Hide / Unhide All, and Edit Geometry > Weld > Selected (Phase 9.6).
         if (const auto mod = VertexEditingMod(); mod && (label == L"Hide" || label == L"Unhide All" || label == L"Selected")) {
             const bool faces = subLevel_ >= 1;
@@ -720,6 +758,15 @@ bool MainFrame::CreateRegions() {
         viewports_.Redraw();
     };
     // Vertex selection: a click replaces it (Ctrl adds, Alt removes); one "Select" step.
+    viewports_.onWeldTarget = [this](uint32_t from, uint32_t to) {
+        const auto mod = VertexEditingMod();
+        if (!mod) return;
+        const auto after = mod->AfterWeldingTarget(from, to);
+        if (after.welds.size() == mod->Welds().size()) return;      // nothing to weld
+        undo_.Execute(std::make_unique<scene::EditMeshStateCommand>("Weld", mod, after), scene_);
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
     viewports_.onVertexSelect = [this](const std::vector<uint32_t>& verts, bool, bool ctrl, bool alt) {
         const auto mod = VertexEditingMod();
         if (!mod) return;
