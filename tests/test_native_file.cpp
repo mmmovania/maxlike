@@ -103,11 +103,21 @@ int main() {
         auto d = std::dynamic_pointer_cast<scene::DerivedObject>(original.Nodes()[0]->GetObject());
         auto em = d ? std::dynamic_pointer_cast<scene::EditMeshModifier>(d->Modifiers()[0]) : nullptr;
         CHECK(em != nullptr);
-        if (em) em->SetSelectedVertices({4, 6});
+        if (em) {
+            em->SetSelectedVertices({4, 6});
+            auto st = em->GetState();                       // Phase 9.4: faces selected and deleted
+            st.selectedFaces = {0, 1};
+            st.deletedFaces = {2, 3};
+            st.deletedVertices = {7};
+            em->SetState(st);
+        }
         CHECK(io::LoadNative(io::SaveNative(original), loaded, error));
         auto d2 = std::dynamic_pointer_cast<scene::DerivedObject>(loaded.Nodes()[0]->GetObject());
         auto em2 = d2 ? std::dynamic_pointer_cast<scene::EditMeshModifier>(d2->Modifiers()[0]) : nullptr;
         CHECK(em2 && em2->SelectedVertices() == (std::vector<uint32_t>{4, 6}) && em2->Moves().size() == 4 && em2->ExpectedVertexCount() == 8);
+        CHECK(em2 && em2->SelectedFaces() == (std::vector<uint32_t>{0, 1}) && em2->DeletedFaces() == (std::vector<uint32_t>{2, 3}) &&
+              em2->DeletedVertices() == std::vector<uint32_t>{7});
+        CHECK(em2 && d2 && d2->Evaluate().verts.size() == 7);   // the deletion applies after loading
     }
     // Damaged or foreign input: an error, nothing created.
     {

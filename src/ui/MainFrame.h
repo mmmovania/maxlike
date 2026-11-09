@@ -87,7 +87,8 @@ private:
         std::vector<uint32_t> vertices;
         math::Mat4 worldToObject;
     } vertexMove_;
-    std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices
+    std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices or faces
+    scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it
     void UpdateModifyPanel();
     // The selected object's stack: its Derived Object (or null) and the entry shown.
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;

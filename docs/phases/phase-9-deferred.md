@@ -20,8 +20,12 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
 - [x] **9.3** Edit > Clone (Copy / Instance, one undo step, clones selected); File > Save
       Selected; File > Summary Info (laid out after R3.1's dialog)
 - [ ] Views: Undo / Redo view change, Save / Restore Active View, Show Home Grid
-- [ ] Edit Mesh: Face / Edge / Polygon / Element selection; Delete, Hide / Unhide All,
-      Weld, Detach, Create; Rotate and Scale at vertex level; Soft Selection
+- [x] **9.4** Edit Mesh at Face level (click picks the front-most face, rectangles cross;
+      Ignore Backfacing honoured; Move drags the faces' vertices) and Delete (faces, with
+      or without isolated vertices; vertices with their faces), one undo step each; kept
+      in `.mlk` files and clones
+- [ ] Edit Mesh: Edge / Polygon / Element selection; Hide / Unhide All, Weld, Detach,
+      Create; Rotate and Scale at sub-object level; Soft Selection
 - [ ] Transform Type-In (Tools menu; `scene::move::EulerXYZDegrees` exists since 6.4d)
 - [ ] Reference coordinate systems other than View (World, Local, Screen) and transform
       centres other than each pivot
@@ -51,6 +55,25 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.4 verification
+- [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)
+- [x] `test_edit_mesh`: deleting a box's top faces leaves 10 with maps skipping them;
+      isolated vertices only where no face remains; deleting a vertex takes its faces and
+      renumbers, and a move recorded by input index still lands right; selection then
+      delete undone in single steps; face picking prefers the nearer face and honours
+      skipping; rectangles take faces with a vertex inside. `test_native_file` and
+      `test_clone`: face selections and deletions survive saving, loading and copying
+- [x] Under Wine on `box.max`: Edit Mesh, Face level, a click inside the box in the Top
+      view selects the top face (front-most; drawn red); Delete asks, Yes removes it (the
+      Perspective view shows the box open); Ctrl+Z restores face and selection
+- [x] Found while testing: a fixed start-up wait captured a blank window after the display
+      restarted; the script now waits for the window and for the box to be drawn
+- [ ] On Windows: Face selection by click, region, Ctrl / Alt; Move at Face level; Delete
+      both ways and at Vertex level; Ignore Backfacing
+- [ ] Unverified: R3's face-level display (red triangle edges here), its "Delete isolated
+      vertices?" question, the "N Faces Selected" wording, its rule for faces in a region,
+      and how faces seen exactly edge-on are drawn
 
 ## Step 9.3 verification
 - [x] Builds warning-free; thirty-five test programs pass (MinGW + Wine)

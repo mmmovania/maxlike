@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <vector>
 
 // Picking objects in a viewport from their projected outlines (window pixels).
@@ -29,5 +30,16 @@ std::vector<int> PickRegion(const std::vector<std::vector<Segment2>>& outlines,
 struct Point2 { double x, y; };
 int PickNearestPoint(const std::vector<Point2>& points, double x, double y, double tolerance);
 std::vector<int> PickPointsInRect(const std::vector<Point2>& points, double x0, double y0, double x1, double y1);
+
+// Faces (Edit Mesh at Face level, Phase 9.4): the front-most face whose screen triangle
+// contains (x, y), comparing the depth interpolated at that point (smaller = nearer); faces
+// with skip[i] set are ignored ("Ignore Backfacing"). -1 if none.
+struct Tri { uint32_t a, b, c; };
+int PickFace(const std::vector<Point2>& points, const std::vector<double>& depth, const std::vector<Tri>& faces,
+             const std::vector<bool>* skip, double x, double y);
+// Faces with any vertex inside the rectangle (crossing, R3's default region; NOTE:
+// R3's exact rule for faces is unverified).
+std::vector<int> PickFacesInRect(const std::vector<Point2>& points, const std::vector<Tri>& faces,
+                                 const std::vector<bool>* skip, double x0, double y0, double x1, double y1);
 
 } // namespace view

@@ -171,6 +171,22 @@ private:
     std::vector<uint32_t> before_, after_;
 };
 
+// Any Edit Mesh change as one undo step (Phase 9.4: face selection, Delete): the whole
+// editing state before and after.
+class EditMeshStateCommand : public Command {
+public:
+    EditMeshStateCommand(std::string name, std::shared_ptr<EditMeshModifier> mod, EditMeshModifier::State after)
+        : name_(std::move(name)), mod_(std::move(mod)), after_(std::move(after)) {}
+    std::string Name() const override { return name_; }
+    void Do(Scene&) override { before_ = mod_->GetState(); mod_->SetState(after_); }
+    void Undo(Scene&) override { mod_->SetState(before_); }
+
+private:
+    std::string name_;
+    std::shared_ptr<EditMeshModifier> mod_;
+    EditMeshModifier::State before_, after_;
+};
+
 // Edit Mesh at Vertex level: replace the vertex moves (one drag of the selection).
 class MoveVerticesCommand : public Command {
 public:

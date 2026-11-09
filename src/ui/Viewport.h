@@ -93,6 +93,7 @@ public:
         std::shared_ptr<scene::DerivedObject> stack;
         size_t upTo = 0;
         std::shared_ptr<scene::EditMeshModifier> mod;
+        int level = 0;                            // 0 Vertex, 2 Face (Phase 9.4)
     };
     void SetVertexEditing(const VertexEditing& v) { vertexEditing_ = v; InvalidateRect(Hwnd(), nullptr, FALSE); }
     std::function<void(const std::vector<uint32_t>& vertices, bool region, bool ctrl, bool alt)> onVertexSelect;
@@ -158,6 +159,18 @@ private:
     bool moving_ = false;                // dragging the selection with a transform tool
     bool transformTool_ = false;
     VertexEditing vertexEditing_;
+    // Edit Mesh's output as the views see it, with the maps back to its input indices
+    // (what Edit Mesh stores), screen positions, depths, and the faces turned away.
+    struct EditedMeshView {
+        scene::Mesh mesh;
+        std::vector<uint32_t> vertexMap, faceMap;
+        std::vector<view::Point2> pixels;
+        std::vector<double> depth;
+        std::vector<math::Vec3> world;
+        std::vector<view::Tri> tris;
+        std::vector<bool> backFacing;
+    };
+    EditedMeshView EditedView() const;
     std::vector<view::Point2> VertexPixels(std::vector<math::Vec3>* world = nullptr) const;
     void DrawVertices(int width, int height);
     POINT moveStart_{};

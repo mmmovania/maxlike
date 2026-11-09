@@ -94,10 +94,36 @@ public:
     static std::vector<Move> AddToMoves(const std::vector<Move>& moves, const std::vector<uint32_t>& vertices,
                                         const math::Vec3& delta);
 
+    // Phase 9.4: Face level and Delete. Every index refers to the mesh coming into Edit
+    // Mesh, so edits never renumber each other; Edited() gives the output with maps back.
+    const std::vector<uint32_t>& SelectedFaces() const { return selectedFaces_; }
+    void SetSelectedFaces(std::vector<uint32_t> f);
+    const std::vector<uint32_t>& DeletedFaces() const { return deletedFaces_; }
+    const std::vector<uint32_t>& DeletedVertices() const { return deletedVerts_; }
+    void SetDeleted(std::vector<uint32_t> faces, std::vector<uint32_t> vertices);
+
+    // Everything Edit Mesh has edited, as one value (for undo, copies and files).
+    struct State {
+        std::vector<Move> moves;
+        std::vector<uint32_t> selectedVertices, selectedFaces, deletedFaces, deletedVertices;
+    };
+    State GetState() const { return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_}; }
+    void SetState(const State& s);
+
+    // The input with the moves applied, then the deleted faces and vertices removed (a
+    // face goes with any of its vertices). vertexMap / faceMap: output index -> input index.
+    Mesh Edited(const Mesh& input, std::vector<uint32_t>* vertexMap = nullptr, std::vector<uint32_t>* faceMap = nullptr) const;
+
+    // The state after Delete: the selected faces (and, if `isolated`, vertices no remaining
+    // face uses), or the selected vertices with their faces. Selections lose what is deleted.
+    State AfterDeletingFaces(const Mesh& input, bool isolated) const;
+    State AfterDeletingVertices() const;
+
 private:
     size_t expected_;
     std::vector<Move> moves_;
     std::vector<uint32_t> selected_;
+    std::vector<uint32_t> selectedFaces_, deletedFaces_, deletedVerts_;
 };
 
 // A base object with a stack of modifiers. Index 0 is the bottom of the stack (applied

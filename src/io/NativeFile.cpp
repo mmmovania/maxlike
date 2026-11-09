@@ -145,10 +145,13 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                                         w.Put(static_cast<uint32_t>(em->Moves().size()));
                                         for (const auto& mv : em->Moves()) { w.Put(mv.vertex); w.Put(mv.delta.x); w.Put(mv.delta.y); w.Put(mv.delta.z); }
                                     });
-                                    w.Leaf(0x0052, [&] {
-                                        w.Put(static_cast<uint32_t>(em->SelectedVertices().size()));
-                                        for (uint32_t v : em->SelectedVertices()) w.Put(v);
-                                    });
+                                    auto list = [&](uint16_t type, const std::vector<uint32_t>& v) {
+                                        w.Leaf(type, [&] { w.Put(static_cast<uint32_t>(v.size())); for (uint32_t x : v) w.Put(x); });
+                                    };
+                                    list(0x0052, em->SelectedVertices());
+                                    list(0x0053, em->SelectedFaces());      // Phase 9.4
+                                    list(0x0054, em->DeletedFaces());
+                                    list(0x0055, em->DeletedVertices());
                                 }
                             });
                     });
@@ -271,13 +274,21 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
                             if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 28 > k->end - p) return bad("damaged Edit Mesh moves");
                             for (uint32_t i = 0; i < n; ++i) { scene::EditMeshModifier::Move mv; Get(d, p, k->end, mv.vertex); Get(d, p, k->end, mv.delta.x); Get(d, p, k->end, mv.delta.y); Get(d, p, k->end, mv.delta.z); moves.push_back(mv); }
                         }
-                        if (const Chunk* k = Child(mk, 0x0052)) {
+                        auto readList = [&](uint16_t type, std::vector<uint32_t>& out) {
+                            const Chunk* k = Child(mk, type);
+                            if (!k) return true;
                             size_t p = k->begin; uint32_t n = 0;
-                            if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 4 > k->end - p) return bad("damaged Edit Mesh selection");
-                            for (uint32_t i = 0; i < n; ++i) { uint32_t v = 0; Get(d, p, k->end, v); selected.push_back(v); }
-                        }
+                            if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 4 > k->end - p) return false;
+                            for (uint32_t i = 0; i < n; ++i) { uint32_t v = 0; Get(d, p, k->end, v); out.push_back(v); }
+                            return true;
+                        };
+                        scene::EditMeshModifier::State state;
+                        if (!readList(0x0052, selected) || !readList(0x0053, state.selectedFaces) ||
+                            !readList(0x0054, state.deletedFaces) || !readList(0x0055, state.deletedVertices)) return bad("damaged Edit Mesh data");
                         auto em = std::make_shared<scene::EditMeshModifier>(static_cast<size_t>(expected), moves);
-                        em->SetSelectedVertices(selected);
+                        state.moves = moves;
+                        state.selectedVertices = selected;
+                        em->SetState(state);
                         mod = em;
                     } else {
                         return bad("an unknown modifier \"" + cls + "\"");

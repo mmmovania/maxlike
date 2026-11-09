@@ -18,7 +18,7 @@ std::shared_ptr<Modifier> CopyModifier(const std::shared_ptr<Modifier>& m) {
     std::shared_ptr<Modifier> out;
     if (auto em = std::dynamic_pointer_cast<EditMeshModifier>(m)) {
         auto copy = std::make_shared<EditMeshModifier>(em->ExpectedVertexCount(), em->Moves());
-        copy->SetSelectedVertices(em->SelectedVertices());
+        copy->SetState(em->GetState());
         out = copy;
     } else if (std::dynamic_pointer_cast<BendModifier>(m)) out = std::make_shared<BendModifier>();
     else if (std::dynamic_pointer_cast<TaperModifier>(m)) out = std::make_shared<TaperModifier>();

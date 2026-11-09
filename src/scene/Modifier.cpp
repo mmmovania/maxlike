@@ -1,6 +1,7 @@
 #include "scene/Modifier.h"
 #include <cmath>
 #include <algorithm>
+#include <cstdint>
 
 namespace scene {
 
@@ -23,9 +24,102 @@ EditMeshModifier::EditMeshModifier(size_t expectedVertexCount, std::vector<Move>
 
 bool EditMeshModifier::Apply(Mesh& mesh) const {
     if (mesh.verts.size() != expected_) return false;   // indices would point elsewhere
-    for (const Move& m : moves_)
-        if (m.vertex < mesh.verts.size()) mesh.verts[m.vertex] = mesh.verts[m.vertex] + m.delta;
+    mesh = Edited(mesh);
     return true;
+}
+
+namespace {
+std::vector<uint32_t> SortedUnique(std::vector<uint32_t> v) {
+    std::sort(v.begin(), v.end());
+    v.erase(std::unique(v.begin(), v.end()), v.end());
+    return v;
+}
+bool Contains(const std::vector<uint32_t>& sorted, uint32_t x) { return std::binary_search(sorted.begin(), sorted.end(), x); }
+std::vector<uint32_t> Without(const std::vector<uint32_t>& v, const std::vector<uint32_t>& removedSorted) {
+    std::vector<uint32_t> out;
+    for (uint32_t x : v) if (!Contains(removedSorted, x)) out.push_back(x);
+    return out;
+}
+} // namespace
+
+void EditMeshModifier::SetSelectedFaces(std::vector<uint32_t> f) { selectedFaces_ = SortedUnique(std::move(f)); }
+
+void EditMeshModifier::SetDeleted(std::vector<uint32_t> faces, std::vector<uint32_t> vertices) {
+    deletedFaces_ = SortedUnique(std::move(faces));
+    deletedVerts_ = SortedUnique(std::move(vertices));
+}
+
+void EditMeshModifier::SetState(const State& s) {
+    moves_ = s.moves;
+    SetSelectedVertices(s.selectedVertices);
+    SetSelectedFaces(s.selectedFaces);
+    SetDeleted(s.deletedFaces, s.deletedVertices);
+}
+
+Mesh EditMeshModifier::Edited(const Mesh& input, std::vector<uint32_t>* vertexMap, std::vector<uint32_t>* faceMap) const {
+    Mesh m = input;
+    for (const Move& mv : moves_)
+        if (mv.vertex < m.verts.size()) m.verts[mv.vertex] = m.verts[mv.vertex] + mv.delta;
+    if (vertexMap) vertexMap->clear();
+    if (faceMap) faceMap->clear();
+    if (deletedFaces_.empty() && deletedVerts_.empty()) {
+        if (vertexMap) for (uint32_t i = 0; i < m.verts.size(); ++i) vertexMap->push_back(i);
+        if (faceMap) for (uint32_t i = 0; i < m.faces.size(); ++i) faceMap->push_back(i);
+        return m;
+    }
+    std::vector<uint32_t> newIndex(m.verts.size(), UINT32_MAX);
+    Mesh out;
+    for (uint32_t i = 0; i < m.verts.size(); ++i)
+        if (!Contains(deletedVerts_, i)) {
+            newIndex[i] = static_cast<uint32_t>(out.verts.size());
+            out.verts.push_back(m.verts[i]);
+            if (vertexMap) vertexMap->push_back(i);
+        }
+    for (uint32_t f = 0; f < m.faces.size(); ++f) {
+        if (Contains(deletedFaces_, f)) continue;
+        Face face = m.faces[f];
+        bool keep = true;
+        for (uint32_t& v : face.v) {
+            if (v >= newIndex.size() || newIndex[v] == UINT32_MAX) { keep = false; break; }
+            v = newIndex[v];
+        }
+        if (!keep) continue;                                  // a face goes with its vertices
+        out.faces.push_back(face);
+        if (faceMap) faceMap->push_back(f);
+    }
+    return out;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterDeletingFaces(const Mesh& input, bool isolated) const {
+    State s = GetState();
+    std::vector<uint32_t> faces = s.deletedFaces;
+    faces.insert(faces.end(), selectedFaces_.begin(), selectedFaces_.end());
+    s.deletedFaces = SortedUnique(faces);
+    if (isolated) {
+        // Vertices no remaining face uses.
+        std::vector<char> used(input.verts.size(), 0);
+        for (uint32_t f = 0; f < input.faces.size(); ++f) {
+            if (Contains(s.deletedFaces, f)) continue;
+            bool gone = false;
+            for (uint32_t v : input.faces[f].v) gone = gone || Contains(s.deletedVertices, v);
+            if (gone) continue;
+            for (uint32_t v : input.faces[f].v) if (v < used.size()) used[v] = 1;
+        }
+        for (uint32_t v = 0; v < used.size(); ++v) if (!used[v]) s.deletedVertices.push_back(v);
+        s.deletedVertices = SortedUnique(s.deletedVertices);
+    }
+    s.selectedFaces.clear();
+    s.selectedVertices = Without(s.selectedVertices, s.deletedVertices);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterDeletingVertices() const {
+    State s = GetState();
+    std::vector<uint32_t> verts = s.deletedVertices;
+    verts.insert(verts.end(), selected_.begin(), selected_.end());
+    s.deletedVertices = SortedUnique(verts);
+    s.selectedVertices.clear();
+    return s;
 }
 
 Mesh DerivedObject::Evaluate() const { return EvaluateUpTo(modifiers_.size()); }

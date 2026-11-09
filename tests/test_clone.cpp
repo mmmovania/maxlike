@@ -45,6 +45,13 @@ int main() {
         CHECK(d && d0 && d->Base() != d0->Base() && d->Modifiers()[0] != d0->Modifiers()[0]);
         if (d) d->Base()->Params().Set(scene::BoxObject::kHeight, 99);
         CHECK(d0 && d0->Base()->Params().Float(scene::BoxObject::kHeight) != 99);
+        // Edit Mesh's whole state comes along (Phase 9.4: deleted faces).
+        auto em0 = std::dynamic_pointer_cast<scene::EditMeshModifier>(d0->Modifiers()[0]);
+        auto st = em0->GetState();
+        st.deletedFaces = {0, 1};
+        em0->SetState(st);
+        const auto copy2 = scene::CopyObject(original);
+        CHECK(copy2->Evaluate().FaceCount() == original->Evaluate().FaceCount() && original->Evaluate().FaceCount() == 10);
     }
     // Clone a parent and its child: Sphere02 and Box02, Box02 under Sphere02, exactly on the
     // originals; the child alone keeps the original parent.

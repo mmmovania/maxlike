@@ -105,6 +105,25 @@ void MainFrame::ShowCoordinates(const math::Vec3& v) {
 }
 
 void MainFrame::DeleteSelection() {
+    // In Edit Mesh at Vertex or Face level, Delete removes the selected vertices (with their
+    // faces) or faces, as one undo step.
+    if (const auto mod = VertexEditingMod()) {
+        scene::EditMeshModifier::State after;
+        if (subLevel_ == 2) {
+            if (mod->SelectedFaces().empty()) return;
+            // NOTE: R3's question and its wording are unverified.
+            const int answer = MessageBoxW(Hwnd(), L"Delete isolated vertices?", kAppName, MB_YESNOCANCEL | MB_ICONQUESTION);
+            if (answer == IDCANCEL) return;
+            after = mod->AfterDeletingFaces(EditMeshInput(mod), answer == IDYES);
+        } else {
+            if (mod->SelectedVertices().empty()) return;
+            after = mod->AfterDeletingVertices();
+        }
+        undo_.Execute(std::make_unique<scene::EditMeshStateCommand>("Delete", mod, after), scene_);
+        UpdateModifyPanel();
+        viewports_.Redraw();
+        return;
+    }
     if (scene_.Selection().empty()) return;
     undo_.Execute(std::make_unique<scene::DeleteSelectionCommand>(), scene_);
     UpdateSelectionStatus();
@@ -150,8 +169,18 @@ std::shared_ptr<scene::DerivedObject> MainFrame::SelectedStack(scene::Node** nod
 }
 
 std::shared_ptr<scene::EditMeshModifier> MainFrame::VertexEditingMod() const {
-    if (!subObject_ || subLevel_ != 0 || !commandPanel_.InModify()) return nullptr;
+    if (!subObject_ || (subLevel_ != 0 && subLevel_ != 2) || !commandPanel_.InModify()) return nullptr;
     return std::dynamic_pointer_cast<scene::EditMeshModifier>(CurrentModifier());
+}
+
+scene::Mesh MainFrame::EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
+    scene::Node* node = nullptr;
+    const auto stack = const_cast<MainFrame*>(this)->SelectedStack(&node);
+    if (!stack) return {};
+    const auto& mods = stack->Modifiers();
+    for (size_t i = 0; i < mods.size(); ++i)
+        if (mods[i] == mod) return stack->EvaluateUpTo(i);
+    return {};
 }
 
 std::shared_ptr<scene::Modifier> MainFrame::CurrentModifier() const {
@@ -191,7 +220,9 @@ void MainFrame::UpdateModifyPanel() {
         info.subObjectLevel = subLevel_;
         if (const auto em = std::dynamic_pointer_cast<scene::EditMeshModifier>(mod)) {
             // NOTE: R3's wording for one vertex or none is unverified.
-            info.selectionText = std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected";
+            // NOTE: R3's wording at Face level is unverified.
+            info.selectionText = subLevel_ == 2 ? std::to_wstring(em->SelectedFaces().size()) + L" Faces Selected"
+                                                : std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected";
         }
     }
     commandPanel_.SetModifyInfo(info);
@@ -202,6 +233,7 @@ void MainFrame::UpdateModifyPanel() {
         editing.node = node->GetId();
         editing.stack = stack;
         editing.mod = em;
+        editing.level = subLevel_;
         const auto& mods = stack->Modifiers();
         for (size_t i = 0; i < mods.size(); ++i)
             if (mods[i] == em) editing.upTo = i + 1;
@@ -647,12 +679,13 @@ bool MainFrame::CreateRegions() {
         viewports_.Redraw();
     };
     commandPanel_.onRolloutButton = [this](const std::wstring& label) {
+        if (label == L"Delete" && VertexEditingMod()) { DeleteSelection(); return; }   // Edit Geometry > Delete
         statusArea_.SetPrompt(1, label + L" (not implemented yet)");
     };
     commandPanel_.onSubObjectLevel = [this](int level) {
         subLevel_ = level;
         subObject_ = true;                                      // a level icon or the combo enters sub-object mode
-        if (level != 0) statusArea_.SetPrompt(1, L"This sub-object level is not implemented yet");
+        if (level != 0 && level != 2) statusArea_.SetPrompt(1, L"This sub-object level is not implemented yet");
         UpdateModifyPanel();
         viewports_.Redraw();
     };
@@ -660,15 +693,20 @@ bool MainFrame::CreateRegions() {
     viewports_.onVertexSelect = [this](const std::vector<uint32_t>& verts, bool, bool ctrl, bool alt) {
         const auto mod = VertexEditingMod();
         if (!mod) return;
-        std::vector<uint32_t> next = mod->SelectedVertices();
+        // Vertices or faces (Edit Mesh's input indices), by the level shown.
+        const bool faces = subLevel_ == 2;
+        const std::vector<uint32_t>& current = faces ? mod->SelectedFaces() : mod->SelectedVertices();
+        std::vector<uint32_t> next = current;
         if (ctrl) next.insert(next.end(), verts.begin(), verts.end());
         else if (alt) next.erase(std::remove_if(next.begin(), next.end(), [&](uint32_t v) {
                                      return std::find(verts.begin(), verts.end(), v) != verts.end(); }), next.end());
         else next = verts;
         std::sort(next.begin(), next.end());
         next.erase(std::unique(next.begin(), next.end()), next.end());
-        if (next == mod->SelectedVertices()) return;
-        undo_.Execute(std::make_unique<scene::SelectVerticesCommand>(mod, next), scene_);
+        if (next == current) return;
+        auto state = mod->GetState();
+        (faces ? state.selectedFaces : state.selectedVertices) = next;
+        undo_.Execute(std::make_unique<scene::EditMeshStateCommand>("Select", mod, state), scene_);
         UpdateModifyPanel();
         viewports_.Redraw();
     };
@@ -698,7 +736,17 @@ bool MainFrame::CreateRegions() {
         if (const auto mod = VertexEditingMod()) {
             scene::Node* node = nullptr;
             SelectedStack(&node);
-            vertexMove_ = {true, mod, mod->Moves(), mod->SelectedVertices(), math::AffineInverse(node->ObjectMatrix())};
+            // At Face level the selected faces' vertices move (each once).
+            std::vector<uint32_t> verts = mod->SelectedVertices();
+            if (subLevel_ == 2) {
+                verts.clear();
+                const scene::Mesh input = EditMeshInput(mod);
+                for (uint32_t f : mod->SelectedFaces())
+                    if (f < input.faces.size()) verts.insert(verts.end(), input.faces[f].v, input.faces[f].v + 3);
+                std::sort(verts.begin(), verts.end());
+                verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
+            }
+            vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix())};
             return;
         }
         for (scene::Node::Id id : scene_.Selection()) {

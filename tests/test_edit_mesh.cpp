@@ -1,0 +1,88 @@
+// Edit Mesh's Face level and Delete (Phase 9.4): deletions by input index with maps back,
+// undo of the whole state, and face picking.
+#include "scene/Modifier.h"
+#include "scene/Primitives.h"
+#include "scene/Undo.h"
+#include "view/Picking.h"
+#include <cstdio>
+
+static int failures = 0;
+#define CHECK(cond) do { if (!(cond)) { ++failures; std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); } } while (0)
+
+int main() {
+    scene::BoxObject boxObject(20, 20, 20);
+    const scene::Mesh box = boxObject.Evaluate();            // 8 vertices, 12 faces: bottom 0-1, top 2-3, ...
+    CHECK(box.verts.size() == 8 && box.FaceCount() == 12);
+    // Deleting the top's two faces: 10 faces left, the maps skip 2 and 3; vertices stay.
+    {
+        scene::EditMeshModifier em(8, {});
+        em.SetSelectedFaces({3, 2});
+        em.SetState(em.AfterDeletingFaces(box, false));
+        std::vector<uint32_t> vmap, fmap;
+        const scene::Mesh out = em.Edited(box, &vmap, &fmap);
+        CHECK(out.FaceCount() == 10 && out.verts.size() == 8 && fmap.size() == 10);
+        CHECK(fmap.size() == 10 && fmap[0] == 0 && fmap[1] == 1 && fmap[2] == 4);
+        CHECK(em.SelectedFaces().empty() && em.DeletedFaces() == (std::vector<uint32_t>{2, 3}));
+        scene::Mesh applied = box;
+        CHECK(em.Apply(applied) && applied.FaceCount() == 10);
+    }
+    // Deleting the top's faces with isolated vertices: none are isolated on a box (the
+    // top's corners still belong to the sides) ...
+    {
+        scene::EditMeshModifier em(8, {});
+        em.SetSelectedFaces({2, 3});
+        CHECK(em.AfterDeletingFaces(box, true).deletedVertices.empty());
+        // ... but after deleting every face touching vertex 7, it is.
+        std::vector<uint32_t> touching;
+        for (uint32_t f = 0; f < box.faces.size(); ++f)
+            for (uint32_t v : box.faces[f].v) if (v == 7) touching.push_back(f);
+        em.SetSelectedFaces(touching);
+        const auto s = em.AfterDeletingFaces(box, true);
+        CHECK(s.deletedVertices == std::vector<uint32_t>{7});
+    }
+    // Deleting a vertex takes its faces; the output is renumbered, the maps lead back, and
+    // a move recorded by input index still lands on the right vertex.
+    {
+        scene::EditMeshModifier em(8, {{6, {0, 0, 5}}});
+        em.SetSelectedVertices({0});
+        em.SetState(em.AfterDeletingVertices());
+        std::vector<uint32_t> vmap, fmap;
+        const scene::Mesh out = em.Edited(box, &vmap, &fmap);
+        CHECK(out.verts.size() == 7 && vmap[0] == 1 && vmap[6] == 7);
+        size_t touching0 = 0;
+        for (const auto& f : box.faces) touching0 += (f.v[0] == 0 || f.v[1] == 0 || f.v[2] == 0);
+        CHECK(out.FaceCount() == 12 - touching0);
+        CHECK(out.verts[5].z == box.verts[6].z + 5);           // input vertex 6 is output 5
+        for (const auto& f : out.faces) for (uint32_t v : f.v) CHECK(v < out.verts.size());
+        CHECK(em.SelectedVertices().empty());
+    }
+    // One undo step for any change: select, then delete, both undone exactly.
+    {
+        scene::Scene s;
+        scene::UndoStack undo;
+        auto em = std::make_shared<scene::EditMeshModifier>(8, std::vector<scene::EditMeshModifier::Move>{});
+        auto st = em->GetState();
+        st.selectedFaces = {2, 3};
+        undo.Execute(std::make_unique<scene::EditMeshStateCommand>("Select", em, st), s);
+        undo.Execute(std::make_unique<scene::EditMeshStateCommand>("Delete", em, em->AfterDeletingFaces(box, false)), s);
+        CHECK(em->DeletedFaces().size() == 2 && em->SelectedFaces().empty() && undo.UndoName() == "Delete");
+        CHECK(undo.Undo(s) && em->DeletedFaces().empty() && em->SelectedFaces() == (std::vector<uint32_t>{2, 3}));
+        CHECK(undo.Undo(s) && em->SelectedFaces().empty());
+        CHECK(undo.Redo(s) && undo.Redo(s) && em->DeletedFaces().size() == 2);
+    }
+    // Picking a face: two overlapping triangles, the nearer one wins; skipped faces are
+    // ignored; a rectangle takes faces with a vertex inside.
+    {
+        const std::vector<view::Point2> p = {{0, 0}, {10, 0}, {0, 10}, {0, 0}, {10, 0}, {0, 10}, {20, 20}};
+        const std::vector<double> depth = {5, 5, 5, 2, 2, 2, 1};
+        const std::vector<view::Tri> faces = {{0, 1, 2}, {3, 4, 5}};
+        CHECK(view::PickFace(p, depth, faces, nullptr, 2, 2) == 1);
+        const std::vector<bool> skip = {false, true};
+        CHECK(view::PickFace(p, depth, faces, &skip, 2, 2) == 0);
+        CHECK(view::PickFace(p, depth, faces, nullptr, 9, 9) == -1);
+        CHECK(view::PickFacesInRect(p, faces, nullptr, -1, -1, 1, 1).size() == 2);
+        CHECK(view::PickFacesInRect(p, faces, &skip, 9, -1, 11, 1) == std::vector<int>{0});
+    }
+    if (failures == 0) std::printf("edit mesh: all tests passed\n");
+    return failures == 0 ? 0 : 1;
+}

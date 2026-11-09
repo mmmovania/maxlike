@@ -390,37 +390,80 @@ void Viewport::DrawTransformAxes(int w, int h) {
     flush();
 }
 
-// The Edit Mesh's vertices in window pixels (and world space), as the mesh is at the Edit
-// Mesh's level. Points behind the camera are placed far outside the view.
-std::vector<view::Point2> Viewport::VertexPixels(std::vector<math::Vec3>* worldOut) const {
-    std::vector<view::Point2> out;
-    if (!vertexEditing_.on || !vertexEditing_.stack || !scene_) return out;
+// Edit Mesh's output (its input from the stack below it, edited), in window pixels and
+// world space, with the maps back to input indices. Points behind the camera are placed far
+// outside the view. If the input no longer matches what Edit Mesh recorded, its edits do
+// not apply: the input is shown with identity maps.
+Viewport::EditedMeshView Viewport::EditedView() const {
+    EditedMeshView v;
+    if (!vertexEditing_.on || !vertexEditing_.stack || !vertexEditing_.mod || !scene_ || vertexEditing_.upTo == 0) return v;
     const scene::Node* node = scene_->FindById(vertexEditing_.node);
-    if (!node) return out;
-    const scene::Mesh mesh = vertexEditing_.stack->EvaluateUpTo(vertexEditing_.upTo);
-    const math::Mat4 m = node->ObjectMatrix();
-    for (const auto& v : mesh.verts) {
-        const math::Vec3 w = math::TransformPoint(m, v);
-        if (worldOut) worldOut->push_back(w);
-        double x = 0, y = 0, depth = 0;
-        if (WorldToWindow(w, x, y, depth)) out.push_back({x, y});
-        else out.push_back({-1e9, -1e9});
+    if (!node) return v;
+    const scene::Mesh input = vertexEditing_.stack->EvaluateUpTo(vertexEditing_.upTo - 1);
+    if (input.verts.size() == vertexEditing_.mod->ExpectedVertexCount()) {
+        v.mesh = vertexEditing_.mod->Edited(input, &v.vertexMap, &v.faceMap);
+    } else {
+        v.mesh = input;
+        for (uint32_t i = 0; i < input.verts.size(); ++i) v.vertexMap.push_back(i);
+        for (uint32_t i = 0; i < input.faces.size(); ++i) v.faceMap.push_back(i);
     }
-    return out;
+    const math::Mat4 m = node->ObjectMatrix();
+    for (const auto& p : v.mesh.verts) {
+        const math::Vec3 w = math::TransformPoint(m, p);
+        v.world.push_back(w);
+        double x = 0, y = 0, depth = 0;
+        if (WorldToWindow(w, x, y, depth)) { v.pixels.push_back({x, y}); v.depth.push_back(depth); }
+        else { v.pixels.push_back({-1e9, -1e9}); v.depth.push_back(1e300); }
+    }
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    const bool persp = type_ == ViewType::Perspective;
+    const math::Vec3 eye = persp ? perspective_.Eye() : math::Vec3{0, 0, 0};
+    const math::Vec3 outOfScreen = math::Cross(right, up);
+    for (const scene::Face& f : v.mesh.faces) {
+        v.tris.push_back({f.v[0], f.v[1], f.v[2]});
+        const math::Vec3 n = math::Cross(v.world[f.v[1]] - v.world[f.v[0]], v.world[f.v[2]] - v.world[f.v[0]]);
+        v.backFacing.push_back(math::Dot(n, persp ? eye - v.world[f.v[0]] : outOfScreen) <= 0);
+    }
+    return v;
+}
+
+std::vector<view::Point2> Viewport::VertexPixels(std::vector<math::Vec3>* worldOut) const {
+    EditedMeshView v = EditedView();
+    if (worldOut) *worldOut = v.world;
+    return v.pixels;
 }
 
 // Measured (r3.1-modify-editmesh-vertex.png): each vertex a 5-px diamond (rows 1, 3, 5, 3,
 // 1) centred on its pixel, red #FF0000 when selected, blue #0000FF otherwise; red is
 // drawn last.
 void Viewport::DrawVertices(int w, int h) {
-    const auto pts = VertexPixels();
+    const EditedMeshView v = EditedView();
+    const auto& pts = v.pixels;
     if (pts.empty()) return;
-    const auto& sel = vertexEditing_.mod ? vertexEditing_.mod->SelectedVertices() : std::vector<uint32_t>{};
     const math::Mat4 toClip = math::PixelToClip(w, h);
+    if (vertexEditing_.level == 2) {
+        // Face level: the selected faces' edges in red (NOTE: R3's face-level look is
+        // unverified; vertices are not shown).
+        const auto& sel = vertexEditing_.mod->SelectedFaces();
+        std::vector<gl::LineRenderer::Line> lines;
+        for (size_t f = 0; f < v.tris.size(); ++f) {
+            if (!std::binary_search(sel.begin(), sel.end(), v.faceMap[f])) continue;
+            const uint32_t idx[3] = {v.tris[f].a, v.tris[f].b, v.tris[f].c};
+            for (int k = 0; k < 3; ++k) {
+                const view::Point2 &a = pts[idx[k]], &b = pts[idx[(k + 1) % 3]];
+                lines.push_back({static_cast<float>(a.x), static_cast<float>(a.y), 0.0f,
+                                 static_cast<float>(b.x), static_cast<float>(b.y), 0.0f});
+            }
+        }
+        if (!lines.empty()) lines_->Draw(lines, toClip, 1.0f, 0.0f, 0.0f);
+        return;
+    }
+    const auto& sel = vertexEditing_.mod->SelectedVertices();
     for (int pass = 0; pass < 2; ++pass) {
         std::vector<float> run;
         for (size_t i = 0; i < pts.size(); ++i) {
-            const bool selected = std::binary_search(sel.begin(), sel.end(), static_cast<uint32_t>(i));
+            const bool selected = std::binary_search(sel.begin(), sel.end(), v.vertexMap[i]);
             if (selected != (pass == 1)) continue;
             const int cx = static_cast<int>(std::floor(pts[i].x)), cy = static_cast<int>(std::floor(pts[i].y));
             static const int kHalf[5] = {0, 1, 2, 1, 0};
@@ -820,18 +863,28 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
         } else if (vertexEditing_.on && onVertexSelect) {
-            // Vertex level: with a transform tool, pressing on a vertex drags the vertex
-            // selection (selecting that vertex first); otherwise a click or region selects.
-            std::vector<math::Vec3> world;
-            const auto pts = VertexPixels(&world);
-            const int hit = view::PickNearestPoint(pts, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, 4.0);
+            // Vertex or Face level: with a transform tool, pressing on a vertex (a face)
+            // drags the selection (selecting it first); otherwise a click or region selects.
+            // Selections are reported as Edit Mesh's input indices.
+            const EditedMeshView v = EditedView();
+            const double px = GET_X_LPARAM(lp) + 0.5, py = GET_Y_LPARAM(lp) + 0.5;
+            const bool faces = vertexEditing_.level == 2;
+            const bool ignoreBack = vertexEditing_.mod->Params().Int(scene::EditMeshModifier::kIgnoreBackfacing, 0) != 0;
+            const int hit = faces ? view::PickFace(v.pixels, v.depth, v.tris, ignoreBack ? &v.backFacing : nullptr, px, py)
+                                  : view::PickNearestPoint(v.pixels, px, py, 4.0);
             if (transformTool_ && hit >= 0) {
-                const auto& sel = vertexEditing_.mod->SelectedVertices();
-                if (!std::binary_search(sel.begin(), sel.end(), static_cast<uint32_t>(hit)))
-                    onVertexSelect({static_cast<uint32_t>(hit)}, false, (wp & MK_CONTROL) != 0, false);
+                const uint32_t input = faces ? v.faceMap[static_cast<size_t>(hit)] : v.vertexMap[static_cast<size_t>(hit)];
+                const auto& sel = faces ? vertexEditing_.mod->SelectedFaces() : vertexEditing_.mod->SelectedVertices();
+                if (!std::binary_search(sel.begin(), sel.end(), input))
+                    onVertexSelect({input}, false, (wp & MK_CONTROL) != 0, false);
                 moving_ = true;
                 moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-                movePivot_ = world[static_cast<size_t>(hit)];
+                if (faces) {
+                    const view::Tri& t = v.tris[static_cast<size_t>(hit)];
+                    movePivot_ = (v.world[t.a] + v.world[t.b] + v.world[t.c]) * (1.0 / 3.0);
+                } else {
+                    movePivot_ = v.world[static_cast<size_t>(hit)];
+                }
                 SetCapture(Hwnd());
                 if (onMoveBegin) onMoveBegin();
             } else {
@@ -930,14 +983,20 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             ReleaseCapture();
             const bool ctrl = (wp & MK_CONTROL) != 0, alt = GetKeyState(VK_MENU) < 0;
             if (vertexEditing_.on && onVertexSelect) {
-                const auto pts = VertexPixels();
-                std::vector<uint32_t> verts;
+                const EditedMeshView v = EditedView();
+                const bool faces = vertexEditing_.level == 2;
+                const bool ignoreBack = vertexEditing_.mod->Params().Int(scene::EditMeshModifier::kIgnoreBackfacing, 0) != 0;
+                const std::vector<bool>* skip = ignoreBack ? &v.backFacing : nullptr;
+                const auto& map = faces ? v.faceMap : v.vertexMap;
+                std::vector<uint32_t> verts;      // input indices (vertices or faces)
                 if (region) {
-                    for (int i : view::PickPointsInRect(pts, dragStart_.x + 0.5, dragStart_.y + 0.5, dragLast_.x + 0.5, dragLast_.y + 0.5))
-                        verts.push_back(static_cast<uint32_t>(i));
+                    const double x0 = dragStart_.x + 0.5, y0 = dragStart_.y + 0.5, x1 = dragLast_.x + 0.5, y1 = dragLast_.y + 0.5;
+                    for (int i : faces ? view::PickFacesInRect(v.pixels, v.tris, skip, x0, y0, x1, y1) : view::PickPointsInRect(v.pixels, x0, y0, x1, y1))
+                        verts.push_back(map[static_cast<size_t>(i)]);
                 } else {
-                    const int hit = view::PickNearestPoint(pts, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, 4.0);
-                    if (hit >= 0) verts.push_back(static_cast<uint32_t>(hit));
+                    const double px = GET_X_LPARAM(lp) + 0.5, py = GET_Y_LPARAM(lp) + 0.5;
+                    const int hit = faces ? view::PickFace(v.pixels, v.depth, v.tris, skip, px, py) : view::PickNearestPoint(v.pixels, px, py, 4.0);
+                    if (hit >= 0) verts.push_back(map[static_cast<size_t>(hit)]);
                 }
                 InvalidateRect(Hwnd(), nullptr, FALSE);
                 onVertexSelect(verts, region, ctrl, alt);
