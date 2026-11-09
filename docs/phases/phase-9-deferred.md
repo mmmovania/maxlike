@@ -36,7 +36,9 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
       place, or as a clone), each one undo step
 - [ ] Edit Mesh: Create, the other Edit Geometry buttons; Rotate and Scale at sub-object
       level; Soft Selection
-- [ ] Transform Type-In (Tools menu; `scene::move::EulerXYZDegrees` exists since 6.4d)
+- [x] **9.8** Transform Type-In (Tools menu, F12): a modeless floater, Absolute:World and
+      Offset:World X / Y / Z for Move, Rotate (degrees) and Scale (percent); Enter applies
+      the group typed in, one undo step; follows the tool and the selection
 - [ ] Reference coordinate systems other than View (World, Local, Screen) and transform
       centres other than each pivot
 - [ ] The modifier gizmo in the views
@@ -65,6 +67,23 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.8 verification
+- [x] Builds warning-free; thirty-seven test programs pass (MinGW + Wine)
+- [x] `test_typein`: Euler angles round-trip; on parent_child_link's linked box, measured in
+      the world: Absolute Move lands the pivot on the typed point, Absolute Rotate reads
+      back as typed with the pivot still, the box's X axis turned 45°; Offset Move adds,
+      Offset Rotate 90° about Z turns the pivot around the given point, Offset Scale 200
+      doubles; computing a result leaves the node unchanged
+- [x] Under Wine on `box.max`: Move tool, F12 opens "Move Transform Type-In"; Absolute X
+      = 50 moves the box exactly 50 units (298 px at 5.97 px per unit); Ctrl+Z restores
+- [x] Found: the new dialog header included the scene headers before <windows.h>, so
+      windows.h's GetObject macro renamed Node::GetObject inconsistently; <windows.h> now
+      comes first, as the project's convention requires
+- [ ] On Windows: Rotate and Scale, offsets, several objects, Tab between fields
+- [ ] Unverified: the floater's layout and its spinners (plain fields here), "Offset:World"
+      vs R3's "Offset:Screen" in some views, Absolute Scale's frame (the object's own here),
+      scaling a selection about a common centre
 
 ## Step 9.7 verification
 - [x] Builds warning-free; thirty-six test programs pass (MinGW + Wine)

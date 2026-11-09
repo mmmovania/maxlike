@@ -1,4 +1,5 @@
 #include "ui/MainFrame.h"
+#include "scene/TypeIn.h"
 #include "scene/MeshTopology.h"
 #include "scene/Summary.h"
 #include "scene/Clone.h"
@@ -73,7 +74,21 @@ bool MainFrame::Create() {
 // the new object's colour until the next one is started).
 // Verified wording: "None Selected" (reference) and "1 Object Selected" (Box screenshot);
 // the plural form is assumed.
+// The Transform Type-In follows the tool and the selection: Absolute shows the one selected
+// object's values; with the Select tool nothing can be typed.
+void MainFrame::UpdateTypeIn() {
+    if (!typeIn_.IsOpen()) return;
+    const bool transform = tool_ != Tool::Select;
+    const auto tool = tool_ == Tool::Rotate ? scene::typein::Tool::Rotate : tool_ == Tool::Scale ? scene::typein::Tool::Scale : scene::typein::Tool::Move;
+    const wchar_t* name = tool_ == Tool::Rotate ? L"Rotate" : tool_ == Tool::Scale ? L"Scale" : L"Move";
+    const auto& sel = scene_.Selection();
+    const scene::Node* one = sel.size() == 1 ? scene_.FindById(sel[0]) : nullptr;
+    typeIn_.Update(name, transform && !sel.empty(), one != nullptr, one ? scene::typein::Absolute(tool, *one) : math::Vec3{0, 0, 0},
+                   tool == scene::typein::Tool::Scale ? 100.0 : 0.0);
+}
+
 void MainFrame::UpdateSelectionStatus() {
+    UpdateTypeIn();
     const size_t n = scene_.Selection().size();
     std::wstring text = n == 0 ? L"None Selected"
                       : n == 1 ? L"1 Object Selected"
@@ -86,6 +101,7 @@ void MainFrame::UpdateSelectionStatus() {
 // the same pattern (NOTE: unverified). Move, Rotate and Scale all show the Move gizmo
 // (R3.1, confirmed by the project owner); Select and creation show the tripod.
 void MainFrame::UpdateTransformDisplay() {
+    UpdateTypeIn();
     viewports_.SetAxesDisplay(tool_ != Tool::Select && showGizmo_ ? view::AxesStyle::MoveGizmo : view::AxesStyle::Tripod, constraint_);
     viewports_.SetTransformTool(tool_ != Tool::Select);
     if (commandPanel_.CreateType() >= 0) return;   // creation keeps its own prompt
@@ -892,6 +908,26 @@ bool MainFrame::CreateRegions() {
         if (ok) ShowCoordinates(p);
         else statusArea_.SetCoordinates(L"", L"", L"");
     };
+    typeIn_.onApply = [this](bool absolute, const math::Vec3& value) {
+        if (tool_ == Tool::Select || scene_.Selection().empty()) return;
+        const auto tool = tool_ == Tool::Rotate ? scene::typein::Tool::Rotate : tool_ == Tool::Scale ? scene::typein::Tool::Scale : scene::typein::Tool::Move;
+        const std::string name = tool_ == Tool::Rotate ? "Rotate" : tool_ == Tool::Scale ? "Scale" : "Move";
+        // Rotate offsets turn the selection about its centre (the pivots' average).
+        math::Vec3 pivot{0, 0, 0};
+        for (scene::Node::Id id : scene_.Selection())
+            if (const scene::Node* n = scene_.FindById(id)) pivot = pivot + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
+        pivot = pivot * (1.0 / static_cast<double>(scene_.Selection().size()));
+        auto macro = std::make_unique<scene::MacroCommand>(name);
+        for (scene::Node::Id id : scene_.Selection()) {
+            scene::Node* n = scene_.FindById(id);
+            if (!n || (absolute && scene_.Selection().size() != 1)) continue;
+            const scene::PRS after = absolute ? scene::typein::WithAbsolute(tool, *n, value) : scene::typein::WithOffset(tool, *n, value, pivot);
+            macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), after, name));
+        }
+        undo_.Execute(std::move(macro), scene_);
+        viewports_.Redraw();
+        UpdateTypeIn();                                 // Absolute shows the result; Offset returns to neutral
+    };
     viewports_.onMoveEnd = [this](bool commit) {
         if (vertexMove_.active) {
             vertexMove_.active = false;
@@ -1132,6 +1168,7 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "views.redraw_all") { viewports_.Redraw(); return; }
+    if (command == "tools.transform_type_in") { typeIn_.Show(Hwnd()); UpdateTypeIn(); return; }
     if (command == "edit.clone") {
         const auto selection = scene_.Selection();
         if (selection.empty()) return;

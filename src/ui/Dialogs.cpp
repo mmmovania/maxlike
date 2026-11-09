@@ -1,4 +1,5 @@
 #include "ui/Dialogs.h"
+#include "win/App.h"
 #include <commctrl.h>
 #include <commdlg.h>
 #include <psapi.h>
@@ -197,6 +198,76 @@ INT_PTR CALLBACK DetachProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 } // namespace
+
+// ---- Transform Type-In ------------------------------------------------------------------
+
+namespace {
+constexpr WORD kAbsX = 401, kAbsY = 402, kAbsZ = 403, kOffX = 404, kOffY = 405, kOffZ = 406;
+std::wstring Num(double v) { wchar_t b[32]; std::swprintf(b, 32, L"%.3f", v); return b; }
+double Field(HWND dlg, WORD id) { wchar_t b[64] = L""; GetDlgItemTextW(dlg, id, b, 64); return _wtof(b); }
+} // namespace
+
+INT_PTR CALLBACK TypeInDialog::Proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* self = reinterpret_cast<TypeInDialog*>(GetWindowLongPtrW(dlg, DWLP_USER));
+    switch (msg) {
+    case WM_INITDIALOG:
+        SetWindowLongPtrW(dlg, DWLP_USER, lp);
+        return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wp) == IDOK && self) {
+            // Enter: the group whose field has the focus.
+            const int focus = GetDlgCtrlID(GetFocus());
+            const bool absolute = focus >= kAbsX && focus <= kAbsZ;
+            const WORD first = absolute ? kAbsX : kOffX;
+            const math::Vec3 v{Field(dlg, first), Field(dlg, static_cast<WORD>(first + 1)), Field(dlg, static_cast<WORD>(first + 2))};
+            if (self->onApply) self->onApply(absolute, v);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDCANCEL) { DestroyWindow(dlg); return TRUE; }
+        break;
+    case WM_CLOSE:
+        DestroyWindow(dlg);
+        return TRUE;
+    case WM_DESTROY:
+        if (self) self->hwnd_ = nullptr;
+        win::App::SetModelessDialog(nullptr);
+        break;
+    }
+    return FALSE;
+}
+
+void TypeInDialog::Show(HWND owner) {
+    if (IsOpen()) { SetForegroundWindow(hwnd_); return; }
+    Template t(L"Move Transform Type-In", 200, 62);
+    t.Add(L"Button", L"Absolute:World", 0xFFFF, BS_GROUPBOX, 4, 3, 94, 54);
+    t.Add(L"Button", L"Offset:World", 0xFFFF, BS_GROUPBOX, 102, 3, 94, 54);
+    const wchar_t* axes[3] = {L"X:", L"Y:", L"Z:"};
+    for (int i = 0; i < 3; ++i) {
+        const short y = static_cast<short>(14 + 13 * i);
+        t.Add(L"Static", axes[i], 0xFFFF, SS_RIGHT, 8, static_cast<short>(y + 2), 12, 8);
+        t.Add(L"Edit", L"", static_cast<WORD>(kAbsX + i), ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 23, y, 70, 11);
+        t.Add(L"Static", axes[i], 0xFFFF, SS_RIGHT, 106, static_cast<short>(y + 2), 12, 8);
+        t.Add(L"Edit", L"", static_cast<WORD>(kOffX + i), ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 121, y, 70, 11);
+    }
+    // Modeless: no OK button; Enter arrives as IDOK through IsDialogMessage.
+    hwnd_ = CreateDialogIndirectParamW(GetModuleHandleW(nullptr), t.Get(), owner, Proc, reinterpret_cast<LPARAM>(this));
+    win::App::SetModelessDialog(hwnd_);
+    ShowWindow(hwnd_, SW_SHOW);
+}
+
+void TypeInDialog::Update(const std::wstring& tool, bool enabled, bool absolute, const math::Vec3& value, double neutral) {
+    if (!IsOpen()) return;
+    SetWindowTextW(hwnd_, (tool + L" Transform Type-In").c_str());
+    neutral_ = neutral;
+    const double abs[3] = {value.x, value.y, value.z};
+    for (int i = 0; i < 3; ++i) {
+        const HWND a = GetDlgItem(hwnd_, kAbsX + i), o = GetDlgItem(hwnd_, kOffX + i);
+        EnableWindow(a, enabled && absolute);
+        EnableWindow(o, enabled);
+        if (GetFocus() != a) SetWindowTextW(a, enabled && absolute ? Num(abs[i]).c_str() : L"");
+        if (GetFocus() != o) SetWindowTextW(o, enabled ? Num(neutral).c_str() : L"");
+    }
+}
 
 DetachChoice ShowDetachDialog(HWND parent, const std::wstring& suggestedName) {
     Template t(L"Detach", 160, 70);

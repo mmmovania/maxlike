@@ -86,6 +86,9 @@ List`; R3 keeps them in 3dsmax.ini).
   is left out keeps its world position). `file.summary_info` shows R3's Summary Info
   dialog: scene and mesh totals, memory, the objects table, Description, Save to File...
   (step 9.3).
+- `tools.transform_type_in` (F12) opens the modeless Transform Type-In: Absolute:World
+  (one object) and Offset:World X / Y / Z for the active transform tool; Enter applies the
+  group typed in as one undoable step (step 9.8).
 - `file.save` writes the scene to its `.mlk` file, or asks for a name (Save As) if it has
   none or was opened from a `.max` file; `file.save_as` always asks (Phase 8, step 8.7).
   Saving marks the scene clean.

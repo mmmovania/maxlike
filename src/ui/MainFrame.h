@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/Dialogs.h"
 #include <map>
 #include "win/Window.h"
 #include "ui/CommandTable.h"
@@ -114,7 +115,9 @@ private:
     struct SavedView { bool saved = false; view::OrthoView ortho; view::PerspectiveView perspective; };
     std::map<int, SavedView> savedViews_;              // Views > Save Active ... View, per view type
     std::wstring description_;
-    bool weldTargetMode_ = false;                      // Edit Mesh > Weld > Target pressed                         // File > Summary Info's Description (NOTE: not saved yet)
+    bool weldTargetMode_ = false;                      // Edit Mesh > Weld > Target pressed
+    ui::TypeInDialog typeIn_;                          // Tools > Transform Type-In (F12)
+    void UpdateTypeIn();                         // File > Summary Info's Description (NOTE: not saved yet)
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;
