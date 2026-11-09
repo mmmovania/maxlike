@@ -174,6 +174,45 @@ int main() {
         for (size_t i = 0; same && i < a.verts.size(); ++i) same = math::Length(a.verts[i] - c.verts[i]) == 0;
         CHECK(same);
     }
+    // Views and the selection (Phase 10.4): every field round-trips exactly.
+    {
+        scene::Scene g, back, back2;
+        scene::Node* a = g.CreateNode("Box01");
+        a->SetObject(std::make_shared<scene::BoxObject>(1, 1, 1));
+        scene::Node* b = g.CreateNode("Box02");
+        b->SetObject(std::make_shared<scene::BoxObject>(1, 1, 1));
+        g.SetSelection({b->GetId()});
+        io::NativeViews v;
+        v.present = true;
+        v.active = 3;
+        const int types[4] = {6, 1, 5, 0};
+        for (int i = 0; i < 4; ++i) {
+            v.type[i] = types[i];
+            v.ortho[i].width = 123.5 + i;
+            v.ortho[i].centerU = -7.25 * i;
+            v.ortho[i].centerV = 3.125 + i;
+            v.perspective[i].target = {1.5 * i, -2.0, 0.5};
+            v.perspective[i].distance = 321.0 + i;
+            v.perspective[i].elevationDeg = 33.0 - i;
+            v.perspective[i].azimuthDeg = -45.0 + 10 * i;
+            v.perspective[i].fovDeg = 50.0;
+        }
+        std::string error;
+        io::NativeViews r;
+        CHECK(io::LoadNative(io::SaveNative(g, {a->GetId(), b->GetId()}, &v), back, error, &r));
+        CHECK(r.present && r.active == 3);
+        for (int i = 0; i < 4; ++i) {
+            CHECK(r.type[i] == types[i] && r.ortho[i].width == v.ortho[i].width && r.ortho[i].centerU == v.ortho[i].centerU &&
+                  r.ortho[i].centerV == v.ortho[i].centerV);
+            CHECK(r.perspective[i].target.x == v.perspective[i].target.x && r.perspective[i].distance == v.perspective[i].distance &&
+                  r.perspective[i].elevationDeg == v.perspective[i].elevationDeg && r.perspective[i].azimuthDeg == v.perspective[i].azimuthDeg &&
+                  r.perspective[i].fovDeg == v.perspective[i].fovDeg);
+        }
+        CHECK(back.Selection().size() == 1 && back.FindById(back.Selection()[0])->Name() == "Box02");
+        // Saved without views: none reported; the selection still comes back.
+        io::NativeViews none;
+        CHECK(io::LoadNative(io::SaveNative(g), back2, error, &none) && !none.present && back2.Selection().size() == 1);
+    }
     if (failures == 0) std::printf("native file: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

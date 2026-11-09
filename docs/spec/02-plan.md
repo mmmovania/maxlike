@@ -142,7 +142,7 @@ From Phase 9's inventory, still buildable without new evidence:
       group helper its members are linked to; selection and picking through groups (10.1).
 - [x] Tools > Align (10.2).
 - [x] The modifier gizmo (10.3).
-- [ ] Viewports and the selection in `.mlk` files.
+- [x] Viewports and the selection in `.mlk` files (10.4).
 - [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
       sub-object level; Soft Selection.
 - Waiting for R3.1 evidence (list B of the inventory): dialogs built from memory (New,

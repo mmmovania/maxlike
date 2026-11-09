@@ -111,6 +111,10 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene) {
 }
 
 std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<scene::Node::Id>& only) {
+    return SaveNative(scene, only, nullptr);
+}
+
+std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<scene::Node::Id>& only, const NativeViews* views) {
     std::vector<const scene::Node*> saved;
     for (const auto& n : scene.Nodes())
         if (std::find(only.begin(), only.end(), n->GetId()) != only.end()) saved.push_back(n.get());
@@ -213,10 +217,35 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                 PutPrs(w, 0x0006, n->ObjectOffset());
             });
     });
+    // The selection, among the saved nodes (Phase 10.4).
+    std::vector<int32_t> selected;
+    for (scene::Node::Id id : scene.Selection())
+        for (size_t i = 0; i < saved.size(); ++i)
+            if (saved[i]->GetId() == id) selected.push_back(static_cast<int32_t>(i));
+    if (!selected.empty())
+        w.Leaf(0x1400, [&] { w.Put(static_cast<uint32_t>(selected.size())); for (int32_t i : selected) w.Put(i); });
+    if (views && views->present)
+        w.Container(0x1300, [&] {
+            w.Leaf(0x1301, [&] { w.Put(static_cast<uint32_t>(views->active)); });
+            for (int i = 0; i < 4; ++i)
+                w.Container(0x1310, [&] {
+                    w.Leaf(0x0001, [&] { w.Put(static_cast<uint32_t>(views->type[i])); });
+                    w.Leaf(0x0002, [&] { w.Put(views->ortho[i].width); w.Put(views->ortho[i].centerU); w.Put(views->ortho[i].centerV); });
+                    w.Leaf(0x0003, [&] {
+                        const view::PerspectiveView& p = views->perspective[i];
+                        w.Put(p.target.x); w.Put(p.target.y); w.Put(p.target.z);
+                        w.Put(p.distance); w.Put(p.elevationDeg); w.Put(p.azimuthDeg); w.Put(p.fovDeg);
+                    });
+                });
+        });
     return w.bytes;
 }
 
 bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string& error) {
+    return LoadNative(d, scene, error, nullptr);
+}
+
+bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string& error, NativeViews* views) {
     if (!IsNativeFile(d)) { error = "not a maxlike scene file"; return false; }
     uint32_t version = 0;
     std::memcpy(&version, &d[8], 4);
@@ -356,6 +385,48 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
     for (const Pending& p : nodes)
         if (p.parent >= 0 && static_cast<size_t>(p.parent) < nodes.size()) scene.Link(p.node, nodes[static_cast<size_t>(p.parent)].node);
     for (const Pending& p : nodes) { p.node->Transform() = p.transform; p.node->ObjectOffset() = p.offset; }
+    // The selection and the views (Phase 10.4); older files have neither.
+    for (const Chunk& c : top)
+        if (c.type == 0x1400) {
+            size_t at = c.begin; uint32_t n = 0;
+            if (!Get(d, at, c.end, n) || static_cast<uint64_t>(n) * 4 > c.end - at) return bad("damaged selection");
+            std::vector<scene::Node::Id> ids;
+            for (uint32_t i = 0; i < n; ++i) {
+                int32_t k = -1;
+                Get(d, at, c.end, k);
+                if (k >= 0 && static_cast<size_t>(k) < nodes.size()) ids.push_back(nodes[static_cast<size_t>(k)].node->GetId());
+            }
+            scene.SetSelection(ids);
+        }
+    if (views)
+        for (const Chunk& c : top) {
+            if (c.type != 0x1300) continue;
+            if (const Chunk* k = Child(c, 0x1301)) { size_t at = k->begin; uint32_t a = 0; if (Get(d, at, k->end, a) && a < 4) views->active = static_cast<int>(a); }
+            int slot = 0;
+            for (const Chunk& v : c.children) {
+                if (v.type != 0x1310 || slot >= 4) continue;
+                uint32_t type = 0;
+                const Chunk *t = Child(v, 0x0001), *o = Child(v, 0x0002), *p = Child(v, 0x0003);
+                size_t at = 0;
+                bool ok = t && o && p;
+                if (ok) { at = t->begin; ok = Get(d, at, t->end, type) && type <= 6; }
+                view::OrthoView ov;
+                if (ok) { at = o->begin; ok = Get(d, at, o->end, ov.width) && Get(d, at, o->end, ov.centerU) && Get(d, at, o->end, ov.centerV); }
+                view::PerspectiveView pv;
+                if (ok) {
+                    at = p->begin;
+                    ok = Get(d, at, p->end, pv.target.x) && Get(d, at, p->end, pv.target.y) && Get(d, at, p->end, pv.target.z) &&
+                         Get(d, at, p->end, pv.distance) && Get(d, at, p->end, pv.elevationDeg) && Get(d, at, p->end, pv.azimuthDeg) &&
+                         Get(d, at, p->end, pv.fovDeg);
+                }
+                if (!ok) return bad("damaged views");
+                views->type[slot] = static_cast<int>(type);
+                views->ortho[slot] = ov;
+                views->perspective[slot] = pv;
+                ++slot;
+            }
+            views->present = slot == 4;
+        }
     return true;
 }
 

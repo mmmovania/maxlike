@@ -18,10 +18,26 @@ items still buildable without new R3.1 evidence.
       about its centre; the gizmo is drawn as the input's box deformed by the modifier
       (orange; yellow at its sub-object level); Sub-Object levels Gizmo (Move, Rotate,
       Scale) and Center (Move), one undo step per drag; kept in `.mlk` files and clones
-- [ ] Viewports and the selection in `.mlk` files
+- [x] **10.4** Viewports and the selection in `.mlk` files: the four views (type, pan,
+      zoom, camera), the active one and the selection are saved and restored on opening
 - [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
       sub-object level; Soft Selection
 - [ ] Wrap-up
+
+## Step 10.4 verification
+- [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)
+- [x] `test_native_file`: four views with distinctive values in every field, the active
+      slot and the selection round-trip exactly; a file saved without views reports none
+      and keeps its selection
+- [x] Under Wine: an `.mlk` made from `instances.max` by the tested I/O code, opened, a box
+      selected in the Front view, Ctrl+S (2,107 → 2,569 bytes), maxlike restarted with the
+      file: the window matches the one before saving except the status bar's cursor
+      coordinates (366 pixels in x 1337..1513, y 958..967, which follow the mouse)
+- [x] Found while testing: Wine's Save dialog is not painted on the test display and did
+      not receive typed keys (a path corrupted by escaping, then focus); four attempts.
+      The check went around it: an already-saved `.mlk` saves with Ctrl+S, no dialog
+- [ ] On Windows: Save As from a `.max` file, then reopening; Save Selected (the views are
+      not part of a selection's file)
 
 ## Step 10.3 verification
 - [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)

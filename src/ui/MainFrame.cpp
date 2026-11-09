@@ -349,7 +349,8 @@ bool MainFrame::OpenFile(const std::wstring& path) {
     scene::Scene imported;
     io::ImportReport report;
     std::string error;
-    if (native ? !io::LoadNative(bytes, imported, error) : !io::ImportMax(bytes, imported, report, error)) {
+    io::NativeViews savedViews;                       // .mlk files keep the views (10.4)
+    if (native ? !io::LoadNative(bytes, imported, error, &savedViews) : !io::ImportMax(bytes, imported, report, error)) {
         const std::wstring text = L"Could not open " + fileName + L":\n" + std::wstring(error.begin(), error.end());
         MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
         return false;
@@ -368,7 +369,12 @@ bool MainFrame::OpenFile(const std::wstring& path) {
     viewports_.Redraw();
     if (native) report.nodes = scene_.Nodes().size();
     docPath_ = native ? path : std::wstring();       // Save writes .mlk files only
-    // R3 restores the viewports saved in the file.
+    // R3 restores the viewports saved in the file; so do maxlike's own files.
+    if (native && savedViews.present) {
+        for (int i = 0; i < 4; ++i)
+            viewports_.ApplySavedView(i, static_cast<ViewType>(savedViews.type[i]), savedViews.ortho[i], savedViews.perspective[i]);
+        viewports_.SetActive(savedViews.active);
+    }
     if (!native) {
         std::vector<io::MaxViewport> views;
         std::string ignored;
@@ -409,7 +415,19 @@ bool MainFrame::OpenFile(const std::wstring& path) {
 }
 
 bool MainFrame::SaveFile(const std::wstring& path) {
-    const std::vector<uint8_t> bytes = io::SaveNative(scene_);
+    // The scene with its selection, and the four views (Phase 10.4).
+    io::NativeViews views;
+    views.present = true;
+    views.active = viewports_.Active();
+    for (int i = 0; i < 4; ++i) {
+        const ui::Viewport& v = viewports_.ViewAt(i);
+        views.type[i] = static_cast<int>(v.Type());
+        views.ortho[i] = v.OrthoState();
+        views.perspective[i] = v.PerspectiveState();
+    }
+    std::vector<scene::Node::Id> all;
+    for (const auto& n : scene_.Nodes()) all.push_back(n->GetId());
+    const std::vector<uint8_t> bytes = io::SaveNative(scene_, all, &views);
     HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     DWORD written = 0;
     const bool ok = file != INVALID_HANDLE_VALUE &&
