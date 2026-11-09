@@ -52,4 +52,29 @@ math::Vec3 ScalePercent(const math::Vec3& factors);           // 1.5 -> 150
 // Euler angles (degrees) of a rotation, applied X first, then Y, then Z.
 math::Vec3 EulerXYZDegrees(const math::Quat& q);
 
+// Reference coordinate systems (Phase 9.9): the axes constraints, drag planes and Rotate
+// use, as three world-space unit vectors, and the system's origin (the Transform
+// Coordinate Center). World is the identity.
+struct Frame {
+    math::Vec3 axis[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    math::Vec3 origin{0, 0, 0};
+};
+// Constrain in the frame: keep the components along the allowed frame axes.
+math::Vec3 ConstrainInFrame(const math::Vec3& delta, const bool active[3], const Frame& f);
+// DragPlaneNormal with the constraint's axes taken in the frame.
+bool DragPlaneNormalInFrame(const bool active[3], const math::Vec3& viewDir, const Frame& f, math::Vec3& normal);
+// DragRotation about the frame's axis `axis` (0.5 degrees per pixel).
+math::Quat DragRotationInFrame(int axis, int upPixels, const Frame& f);
+
+// The systems, as R3's toolbar lists them. View: ortho views use the screen's axes,
+// perspective views the world's; Screen: the view's own right / up / out in every view;
+// World and Grid (only the home grid exists): the world; Parent / Local: the parent's /
+// the object's world rotation, at its pivot; Pick: not available yet (World).
+enum class RefCoord { View, Screen, World, Parent, Local, Grid, Pick };
+// `right` and `up`: the view's world directions; `parent` / `local`: world rotations and
+// pivots of the object's parent and of the object (null: none).
+Frame MakeFrame(RefCoord system, bool perspective, const math::Vec3& right, const math::Vec3& up,
+                const math::Quat* parentRotation, const math::Vec3& parentPivot,
+                const math::Quat* localRotation, const math::Vec3& localPivot);
+
 } // namespace scene::move

@@ -59,6 +59,7 @@ bool ViewPanel::Create(HWND parent) {
         v.onVertexSelect = [this](const std::vector<uint32_t>& vs, bool region, bool ctrl, bool alt) {
             if (onVertexSelect) onVertexSelect(vs, region, ctrl, alt);
         };
+        v.onWeldTarget = [this](uint32_t from, uint32_t to) { if (onWeldTarget) onWeldTarget(from, to); };
         v.navMode = [this] { return mode_; };
         v.onExitMode = [this] { SetNavMode(NavMode::None); };
         v.onZoomAll = [this, i](double factor) {
@@ -201,6 +202,18 @@ LRESULT ViewPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     return win::Window::HandleMessage(msg, wp, lp);
+}
+
+} // namespace ui
+
+namespace ui {
+
+void ViewPanel::ResetAllViews() {
+    const ViewType types[viewports::kCount] = {ViewType::Top, ViewType::Front, ViewType::Left, ViewType::Perspective};
+    for (size_t i = 0; i < views_.size(); ++i) {
+        views_[i].SetType(types[i]);
+        views_[i].ResetView();
+    }
 }
 
 } // namespace ui

@@ -88,12 +88,14 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
 - [x] Move/Rotate/Scale with the axis tripod and the Move gizmo (measured from R3.1), axis
       constraints, R3's default View coordinate system; one undo step per drag (6.4a–c).
 - Reference coordinate systems other than View (World, Local, Screen, …) and transform
-  centres other than each pivot → deferred.
+  centres other than each pivot → done in Phase 9 (9.9), which also corrected View in
+  orthographic views (R3 uses the screen's axes there).
 - [x] Status bar X/Y/Z display: the cursor's world position, and the movement, angle or
       scale percentage while dragging (step 6.4d). In R3.1 these fields are display-only
       (measured: plain sunken fields, no spinners); typing exact values belongs to the
       Transform Type-In dialog.
-- [ ] Transform Type-In dialog (Tools menu): typed position, rotation, scale (later).
+- [x] Transform Type-In dialog (Tools menu): typed position, rotation, scale → done in
+      Phase 9 (9.8).
 
 ## Phase 7 — Modify panel (`phase/7-modify`) ✔ v0.7.0
 - [x] Modifier stack UI: the Modify panel (name field, Modifiers, Modifier Stack with the
@@ -102,10 +104,11 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       undo, its Selection and Edit Geometry rollouts, measured (7.4–7.4c).
 - [x] Bend, Taper, Twist: geometry (Bend verified against R3.1) and rollouts (Bend's
       measured) (7.1, 7.3).
-- Deferred: Edit Mesh's other levels (Edge, Face, Polygon, Element) and its button actions
-  (Hide, Create, Chamfer, …); Soft Selection's and Surface Properties' contents; the
-  modifier gizmo (orange in R3); Rotate and Scale at vertex level; the other modifiers in
-  the More… list.
+- Deferred: Edit Mesh's other levels and button actions → done in Phase 9 for Edge, Face,
+  Polygon, Element, Delete, Hide / Unhide All, Weld Selected / Target, Detach (9.4–9.7);
+  still open (Phase 10): Create, Chamfer and the other buttons, Soft Selection's and
+  Surface Properties' contents, the modifier gizmo (orange in R3), Rotate and Scale at
+  sub-object level, the other modifiers in the More… list.
 
 ## Phase 8 — `.max` import (`phase/8-max-import`) ✔ v0.8.0
 - [x] CFB reader, chunk walker, class directory, DLL directory (8.1–8.2). zlib deferred:
@@ -115,6 +118,32 @@ arrives working rather than as empty buttons. Each needs a screenshot of that ta
       and teapot field by field, transforms, colours, instances (8.4–8.5); opened samples
       compared with R3.1 screenshots, with the saved viewports restored (8.6).
 - [x] Native save in own chunked format (`.mlk`, 8.7).
-- Deferred: the perspective grid's extent rule; Bend / Taper / Twist and Backface Cull
-  flags from files (no samples); materials; viewports and selection in `.mlk` files;
-  keyboard shortcuts.
+- Deferred (into Phase 9's inventory): the perspective grid's extent rule; Bend / Taper /
+  Twist and Backface Cull flags from files (no samples); materials; viewports and
+  selection in `.mlk` files; keyboard shortcuts (done in 9.2).
+
+## Phase 9 — Deferred items (`phase/9-deferred`) ✔ v0.9.0
+Everything earlier phases deferred, inventoried in `docs/phases/phase-9-deferred.md` as
+buildable now, needing R3.1 evidence, or separate subsystems; worked through in steps.
+- [x] File > New, Reset, Merge; Edit > Select All / None / Invert; Views > Redraw All;
+      the save prompt (9.1).
+- [x] The menus checked against R3.1 item by item (eleven screenshots); keyboard
+      shortcuts from the shortcut column; R3's greying; recent files (9.2).
+- [x] Edit > Clone, File > Save Selected, File > Summary Info (9.3).
+- [x] Edit Mesh at Face, Edge, Polygon and Element level; Delete, Hide / Unhide All, Weld
+      Selected and Target, Detach (9.4–9.7).
+- [x] Transform Type-In (F12) (9.8); reference coordinate systems and transform centres
+      (9.9); Tools > Mirror and Array, with mirrored objects drawn correctly (9.10).
+- [x] Wrap-up: `docs/tech/phase9-tech-docs.md`, documentation sweep, v0.9.0 (9.11).
+
+## Phase 10 — Groups and the rest of list A (`phase/10-…`)
+From Phase 9's inventory, still buildable without new evidence:
+- [ ] The Group menu (Group, Ungroup, Open, Close, Explode, Detach, Attach): a hidden
+      group helper its members are linked to; selection and picking through groups.
+- [ ] Tools > Align; the modifier gizmo; viewports and the selection in `.mlk` files.
+- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
+      sub-object level; Soft Selection.
+- Waiting for R3.1 evidence (list B of the inventory): dialogs built from memory (New,
+  Clone, Detach, Mirror, Array, Transform Type-In), Edit Mesh's look at sub-object levels,
+  the Select By / Region / Grids submenus, the perspective grid's extent, Bend / Taper /
+  Twist and Backface Cull in files, materials.

@@ -1,6 +1,8 @@
 #include "scene/Modifier.h"
+#include "scene/MeshTopology.h"
 #include <cmath>
 #include <algorithm>
+#include <cstdint>
 
 namespace scene {
 
@@ -23,9 +25,219 @@ EditMeshModifier::EditMeshModifier(size_t expectedVertexCount, std::vector<Move>
 
 bool EditMeshModifier::Apply(Mesh& mesh) const {
     if (mesh.verts.size() != expected_) return false;   // indices would point elsewhere
-    for (const Move& m : moves_)
-        if (m.vertex < mesh.verts.size()) mesh.verts[m.vertex] = mesh.verts[m.vertex] + m.delta;
+    mesh = Edited(mesh);
     return true;
+}
+
+namespace {
+std::vector<uint32_t> SortedUnique(std::vector<uint32_t> v) {
+    std::sort(v.begin(), v.end());
+    v.erase(std::unique(v.begin(), v.end()), v.end());
+    return v;
+}
+bool Contains(const std::vector<uint32_t>& sorted, uint32_t x) { return std::binary_search(sorted.begin(), sorted.end(), x); }
+std::vector<uint32_t> Without(const std::vector<uint32_t>& v, const std::vector<uint32_t>& removedSorted) {
+    std::vector<uint32_t> out;
+    for (uint32_t x : v) if (!Contains(removedSorted, x)) out.push_back(x);
+    return out;
+}
+} // namespace
+
+void EditMeshModifier::SetSelectedFaces(std::vector<uint32_t> f) { selectedFaces_ = SortedUnique(std::move(f)); }
+void EditMeshModifier::SetSelectedEdges(std::vector<uint32_t> e) { selectedEdges_ = SortedUnique(std::move(e)); }
+
+void EditMeshModifier::SetDeleted(std::vector<uint32_t> faces, std::vector<uint32_t> vertices) {
+    deletedFaces_ = SortedUnique(std::move(faces));
+    deletedVerts_ = SortedUnique(std::move(vertices));
+}
+
+void EditMeshModifier::SetState(const State& s) {
+    moves_ = s.moves;
+    SetSelectedVertices(s.selectedVertices);
+    SetSelectedFaces(s.selectedFaces);
+    SetSelectedEdges(s.selectedEdges);
+    SetDeleted(s.deletedFaces, s.deletedVertices);
+    hiddenFaces_ = SortedUnique(s.hiddenFaces);
+    hiddenVerts_ = SortedUnique(s.hiddenVertices);
+    welds_ = s.welds;
+}
+
+Mesh EditMeshModifier::Edited(const Mesh& input, std::vector<uint32_t>* vertexMap, std::vector<uint32_t>* faceMap) const {
+    Mesh m = input;
+    for (const Move& mv : moves_)
+        if (mv.vertex < m.verts.size()) m.verts[mv.vertex] = m.verts[mv.vertex] + mv.delta;
+    if (vertexMap) vertexMap->clear();
+    if (faceMap) faceMap->clear();
+    if (deletedFaces_.empty() && deletedVerts_.empty() && welds_.empty() && hiddenFaces_.empty()) {
+        if (vertexMap) for (uint32_t i = 0; i < m.verts.size(); ++i) vertexMap->push_back(i);
+        if (faceMap) for (uint32_t i = 0; i < m.faces.size(); ++i) faceMap->push_back(i);
+        return m;
+    }
+    // Welds: each merged vertex follows its chain to the vertex that remains.
+    std::vector<uint32_t> target(m.verts.size());
+    for (uint32_t i = 0; i < target.size(); ++i) target[i] = i;
+    for (const auto& [from, to] : welds_)
+        if (from < target.size() && to < target.size()) target[from] = to;
+    for (uint32_t i = 0; i < target.size(); ++i)
+        for (int guard = 0; target[target[i]] != target[i] && guard < 64; ++guard) target[i] = target[target[i]];
+    std::vector<uint32_t> newIndex(m.verts.size(), UINT32_MAX);
+    Mesh out;
+    for (uint32_t i = 0; i < m.verts.size(); ++i)
+        if (!Contains(deletedVerts_, i) && target[i] == i) {
+            newIndex[i] = static_cast<uint32_t>(out.verts.size());
+            out.verts.push_back(m.verts[i]);
+            if (vertexMap) vertexMap->push_back(i);
+        }
+    for (uint32_t f = 0; f < m.faces.size(); ++f) {
+        if (Contains(deletedFaces_, f) || Contains(hiddenFaces_, f)) continue;
+        Face face = m.faces[f];
+        bool keep = true;
+        for (uint32_t& v : face.v) {
+            if (v >= target.size()) { keep = false; break; }
+            v = target[v];
+            if (newIndex[v] == UINT32_MAX) { keep = false; break; }
+            v = newIndex[v];
+        }
+        if (!keep) continue;                                  // a face goes with its vertices
+        if (face.v[0] == face.v[1] || face.v[1] == face.v[2] || face.v[2] == face.v[0]) continue;   // collapsed by a weld
+        out.faces.push_back(face);
+        if (faceMap) faceMap->push_back(f);
+    }
+    return out;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterDeletingFaces(const Mesh& input, bool isolated) const {
+    State s = GetState();
+    std::vector<uint32_t> faces = s.deletedFaces;
+    faces.insert(faces.end(), selectedFaces_.begin(), selectedFaces_.end());
+    s.deletedFaces = SortedUnique(faces);
+    if (isolated) {
+        // Vertices no remaining face uses.
+        std::vector<char> used(input.verts.size(), 0);
+        for (uint32_t f = 0; f < input.faces.size(); ++f) {
+            if (Contains(s.deletedFaces, f)) continue;
+            bool gone = false;
+            for (uint32_t v : input.faces[f].v) gone = gone || Contains(s.deletedVertices, v);
+            if (gone) continue;
+            for (uint32_t v : input.faces[f].v) if (v < used.size()) used[v] = 1;
+        }
+        for (uint32_t v = 0; v < used.size(); ++v) if (!used[v]) s.deletedVertices.push_back(v);
+        s.deletedVertices = SortedUnique(s.deletedVertices);
+    }
+    s.selectedFaces.clear();
+    s.selectedVertices = Without(s.selectedVertices, s.deletedVertices);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterDeletingEdges(const Mesh& input, bool isolated) const {
+    // The faces on both sides of each selected edge, deleted as selected faces would be.
+    EditMeshModifier copy = *this;
+    std::vector<uint32_t> faces;
+    for (uint32_t e : selectedEdges_)
+        for (uint32_t f : FacesOnEdge(input, e)) faces.push_back(f);
+    copy.SetSelectedFaces(faces);
+    State s = copy.AfterDeletingFaces(input, isolated);
+    s.selectedFaces = selectedFaces_;
+    s.selectedFaces = Without(s.selectedFaces, s.deletedFaces);
+    s.selectedEdges.clear();
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterHiding(bool faces) const {
+    State s = GetState();
+    if (faces) {
+        s.hiddenFaces.insert(s.hiddenFaces.end(), selectedFaces_.begin(), selectedFaces_.end());
+        s.hiddenFaces = SortedUnique(s.hiddenFaces);
+        s.selectedFaces.clear();
+    } else {
+        s.hiddenVertices.insert(s.hiddenVertices.end(), selected_.begin(), selected_.end());
+        s.hiddenVertices = SortedUnique(s.hiddenVertices);
+        s.selectedVertices.clear();
+    }
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterUnhidingAll(bool faces) const {
+    State s = GetState();
+    (faces ? s.hiddenFaces : s.hiddenVertices).clear();
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterWelding(const Mesh& input, double threshold, size_t* merged) const {
+    State s = GetState();
+    if (merged) *merged = 0;
+    // Positions after the moves.
+    std::vector<math::Vec3> p = input.verts;
+    for (const Move& mv : moves_)
+        if (mv.vertex < p.size()) p[mv.vertex] = p[mv.vertex] + mv.delta;
+    // Candidates: selected vertices still present (not deleted, not merged away before).
+    std::vector<uint32_t> cand;
+    for (uint32_t v : selected_) {
+        bool gone = v >= p.size() || Contains(deletedVerts_, v);
+        for (const auto& w : welds_) gone = gone || w.first == v;
+        if (!gone) cand.push_back(v);
+    }
+    // Clusters of candidates linked by distances within the threshold (union-find).
+    std::vector<size_t> parent(cand.size());
+    for (size_t i = 0; i < parent.size(); ++i) parent[i] = i;
+    auto find = [&](size_t i) { while (parent[i] != i) i = parent[i] = parent[parent[i]]; return i; };
+    for (size_t i = 0; i < cand.size(); ++i)
+        for (size_t j = i + 1; j < cand.size(); ++j)
+            if (math::Length(p[cand[i]] - p[cand[j]]) <= threshold) parent[find(i)] = find(j);
+    std::vector<std::vector<uint32_t>> clusters(cand.size());
+    for (size_t i = 0; i < cand.size(); ++i) clusters[find(i)].push_back(cand[i]);
+    std::vector<uint32_t> keep;
+    for (auto& c : clusters) {
+        if (c.size() < 2) { if (c.size() == 1) keep.push_back(c[0]); continue; }
+        std::sort(c.begin(), c.end());
+        math::Vec3 avg{0, 0, 0};
+        for (uint32_t v : c) avg = avg + p[v];
+        avg = avg * (1.0 / static_cast<double>(c.size()));
+        const uint32_t rep = c[0];                           // the lowest index remains
+        s.moves = AddToMoves(s.moves, {rep}, avg - p[rep]);
+        for (size_t i = 1; i < c.size(); ++i) s.welds.push_back({c[i], rep});
+        if (merged) *merged += c.size() - 1;
+        keep.push_back(rep);
+    }
+    s.selectedVertices = SortedUnique(keep);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterWeldingTarget(uint32_t from, uint32_t to) const {
+    State s = GetState();
+    if (from == to) return s;
+    for (const auto& w : welds_) if (w.first == from || w.first == to) return s;   // already merged away
+    if (Contains(deletedVerts_, from) || Contains(deletedVerts_, to)) return s;
+    s.welds.push_back({from, to});
+    s.selectedVertices = Without(s.selectedVertices, {from});
+    return s;
+}
+
+Mesh EditMeshModifier::Extract(const Mesh& input, const std::vector<uint32_t>& inputFaces) const {
+    std::vector<uint32_t> faceMap;
+    const Mesh out = Edited(input, nullptr, &faceMap);
+    const std::vector<uint32_t> wanted = SortedUnique(inputFaces);
+    Mesh part;
+    std::vector<uint32_t> newIndex(out.verts.size(), UINT32_MAX);
+    for (size_t f = 0; f < out.faces.size(); ++f) {
+        if (!Contains(wanted, faceMap[f])) continue;
+        Face face = out.faces[f];
+        for (uint32_t& v : face.v) {
+            if (newIndex[v] == UINT32_MAX) { newIndex[v] = static_cast<uint32_t>(part.verts.size()); part.verts.push_back(out.verts[v]); }
+            v = newIndex[v];
+        }
+        part.faces.push_back(face);
+    }
+    return part;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterDeletingVertices() const {
+    State s = GetState();
+    std::vector<uint32_t> verts = s.deletedVertices;
+    verts.insert(verts.end(), selected_.begin(), selected_.end());
+    s.deletedVertices = SortedUnique(verts);
+    s.selectedVertices.clear();
+    return s;
 }
 
 Mesh DerivedObject::Evaluate() const { return EvaluateUpTo(modifiers_.size()); }

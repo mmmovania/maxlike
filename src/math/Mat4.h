@@ -44,4 +44,11 @@ Mat4 PixelToClip(int w, int h);
 // false if the point is behind the camera.
 bool ProjectToPixel(const Mat4& viewProj, const Vec3& p, int w, int h, double& px, double& py);
 
+// Whether an affine matrix mirrors (its 3 x 3 part has a negative determinant): faces
+// then wind the other way round, so winding-based facing tests must flip (Phase 9.10).
+inline bool Mirrors(const Mat4& m) {
+    const Vec3 c0{m.m[0][0], m.m[0][1], m.m[0][2]}, c1{m.m[1][0], m.m[1][1], m.m[1][2]}, c2{m.m[2][0], m.m[2][1], m.m[2][2]};
+    return Dot(Cross(c0, c1), c2) < 0;
+}
+
 } // namespace math

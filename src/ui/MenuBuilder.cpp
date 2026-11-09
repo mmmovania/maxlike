@@ -13,7 +13,7 @@ static void AppendItems(HMENU menu, const std::vector<MenuItem>& items, CommandT
             AppendMenuW(menu, MF_POPUP | MF_STRING, reinterpret_cast<UINT_PTR>(sub), it.text.c_str());
         } else {
             const UINT_PTR id = commands.Register(it.command);
-            AppendMenuW(menu, MF_STRING, id, it.text.c_str());
+            AppendMenuW(menu, MF_STRING | (it.checked ? MF_CHECKED : MF_UNCHECKED), id, it.text.c_str());
         }
     }
 }

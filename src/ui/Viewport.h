@@ -10,6 +10,7 @@
 #include "view/Picking.h"
 #include "view/TransformAxes.h"
 #include "scene/Modifier.h"
+#include "scene/MoveMath.h"
 #include "ui/LabelText.h"
 
 namespace gl { class GLContext; class LineRenderer; class MeshRenderer; }
@@ -58,6 +59,8 @@ public:
     ViewType Type() const { return type_; }
     const wchar_t* Name() const;
     void SetType(ViewType type);
+    const view::OrthoView& OrthoState() const { return ortho_; }
+    const view::PerspectiveView& PerspectiveState() const { return perspective_; }
     // A view restored from a file (Phase 8): what the ortho and perspective cameras show.
     void SetViewState(const view::OrthoView& ortho, const view::PerspectiveView& perspective) {
         ortho_ = ortho;
@@ -91,11 +94,23 @@ public:
         std::shared_ptr<scene::DerivedObject> stack;
         size_t upTo = 0;
         std::shared_ptr<scene::EditMeshModifier> mod;
+        int level = 0;                            // 0 Vertex, 1 Edge, 2 Face, 3 Polygon, 4 Element
+        bool weldTarget = false;                  // Weld > Target (9.7): drag a vertex onto another
     };
     void SetVertexEditing(const VertexEditing& v) { vertexEditing_ = v; InvalidateRect(Hwnd(), nullptr, FALSE); }
     std::function<void(const std::vector<uint32_t>& vertices, bool region, bool ctrl, bool alt)> onVertexSelect;
+    std::function<void(uint32_t from, uint32_t to)> onWeldTarget;   // input vertex indices
 
     // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
+    // Phase 9.9: the reference coordinate system and the transform centre (0 each pivot,
+    // 1 the selection's centre, 2 the system's origin).
+    void SetReferenceSystem(scene::move::RefCoord system, int centre) {
+        refCoord_ = system;
+        centre_ = centre;
+        if (Hwnd()) InvalidateRect(Hwnd(), nullptr, FALSE);
+    }
+    scene::move::Frame CurrentFrame() const;
+    math::Vec3 TransformCenter() const;
     void SetTransformTool(bool on) { transformTool_ = on; }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
         axesStyle_ = style;
@@ -156,6 +171,29 @@ private:
     bool moving_ = false;                // dragging the selection with a transform tool
     bool transformTool_ = false;
     VertexEditing vertexEditing_;
+    scene::move::RefCoord refCoord_ = scene::move::RefCoord::View;
+    int centre_ = 0;
+    bool weldDragging_ = false;
+    uint32_t weldFrom_ = 0;
+    // Edit Mesh's output as the views see it, with the maps back to its input indices
+    // (what Edit Mesh stores), screen positions, depths, and the faces turned away.
+    struct EditedMeshView {
+        scene::Mesh mesh;
+        std::vector<uint32_t> vertexMap, faceMap;
+        std::vector<view::Point2> pixels;
+        std::vector<double> depth;
+        std::vector<math::Vec3> world;
+        std::vector<view::Tri> tris;
+        std::vector<bool> backFacing;
+        std::vector<view::Seg> segs;              // visible edges of the output faces
+        std::vector<uint32_t> segEdge, segFace;   // each one's input edge id, output face
+    };
+    EditedMeshView EditedView() const;
+    // Picking at the current level, as Edit Mesh's input indices (vertices, edges or faces;
+    // polygons and elements expanded to their faces). `pivot`: where a drag starts.
+    std::vector<uint32_t> SubObjectsAt(const EditedMeshView& v, double x, double y, math::Vec3* pivot) const;
+    std::vector<uint32_t> SubObjectsIn(const EditedMeshView& v, double x0, double y0, double x1, double y1) const;
+    const std::vector<uint32_t>& SubObjectSelection() const;
     std::vector<view::Point2> VertexPixels(std::vector<math::Vec3>* world = nullptr) const;
     void DrawVertices(int width, int height);
     POINT moveStart_{};

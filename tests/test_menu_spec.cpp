@@ -1,6 +1,9 @@
 // Unit tests for the menu specification and the command table.
 #include "ui/CommandTable.h"
 #include "ui/MenuSpec.h"
+#include "ui/RecentFiles.h"
+#include <algorithm>
+#include <functional>
 #include <cstdio>
 #include <cwctype>
 #include <set>
@@ -76,6 +79,79 @@ int main() {
     MenusAreWellFormed();
     CommandTableRoundTrips();
     PlainTextStripsMarkers();
+    // The shortcut column, from R3.1's menus opened (r3.1-menu-*.png): every shortcut
+    // parses, each to the key the screenshots show, and no key is used twice.
+    {
+        std::vector<std::wstring> unparsed;
+        const auto shortcuts = ui::ShortcutsOf(ui::MainMenuSpec(), &unparsed);
+        CHECK(unparsed.empty());
+        struct E { const char* command; uint16_t key; bool ctrl, alt, shift; };
+        const E expected[] = {
+            {"file.new", 'N', true, false, false}, {"file.open", 'O', true, false, false}, {"file.save", 'S', true, false, false},
+            {"edit.undo", 'Z', true, false, false}, {"edit.redo", 'A', true, false, false},
+            {"edit.hold", 'H', true, true, false}, {"edit.fetch", 'F', true, true, false}, {"edit.delete", 0x2E, false, false, false},
+            {"tools.transform_type_in", 0x7B, false, false, false}, {"tools.align", 'A', false, true, false},
+            {"tools.align_normals", 'N', false, true, false}, {"tools.place_highlight", 'H', true, false, false},
+            {"tools.material_editor", 'M', false, false, false}, {"tools.spacing", 'I', false, false, true},
+            {"views.undo", 'Z', false, false, true}, {"views.redo", 'A', false, false, true},
+            {"views.background", 'B', false, true, false}, {"views.update_background", 'B', true, true, true},
+            {"views.match_camera", 'C', true, false, false}, {"views.redraw_all", '1', false, false, false},
+            {"views.expert_mode", 'X', true, false, false}, {"render.show_last", 'I', true, false, false},
+            {"maxscript.listener", 0x7A, false, false, false}};
+        CHECK(shortcuts.size() == sizeof(expected) / sizeof(expected[0]));
+        for (const E& e : expected) {
+            bool found = false;
+            for (const auto& s : shortcuts)
+                found = found || (s.command == e.command && s.key == e.key && s.ctrl == e.ctrl && s.alt == e.alt && s.shift == e.shift);
+            CHECK(found);
+            if (!found) std::printf("  missing shortcut for %s\n", e.command);
+        }
+        for (size_t i = 0; i < shortcuts.size(); ++i)
+            for (size_t j = i + 1; j < shortcuts.size(); ++j)
+                CHECK(!(shortcuts[i].key == shortcuts[j].key && shortcuts[i].ctrl == shortcuts[j].ctrl &&
+                        shortcuts[i].alt == shortcuts[j].alt && shortcuts[i].shift == shortcuts[j].shift));
+        // Plain and Shift-only keys must not interrupt typing; Ctrl/Alt and F-keys may.
+        for (const auto& s : shortcuts) {
+            if (s.command == "tools.material_editor" || s.command == "views.redraw_all" || s.command == "edit.delete" || s.command == "views.undo") CHECK(!s.WhileTyping());
+            if (s.command == "file.save" || s.command == "tools.transform_type_in" || s.command == "edit.hold") CHECK(s.WhileTyping());
+        }
+    }
+    // Greying, as in R3.1's screenshots of an empty scene: exactly these commands greyed.
+    {
+        const std::set<std::string> greyed = {
+            "file.save_selected", "file.merge_animation", "file.export_selected",
+            "edit.undo", "edit.redo", "edit.clone", "edit.select_all", "edit.select_none", "edit.select_invert", "edit.properties",
+            "group.group", "group.open", "group.close", "group.ungroup", "group.explode", "group.detach", "group.attach",
+            "views.undo", "views.redo", "views.restore_active", "views.update_background", "views.reset_background_transform",
+            "views.match_camera", "views.add_default_lights", "render.show_last", "trackview.delete", "schematic.delete"};
+        std::vector<std::string> all;
+        std::function<void(const std::vector<ui::MenuItem>&)> walk = [&](const std::vector<ui::MenuItem>& items) {
+            for (const auto& it : items) { if (it.IsSubmenu()) walk(it.children); else if (!it.command.empty()) all.push_back(it.command); }
+        };
+        walk(ui::MainMenuSpec());
+        const ui::MenuState empty;
+        for (const auto& c : all) {
+            const bool expectEnabled = greyed.count(c) == 0;
+            CHECK(ui::MenuItemEnabled(c, empty) == expectEnabled);
+            if (ui::MenuItemEnabled(c, empty) != expectEnabled) std::printf("  %s: %s in maxlike, %s in R3.1\n", c.c_str(), expectEnabled ? "greyed" : "enabled", expectEnabled ? "enabled" : "greyed");
+        }
+        for (const auto& g : greyed) CHECK(std::find(all.begin(), all.end(), g) != all.end());   // every greyed item exists
+        // With objects and a selection, the selection items come alive; groups stay greyed.
+        ui::MenuState busy;
+        busy.objects = 3; busy.selected = 1; busy.canUndo = true;
+        for (const char* c : {"edit.clone", "edit.select_none", "edit.properties", "file.save_selected", "group.group", "edit.select_all", "edit.undo"})
+            CHECK(ui::MenuItemEnabled(c, busy));
+        CHECK(!ui::MenuItemEnabled("group.ungroup", busy) && !ui::MenuItemEnabled("edit.redo", busy));
+    }
+    // Recent files: newest first, one entry per file (case-insensitive), nine at most.
+    {
+        std::vector<std::wstring> r;
+        for (int i = 1; i <= 12; ++i) r = ui::AddRecentFile(r, L"C:\\s\\f" + std::to_wstring(i) + L".max");
+        CHECK(r.size() == 9 && r[0] == L"C:\\s\\f12.max" && r[8] == L"C:\\s\\f4.max");
+        r = ui::AddRecentFile(r, L"c:\\S\\F7.MAX");
+        CHECK(r.size() == 9 && r[0] == L"c:\\S\\F7.MAX" && r[1] == L"C:\\s\\f12.max");
+        for (size_t i = 1; i < r.size(); ++i) CHECK(r[i] != L"C:\\s\\f7.max");
+    }
     if (failures == 0) std::printf("menu spec: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

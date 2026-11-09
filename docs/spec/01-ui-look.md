@@ -291,7 +291,9 @@ Screenshots `r3.1-box-created.png`, `r3.1-create-tripod-z.png`, `r3.1-move-selec
   open arrowheads (two 8-px strokes), letters (viewport tripod glyphs, 9 rows above the
   tip); `#C82323` for axes in the active constraint, `#666666` otherwise; an axis at the
   viewer shows only its letter at the pivot.
-- Move gizmo (Select and Move): world axes; shaft O + round(17·d) … O + round(60·d)
+- Move gizmo (Select and Move): the reference coordinate system's axes (Phase 9.9; View =
+  the screen's axes in orthographic views, the world's in Perspective), at the transform
+  centre; shaft O + round(17·d) … O + round(60·d)
   (yellow `#FFFF00` when constrained, else the axis colour); filled head to 84.5 px
   (triangle fitted: base 62 px, half-width 3.75 px; X `#FF0000`, Y `#00FF00`, Z
   `#0000FF`); letter at O + round(84.5·d) (yellow when constrained); plane corners at

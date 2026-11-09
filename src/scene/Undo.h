@@ -171,6 +171,22 @@ private:
     std::vector<uint32_t> before_, after_;
 };
 
+// Any Edit Mesh change as one undo step (Phase 9.4: face selection, Delete): the whole
+// editing state before and after.
+class EditMeshStateCommand : public Command {
+public:
+    EditMeshStateCommand(std::string name, std::shared_ptr<EditMeshModifier> mod, EditMeshModifier::State after)
+        : name_(std::move(name)), mod_(std::move(mod)), after_(std::move(after)) {}
+    std::string Name() const override { return name_; }
+    void Do(Scene&) override { before_ = mod_->GetState(); mod_->SetState(after_); }
+    void Undo(Scene&) override { mod_->SetState(before_); }
+
+private:
+    std::string name_;
+    std::shared_ptr<EditMeshModifier> mod_;
+    EditMeshModifier::State before_, after_;
+};
+
 // Edit Mesh at Vertex level: replace the vertex moves (one drag of the selection).
 class MoveVerticesCommand : public Command {
 public:
@@ -260,6 +276,23 @@ public:
 private:
     std::vector<Node::Id> selected_;
     std::vector<std::unique_ptr<DeleteNodeCommand>> parts_;
+};
+
+// Nodes added to the scene outside the undo stack (File > Merge): already present when
+// executed. Undo deletes them, children first; redo restores them, parents first. `ids`
+// must list parents before their children.
+class AddedNodesCommand : public Command {
+public:
+    AddedNodesCommand(std::string name, std::vector<Node::Id> ids) : name_(std::move(name)), ids_(std::move(ids)) {}
+    std::string Name() const override { return name_; }
+    void Do(Scene& scene) override;
+    void Undo(Scene& scene) override;
+
+private:
+    std::string name_;
+    std::vector<Node::Id> ids_;
+    bool first_ = true;
+    std::vector<std::unique_ptr<DeleteNodeCommand>> deleted_;   // in deletion order
 };
 
 // Several commands as one undo step (e.g. creating an object, then adjusting it while

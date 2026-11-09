@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "scene/TypeIn.h"
+#include "scene/MeshTopology.h"
 #include "scene/MoveMath.h"
 #include "gl/GLContext.h"
 #include "gl/LineRenderer.h"
@@ -307,9 +309,10 @@ void Viewport::DrawScene(int w, int h) {
         std::vector<bool> shown(mesh.faces.size());
         const math::Vec3 outOfScreen = math::Cross(right, up);
         const math::Vec3 eye = persp ? perspective_.Eye() : math::Vec3{0, 0, 0};
+        const double flip = math::Mirrors(m) ? -1.0 : 1.0;      // a mirrored object winds the other way
         for (size_t i = 0; i < mesh.faces.size(); ++i) {
             const scene::Face& f = mesh.faces[i];
-            const math::Vec3 n = math::Cross(p[f.v[1]] - p[f.v[0]], p[f.v[2]] - p[f.v[0]]);
+            const math::Vec3 n = math::Cross(p[f.v[1]] - p[f.v[0]], p[f.v[2]] - p[f.v[0]]) * flip;
             const math::Vec3 toViewer = persp ? eye - p[f.v[0]] : outOfScreen;
             shown[i] = math::Dot(n, toViewer) > 0;
         }
@@ -345,23 +348,29 @@ void Viewport::DrawScene(int w, int h) {
 // shows the world axes, the tripod the object's own axes (measured, step 6.4a).
 void Viewport::DrawTransformAxes(int w, int h) {
     if (!scene_ || scene_->Selection().empty()) return;
-    math::Vec3 pivot{0, 0, 0};
     const scene::Node* first = nullptr;
     int count = 0;
     for (scene::Node::Id id : scene_->Selection())
         if (const scene::Node* n = scene_->FindById(id)) {
-            pivot = pivot + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
             if (!first) first = n;
             ++count;
         }
     if (!count) return;
-    pivot = pivot * (1.0 / count);
+    const math::Vec3 pivot = TransformCenter();
     double px = 0, py = 0, depth = 0;
     if (!WorldToWindow(pivot, px, py, depth)) return;
 
-    // Screen directions: world axes from the view; local axes through the object's rotation.
+    // Screen directions: the reference system's axes; a single object's tripod its own.
     double axes[3][2];
-    ScreenAxes(axes);
+    {
+        const scene::move::Frame frame = CurrentFrame();
+        math::Vec3 right, up;
+        OrthoBasis(right, up);
+        for (int a = 0; a < 3; ++a) {
+            axes[a][0] = math::Dot(frame.axis[a], right);
+            axes[a][1] = math::Dot(frame.axis[a], up);
+        }
+    }
     if (axesStyle_ == view::AxesStyle::Tripod && count == 1) {
         const math::Mat4 m = first->WorldMatrix();
         double world[3][2];
@@ -390,37 +399,162 @@ void Viewport::DrawTransformAxes(int w, int h) {
     flush();
 }
 
-// The Edit Mesh's vertices in window pixels (and world space), as the mesh is at the Edit
-// Mesh's level. Points behind the camera are placed far outside the view.
-std::vector<view::Point2> Viewport::VertexPixels(std::vector<math::Vec3>* worldOut) const {
-    std::vector<view::Point2> out;
-    if (!vertexEditing_.on || !vertexEditing_.stack || !scene_) return out;
+// Edit Mesh's output (its input from the stack below it, edited), in window pixels and
+// world space, with the maps back to input indices. Points behind the camera are placed far
+// outside the view. If the input no longer matches what Edit Mesh recorded, its edits do
+// not apply: the input is shown with identity maps.
+Viewport::EditedMeshView Viewport::EditedView() const {
+    EditedMeshView v;
+    if (!vertexEditing_.on || !vertexEditing_.stack || !vertexEditing_.mod || !scene_ || vertexEditing_.upTo == 0) return v;
     const scene::Node* node = scene_->FindById(vertexEditing_.node);
-    if (!node) return out;
-    const scene::Mesh mesh = vertexEditing_.stack->EvaluateUpTo(vertexEditing_.upTo);
-    const math::Mat4 m = node->ObjectMatrix();
-    for (const auto& v : mesh.verts) {
-        const math::Vec3 w = math::TransformPoint(m, v);
-        if (worldOut) worldOut->push_back(w);
-        double x = 0, y = 0, depth = 0;
-        if (WorldToWindow(w, x, y, depth)) out.push_back({x, y});
-        else out.push_back({-1e9, -1e9});
+    if (!node) return v;
+    const scene::Mesh input = vertexEditing_.stack->EvaluateUpTo(vertexEditing_.upTo - 1);
+    if (input.verts.size() == vertexEditing_.mod->ExpectedVertexCount()) {
+        v.mesh = vertexEditing_.mod->Edited(input, &v.vertexMap, &v.faceMap);
+    } else {
+        v.mesh = input;
+        for (uint32_t i = 0; i < input.verts.size(); ++i) v.vertexMap.push_back(i);
+        for (uint32_t i = 0; i < input.faces.size(); ++i) v.faceMap.push_back(i);
     }
+    const math::Mat4 m = node->ObjectMatrix();
+    for (const auto& p : v.mesh.verts) {
+        const math::Vec3 w = math::TransformPoint(m, p);
+        v.world.push_back(w);
+        double x = 0, y = 0, depth = 0;
+        if (WorldToWindow(w, x, y, depth)) { v.pixels.push_back({x, y}); v.depth.push_back(depth); }
+        else { v.pixels.push_back({-1e9, -1e9}); v.depth.push_back(1e300); }
+    }
+    // Hidden vertices (Vertex level): placed off-screen, so neither drawn nor picked.
+    if (vertexEditing_.level == 0) {
+        const auto& hidden = vertexEditing_.mod->HiddenVertices();
+        for (size_t i = 0; i < v.pixels.size(); ++i)
+            if (std::binary_search(hidden.begin(), hidden.end(), v.vertexMap[i])) v.pixels[i] = {-1e9, -1e9};
+    }
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    const bool persp = type_ == ViewType::Perspective;
+    const math::Vec3 eye = persp ? perspective_.Eye() : math::Vec3{0, 0, 0};
+    const math::Vec3 outOfScreen = math::Cross(right, up);
+    for (uint32_t fi = 0; fi < v.mesh.faces.size(); ++fi) {
+        const scene::Face& f = v.mesh.faces[fi];
+        v.tris.push_back({f.v[0], f.v[1], f.v[2]});
+        const math::Vec3 n = math::Cross(v.world[f.v[1]] - v.world[f.v[0]], v.world[f.v[2]] - v.world[f.v[0]]) * (math::Mirrors(m) ? -1.0 : 1.0);
+        v.backFacing.push_back(math::Dot(n, persp ? eye - v.world[f.v[0]] : outOfScreen) <= 0);
+        for (int k = 0; k < 3; ++k)
+            if (f.edgeVisible & (1u << k)) {
+                v.segs.push_back({f.v[k], f.v[(k + 1) % 3]});
+                v.segEdge.push_back(scene::EdgeId(v.faceMap[fi], k));
+                v.segFace.push_back(fi);
+            }
+    }
+    return v;
+}
+
+const std::vector<uint32_t>& Viewport::SubObjectSelection() const {
+    const auto& m = *vertexEditing_.mod;
+    return vertexEditing_.level == 0 ? m.SelectedVertices() : vertexEditing_.level == 1 ? m.SelectedEdges() : m.SelectedFaces();
+}
+
+std::vector<uint32_t> Viewport::SubObjectsAt(const EditedMeshView& v, double x, double y, math::Vec3* pivot) const {
+    const int level = vertexEditing_.level;
+    const bool ignoreBack = vertexEditing_.mod->Params().Int(scene::EditMeshModifier::kIgnoreBackfacing, 0) != 0;
+    if (level == 0) {
+        const int hit = view::PickNearestPoint(v.pixels, x, y, 4.0);
+        if (hit < 0) return {};
+        if (pivot) *pivot = v.world[static_cast<size_t>(hit)];
+        return {v.vertexMap[static_cast<size_t>(hit)]};
+    }
+    if (level == 1) {
+        // Visible edges; with Ignore Backfacing only those of faces turned towards the viewer.
+        std::vector<view::Seg> segs;
+        std::vector<size_t> which;
+        for (size_t i = 0; i < v.segs.size(); ++i)
+            if (!ignoreBack || !v.backFacing[v.segFace[i]]) { segs.push_back(v.segs[i]); which.push_back(i); }
+        const int hit = view::PickNearestSegment(v.pixels, segs, x, y, 4.0);
+        if (hit < 0) return {};
+        const size_t s = which[static_cast<size_t>(hit)];
+        if (pivot) *pivot = (v.world[v.segs[s].a] + v.world[v.segs[s].b]) * 0.5;
+        return {v.segEdge[s]};
+    }
+    const int hit = view::PickFace(v.pixels, v.depth, v.tris, ignoreBack ? &v.backFacing : nullptr, x, y);
+    if (hit < 0) return {};
+    const view::Tri& t = v.tris[static_cast<size_t>(hit)];
+    if (pivot) *pivot = (v.world[t.a] + v.world[t.b] + v.world[t.c]) * (1.0 / 3.0);
+    std::vector<uint32_t> faces{static_cast<uint32_t>(hit)};
+    if (level == 3) faces = scene::ExpandToPolygons(v.mesh, faces);
+    if (level == 4) faces = scene::ExpandToElements(v.mesh, faces);
+    std::vector<uint32_t> out;
+    for (uint32_t f : faces) out.push_back(v.faceMap[f]);
     return out;
+}
+
+std::vector<uint32_t> Viewport::SubObjectsIn(const EditedMeshView& v, double x0, double y0, double x1, double y1) const {
+    const int level = vertexEditing_.level;
+    const bool ignoreBack = vertexEditing_.mod->Params().Int(scene::EditMeshModifier::kIgnoreBackfacing, 0) != 0;
+    std::vector<uint32_t> out;
+    if (level == 0) {
+        for (int i : view::PickPointsInRect(v.pixels, x0, y0, x1, y1)) out.push_back(v.vertexMap[static_cast<size_t>(i)]);
+        return out;
+    }
+    if (level == 1) {
+        for (int i : view::PickSegmentsInRect(v.pixels, v.segs, x0, y0, x1, y1))
+            if (!ignoreBack || !v.backFacing[v.segFace[static_cast<size_t>(i)]]) out.push_back(v.segEdge[static_cast<size_t>(i)]);
+        return out;
+    }
+    std::vector<uint32_t> faces;
+    for (int i : view::PickFacesInRect(v.pixels, v.tris, ignoreBack ? &v.backFacing : nullptr, x0, y0, x1, y1))
+        faces.push_back(static_cast<uint32_t>(i));
+    if (level == 3) faces = scene::ExpandToPolygons(v.mesh, faces);
+    if (level == 4) faces = scene::ExpandToElements(v.mesh, faces);
+    for (uint32_t f : faces) out.push_back(v.faceMap[f]);
+    return out;
+}
+
+std::vector<view::Point2> Viewport::VertexPixels(std::vector<math::Vec3>* worldOut) const {
+    EditedMeshView v = EditedView();
+    if (worldOut) *worldOut = v.world;
+    return v.pixels;
 }
 
 // Measured (r3.1-modify-editmesh-vertex.png): each vertex a 5-px diamond (rows 1, 3, 5, 3,
 // 1) centred on its pixel, red #FF0000 when selected, blue #0000FF otherwise; red is
 // drawn last.
 void Viewport::DrawVertices(int w, int h) {
-    const auto pts = VertexPixels();
+    const EditedMeshView v = EditedView();
+    const auto& pts = v.pixels;
     if (pts.empty()) return;
-    const auto& sel = vertexEditing_.mod ? vertexEditing_.mod->SelectedVertices() : std::vector<uint32_t>{};
     const math::Mat4 toClip = math::PixelToClip(w, h);
+    if (vertexEditing_.level > 0) {
+        // Edge level: the selected edges in red. Face level: the selected faces' three
+        // edges; Polygon and Element: the selected faces' visible edges (their outlines).
+        // NOTE: R3's look at these levels is unverified; vertices are not shown.
+        const int level = vertexEditing_.level;
+        std::vector<gl::LineRenderer::Line> lines;
+        auto add = [&](uint32_t i, uint32_t j) {
+            lines.push_back({static_cast<float>(pts[i].x), static_cast<float>(pts[i].y), 0.0f,
+                             static_cast<float>(pts[j].x), static_cast<float>(pts[j].y), 0.0f});
+        };
+        if (level == 1) {
+            const auto& sel = vertexEditing_.mod->SelectedEdges();
+            for (size_t s = 0; s < v.segs.size(); ++s)
+                if (std::binary_search(sel.begin(), sel.end(), v.segEdge[s])) add(v.segs[s].a, v.segs[s].b);
+        } else {
+            const auto& sel = vertexEditing_.mod->SelectedFaces();
+            for (size_t f = 0; f < v.tris.size(); ++f) {
+                if (!std::binary_search(sel.begin(), sel.end(), v.faceMap[f])) continue;
+                const uint32_t idx[3] = {v.tris[f].a, v.tris[f].b, v.tris[f].c};
+                for (int k = 0; k < 3; ++k)
+                    if (level == 2 || (v.mesh.faces[f].edgeVisible & (1u << k))) add(idx[k], idx[(k + 1) % 3]);
+            }
+        }
+        if (!lines.empty()) lines_->Draw(lines, toClip, 1.0f, 0.0f, 0.0f);
+        return;
+    }
+    const auto& sel = vertexEditing_.mod->SelectedVertices();
     for (int pass = 0; pass < 2; ++pass) {
         std::vector<float> run;
         for (size_t i = 0; i < pts.size(); ++i) {
-            const bool selected = std::binary_search(sel.begin(), sel.end(), static_cast<uint32_t>(i));
+            const bool selected = std::binary_search(sel.begin(), sel.end(), v.vertexMap[i]);
             if (selected != (pass == 1)) continue;
             const int cx = static_cast<int>(std::floor(pts[i].x)), cy = static_cast<int>(std::floor(pts[i].y));
             static const int kHalf[5] = {0, 1, 2, 1, 0};
@@ -470,15 +604,66 @@ bool Viewport::MouseRay(int x, int y, math::Vec3& origin, math::Vec3& dir) const
 // the pivot (the constraint's plane, or for one axis the plane containing it that faces
 // the camera), and the movement is kept to the allowed axes.
 math::Vec3 Viewport::MoveDelta(int x, int y) const {
+    // Constraints and drag planes in the reference coordinate system (9.9).
+    const scene::move::Frame frame = CurrentFrame();
     math::Vec3 o0, d0, o1, d1;
     if (!MouseRay(moveStart_.x, moveStart_.y, o0, d0) || !MouseRay(x, y, o1, d1)) return {0, 0, 0};
-    if (type_ != ViewType::Perspective) return scene::move::Constrain(o1 - o0, axesActive_);
+    if (type_ != ViewType::Perspective) return scene::move::ConstrainInFrame(o1 - o0, axesActive_, frame);
     math::Vec3 n, h0, h1;
     const math::Vec3 forward = math::Normalize(perspective_.target - perspective_.Eye());
-    if (!scene::move::DragPlaneNormal(axesActive_, forward, n)) n = forward;   // all axes: the view plane
+    if (!scene::move::DragPlaneNormalInFrame(axesActive_, forward, frame, n)) n = forward;   // all axes: the view plane
     if (!scene::move::RayPlane(o0, d0, movePivot_, n, h0) || !scene::move::RayPlane(o1, d1, movePivot_, n, h1))
         return {0, 0, 0};
-    return scene::move::Constrain(h1 - h0, axesActive_);
+    return scene::move::ConstrainInFrame(h1 - h0, axesActive_, frame);
+}
+
+// The reference frame for this view (View and Screen depend on it) and the first
+// selected object (Parent, Local).
+scene::move::Frame Viewport::CurrentFrame() const {
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    const scene::Node* first = nullptr;
+    if (scene_)
+        for (scene::Node::Id id : scene_->Selection())
+            if ((first = scene_->FindById(id))) break;
+    math::Quat parentQ, localQ;
+    math::Vec3 parentPivot{0, 0, 0}, localPivot{0, 0, 0};
+    const bool hasParent = first && first->Parent();
+    if (first) {
+        localQ = scene::typein::WorldRotation(*first);
+        localPivot = math::TransformPoint(first->WorldMatrix(), {0, 0, 0});
+    }
+    if (hasParent) {
+        parentQ = scene::typein::WorldRotation(*first->Parent());
+        parentPivot = math::TransformPoint(first->Parent()->WorldMatrix(), {0, 0, 0});
+    }
+    return scene::move::MakeFrame(refCoord_, type_ == ViewType::Perspective, right, up,
+                                  hasParent ? &parentQ : nullptr, parentPivot, first ? &localQ : nullptr, localPivot);
+}
+
+// Where transforms centre and the gizmo sits: the pivots' average (Use Pivot Point
+// Center), the centre of the selection's world bounding box (Use Selection Center), or
+// the reference system's origin (Use Transform Coordinate Center).
+math::Vec3 Viewport::TransformCenter() const {
+    if (centre_ == 2) return CurrentFrame().origin;
+    math::Vec3 sum{0, 0, 0}, lo{1e300, 1e300, 1e300}, hi{-1e300, -1e300, -1e300};
+    int count = 0;
+    for (scene::Node::Id id : scene_->Selection()) {
+        const scene::Node* n = scene_->FindById(id);
+        if (!n) continue;
+        sum = sum + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
+        ++count;
+        if (centre_ == 1 && n->GetObject()) {
+            const math::Mat4 m = n->ObjectMatrix();
+            for (const auto& v : n->GetObject()->Evaluate().verts) {
+                const math::Vec3 w = math::TransformPoint(m, v);
+                lo = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
+                hi = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
+            }
+        }
+    }
+    if (centre_ == 1 && lo.x <= hi.x) return (lo + hi) * 0.5;
+    return count ? sum * (1.0 / count) : sum;
 }
 
 bool Viewport::WorldToWindow(const math::Vec3& p, double& x, double& y, double& depth) const {
@@ -608,6 +793,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
         const math::Mat4 m = node->ObjectMatrix();
         // Normals transform with the inverse transpose (correct under non-uniform scale).
         const math::Mat4 inv = math::AffineInverse(m);
+        const bool mirrored = math::Mirrors(m);
         auto normalToWorld = [&](const math::Vec3& n) {
             return math::Normalize(math::Vec3{inv.m[0][0] * n.x + inv.m[0][1] * n.y + inv.m[0][2] * n.z,
                                               inv.m[1][0] * n.x + inv.m[1][1] * n.y + inv.m[1][2] * n.z,
@@ -618,7 +804,10 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
         v.reserve(mesh.faces.size() * 18);
         for (size_t i = 0; i < mesh.faces.size(); ++i) {
             const math::Vec3 fn = facets ? mesh.FaceNormal(i) : math::Vec3{};
-            for (int k = 0; k < 3; ++k) {
+            for (int j = 0; j < 3; ++j) {
+                // A mirrored object's corners in reverse order, so its winding (which the
+                // shader's two-sided lighting reads) agrees with its outward normals again.
+                const int k = mirrored ? (3 - j) % 3 : j;
                 const math::Vec3 p = math::TransformPoint(m, mesh.verts[mesh.faces[i].v[k]]);
                 const math::Vec3 n = normalToWorld(facets ? fn : corner[i * 3 + static_cast<size_t>(k)]);
                 v.insert(v.end(), {static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z),
@@ -819,19 +1008,31 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (vertexEditing_.on && vertexEditing_.weldTarget && vertexEditing_.level == 0 && onWeldTarget) {
+            // Weld > Target: press on a vertex; where it is released decides the target.
+            const EditedMeshView v = EditedView();
+            const std::vector<uint32_t> hits = SubObjectsAt(v, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, nullptr);
+            if (!hits.empty()) {
+                weldDragging_ = true;
+                weldFrom_ = hits[0];
+                SetCapture(Hwnd());
+            }
         } else if (vertexEditing_.on && onVertexSelect) {
-            // Vertex level: with a transform tool, pressing on a vertex drags the vertex
-            // selection (selecting that vertex first); otherwise a click or region selects.
-            std::vector<math::Vec3> world;
-            const auto pts = VertexPixels(&world);
-            const int hit = view::PickNearestPoint(pts, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, 4.0);
-            if (transformTool_ && hit >= 0) {
-                const auto& sel = vertexEditing_.mod->SelectedVertices();
-                if (!std::binary_search(sel.begin(), sel.end(), static_cast<uint32_t>(hit)))
-                    onVertexSelect({static_cast<uint32_t>(hit)}, false, (wp & MK_CONTROL) != 0, false);
+            // Vertex or Face level: with a transform tool, pressing on a vertex (a face)
+            // drags the selection (selecting it first); otherwise a click or region selects.
+            // Selections are reported as Edit Mesh's input indices.
+            const EditedMeshView v = EditedView();
+            const double px = GET_X_LPARAM(lp) + 0.5, py = GET_Y_LPARAM(lp) + 0.5;
+            math::Vec3 pivot{0, 0, 0};
+            const std::vector<uint32_t> hits = SubObjectsAt(v, px, py, &pivot);
+            if (transformTool_ && !hits.empty()) {
+                const auto& sel = SubObjectSelection();
+                bool all = true;
+                for (uint32_t h : hits) all = all && std::binary_search(sel.begin(), sel.end(), h);
+                if (!all) onVertexSelect(hits, false, (wp & MK_CONTROL) != 0, false);
                 moving_ = true;
                 moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-                movePivot_ = world[static_cast<size_t>(hit)];
+                movePivot_ = pivot;
                 SetCapture(Hwnd());
                 if (onMoveBegin) onMoveBegin();
             } else {
@@ -847,7 +1048,7 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             if (!scene_->IsSelected(id)) onSelect({id}, false, (wp & MK_CONTROL) != 0, false);
             moving_ = true;
             moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            movePivot_ = SelectionPivot();
+            movePivot_ = TransformCenter();      // the drag plane through the transform centre (9.9)
             SetCapture(Hwnd());
             if (onMoveBegin) onMoveBegin();
         } else if (onSelect) {
@@ -917,6 +1118,19 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_LBUTTONUP:
+        if (weldDragging_) {
+            // Released within the "pixels" threshold of another vertex: weld into it
+            // (NOTE: R3 shows the vertex following the cursor while dragging; not here).
+            weldDragging_ = false;
+            ReleaseCapture();
+            EditedMeshView v = EditedView();
+            for (size_t i = 0; i < v.pixels.size(); ++i)
+                if (v.vertexMap[i] == weldFrom_) v.pixels[i] = {-1e9, -1e9};    // not its own target
+            const double tolerance = vertexEditing_.mod->Params().Int(scene::EditMeshModifier::kWeldTargetPixels, 4);
+            const int hit = view::PickNearestPoint(v.pixels, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, tolerance);
+            if (hit >= 0 && onWeldTarget) onWeldTarget(weldFrom_, v.vertexMap[static_cast<size_t>(hit)]);
+            return 0;
+        }
         if (moving_) {
             moving_ = false;
             ReleaseCapture();
@@ -930,15 +1144,10 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             ReleaseCapture();
             const bool ctrl = (wp & MK_CONTROL) != 0, alt = GetKeyState(VK_MENU) < 0;
             if (vertexEditing_.on && onVertexSelect) {
-                const auto pts = VertexPixels();
-                std::vector<uint32_t> verts;
-                if (region) {
-                    for (int i : view::PickPointsInRect(pts, dragStart_.x + 0.5, dragStart_.y + 0.5, dragLast_.x + 0.5, dragLast_.y + 0.5))
-                        verts.push_back(static_cast<uint32_t>(i));
-                } else {
-                    const int hit = view::PickNearestPoint(pts, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, 4.0);
-                    if (hit >= 0) verts.push_back(static_cast<uint32_t>(hit));
-                }
+                const EditedMeshView v = EditedView();
+                const std::vector<uint32_t> verts = region       // input indices at the current level
+                    ? SubObjectsIn(v, dragStart_.x + 0.5, dragStart_.y + 0.5, dragLast_.x + 0.5, dragLast_.y + 0.5)
+                    : SubObjectsAt(v, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5, nullptr);
                 InvalidateRect(Hwnd(), nullptr, FALSE);
                 onVertexSelect(verts, region, ctrl, alt);
                 return 0;

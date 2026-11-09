@@ -1,4 +1,6 @@
 #pragma once
+#include "ui/Dialogs.h"
+#include <map>
 #include "win/Window.h"
 #include "ui/CommandTable.h"
 #include "scene/Scene.h"
@@ -70,6 +72,12 @@ private:
         bool hasParent; math::Mat4 parentWorld; math::Quat parentRotation;
     };
     std::vector<Moving> moving_;
+    // Phase 9.9: the reference coordinate system, the transform centre (0 each pivot, 1
+    // the selection's centre, 2 the system's origin), and both as captured when a drag starts.
+    scene::move::RefCoord refCoord_ = scene::move::RefCoord::View;
+    int centre_ = 0;
+    scene::move::Frame dragFrame_;
+    math::Vec3 dragCentre_{0, 0, 0};
     void DeleteSelection();
     scene::Node* NameColorTarget() const;          // whose name and colour the panel shows
     // The Modify tab: the stack entry shown (0 = top) and filling the panel from the
@@ -86,7 +94,8 @@ private:
         std::vector<uint32_t> vertices;
         math::Mat4 worldToObject;
     } vertexMove_;
-    std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices
+    std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices or faces
+    scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it
     void UpdateModifyPanel();
     // The selected object's stack: its Derived Object (or null) and the entry shown.
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;
@@ -94,7 +103,27 @@ private:
     std::wstring docName_ = L"Untitled";
     std::wstring docPath_;                          // the .mlk file the scene was opened from or saved to
     bool SaveFile(const std::wstring& path);
-    void SaveAs();
+    bool SaveAs();                                  // false if cancelled or failed
+    // Before replacing the scene: if it is modified, ask to save it. False = cancel.
+    bool ConfirmDiscard();
+    void ResetScene();                              // an empty, unsaved scene ("Untitled")
+    bool ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& bytes);
+    bool MergeFile(const std::wstring& path);
+    std::wstring AskForSceneFile(const wchar_t* title);
+    void SelectNodes(std::vector<scene::Node::Id> ids);   // one undoable "Select" step
+    // Phase 9.2: menus as in R3.1 (greying, check marks, recent files), shortcuts.
+    void UpdateMenu(HMENU menu);
+    void InstallShortcuts();
+    void AddRecentFile(const std::wstring& path);
+    std::vector<std::wstring> recentFiles_;            // most recent first (registry)
+    bool showGizmo_ = true;                            // Views > Show Transform Gizmo
+    bool updateDuringSpinnerDrag_ = true;              // Views > Update During Spinner Drag (NOTE: no effect yet)
+    struct SavedView { bool saved = false; view::OrthoView ortho; view::PerspectiveView perspective; };
+    std::map<int, SavedView> savedViews_;              // Views > Save Active ... View, per view type
+    std::wstring description_;
+    bool weldTargetMode_ = false;                      // Edit Mesh > Weld > Target pressed
+    ui::TypeInDialog typeIn_;                          // Tools > Transform Type-In (F12)
+    void UpdateTypeIn();                         // File > Summary Info's Description (NOTE: not saved yet)
 
     // Regions, in the order of FrameLayout.
     TabPanel    tabPanel_;

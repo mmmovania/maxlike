@@ -97,4 +97,54 @@ math::Vec3 EulerXYZDegrees(const math::Quat& q0) {
     return {std::atan2(sinX, cosX) * k, std::asin(sinY) * k, std::atan2(sinZ, cosZ) * k};
 }
 
+namespace {
+math::Vec3 ToFrame(const Frame& f, const math::Vec3& v) { return {math::Dot(v, f.axis[0]), math::Dot(v, f.axis[1]), math::Dot(v, f.axis[2])}; }
+math::Vec3 FromFrame(const Frame& f, const math::Vec3& v) { return f.axis[0] * v.x + f.axis[1] * v.y + f.axis[2] * v.z; }
+} // namespace
+
+math::Vec3 ConstrainInFrame(const math::Vec3& delta, const bool active[3], const Frame& f) {
+    return FromFrame(f, Constrain(ToFrame(f, delta), active));
+}
+
+bool DragPlaneNormalInFrame(const bool active[3], const math::Vec3& viewDir, const Frame& f, math::Vec3& normal) {
+    math::Vec3 n;
+    if (!DragPlaneNormal(active, ToFrame(f, viewDir), n)) return false;
+    normal = FromFrame(f, n);
+    return true;
+}
+
+math::Quat DragRotationInFrame(int axis, int upPixels, const Frame& f) {
+    if (axis < 0 || axis > 2) return math::Quat{};
+    return math::Quat::FromAxisAngle(f.axis[axis], upPixels * 0.5 * 3.14159265358979323846 / 180.0);
+}
+
+Frame MakeFrame(RefCoord system, bool perspective, const math::Vec3& right, const math::Vec3& up,
+                const math::Quat* parentRotation, const math::Vec3& parentPivot,
+                const math::Quat* localRotation, const math::Vec3& localPivot) {
+    Frame f;
+    auto rotated = [&](const math::Quat& q, const math::Vec3& origin) {
+        for (int a = 0; a < 3; ++a) f.axis[a] = math::Normalize(q.Rotate(f.axis[a]));
+        f.origin = origin;
+    };
+    switch (system) {
+    case RefCoord::View:
+        if (perspective) break;                                       // World
+        [[fallthrough]];
+    case RefCoord::Screen:
+        f.axis[0] = math::Normalize(right);
+        f.axis[1] = math::Normalize(up);
+        f.axis[2] = math::Normalize(math::Cross(right, up));         // out of the screen
+        break;
+    case RefCoord::Parent:
+        if (parentRotation) rotated(*parentRotation, parentPivot);   // no parent: the world
+        break;
+    case RefCoord::Local:
+        if (localRotation) rotated(*localRotation, localPivot);
+        break;
+    case RefCoord::World: case RefCoord::Grid: case RefCoord::Pick:
+        break;
+    }
+    return f;
+}
+
 } // namespace scene::move

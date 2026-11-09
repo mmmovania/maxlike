@@ -33,10 +33,14 @@ public:
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
     void SetTransformTool(bool on) { for (auto& v : views_) v.SetTransformTool(on); }
+    void SetReferenceSystem(scene::move::RefCoord s, int centre) { for (auto& v : views_) v.SetReferenceSystem(s, centre); }
     void SetVertexEditing(const Viewport::VertexEditing& e) { for (auto& v : views_) v.SetVertexEditing(e); }
     std::function<void(const std::vector<uint32_t>&, bool, bool, bool)> onVertexSelect;
+    std::function<void(uint32_t, uint32_t)> onWeldTarget;
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
+    // File > Reset: the startup types and views (Top, Front, Left, Perspective).
+    void ResetAllViews();
     // A viewport (0..3 in layout order) restored from a file: its type and its view.
     void ApplySavedView(int slot, ViewType type, const view::OrthoView& ortho, const view::PerspectiveView& perspective) {
         if (slot < 0 || slot >= static_cast<int>(views_.size())) return;
@@ -44,6 +48,7 @@ public:
         views_[static_cast<size_t>(slot)].SetViewState(ortho, perspective);
     }
     int  Active() const { return active_; }
+    Viewport& ActiveView() { return views_[static_cast<size_t>(active_)]; }
     void SetActive(int index);
     void ToggleMaximized();                 // Min/Max: the active viewport fills the area
     // (Not "IsMaximized": windows.h defines that name as a macro for IsZoomed.)
