@@ -63,6 +63,9 @@ List`; R3 keeps them in 3dsmax.ini).
 - Keyboard shortcut text is omitted until accelerators are implemented.
 
 ## Behaviour so far
+25 of the 114 menu commands work at the end of Phase 9 (counted from `MainFrame` against
+`MenuSpec`); the rest show the "not implemented yet" prompt below.
+
 - `file.exit` posts `WM_CLOSE` (same path as the close button).
 - `help.about` shows an About box with the version.
 - `edit.undo` / `edit.redo` undo and redo scene changes (Phase 3). Before the Edit menu
@@ -89,6 +92,17 @@ List`; R3 keeps them in 3dsmax.ini).
 - `tools.transform_type_in` (F12) opens the modeless Transform Type-In: Absolute:World
   (one object) and Offset:World X / Y / Z for the active transform tool; Enter applies the
   group typed in as one undoable step (step 9.8).
+- `tools.mirror` and `tools.array` mirror (axis or plane of the reference system, about
+  the transform centre; No Clone / Copy / Instance) or array (incremental move, rotate,
+  scale; 1D / 2D / 3D) the selection as one undoable step (9.10).
+- `views.save_active` / `views.restore_active` keep one view per view type, named after
+  the active viewport; `views.show_gizmo` switches Move's gizmo for the plain tripod;
+  `views.update_during_spinner_drag` is only a tick for now (9.2).
+- `file.recent.1` … `file.recent.9`: the recent files, inserted above Exit when the File
+  menu opens (9.2).
+- Toolbar (not menus): `tool.ref_coord` (the reference coordinate system) and
+  `tool.pivot_point` / `tool.pivot_selection` / `tool.pivot_transform` (the transform
+  centre) work since step 9.9.
 - `file.save` writes the scene to its `.mlk` file, or asks for a name (Save As) if it has
   none or was opened from a `.max` file; `file.save_as` always asks (Phase 8, step 8.7).
   Saving marks the scene clean.

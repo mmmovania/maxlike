@@ -1,6 +1,12 @@
 # Phase 9 — Deferred items
 
-Branch: `phase/9-deferred` (from `main` after Phase 8).
+Branch: `phase/9-deferred` (from `main` after Phase 8). ✔ Done: v0.9.0.
+
+Phase 9 built eleven steps from the inventory below: the File and Edit commands, the menus
+and shortcuts checked against R3.1, Edit Mesh at every level with its main buttons, the
+Transform Type-In, the coordinate systems and centres, Mirror and Array. What remains of
+list A moves to Phase 10 (`docs/spec/02-plan.md`); lists B and C stay as they are.
+Technical documentation: `docs/tech/phase9-tech-docs.md`.
 
 Phase 9 works through everything earlier phases deferred. The inventory below was
 collected from the repository itself: the plan's "Deferred" entries, every phase
@@ -34,8 +40,8 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
 - [x] **9.7** Edit Mesh: Weld > Target (drag a vertex onto another within the pixels
       threshold; the target stays) and Detach (the selected faces as a new Editable Mesh in
       place, or as a clone), each one undo step
-- [ ] Edit Mesh: Create, the other Edit Geometry buttons; Rotate and Scale at sub-object
-      level; Soft Selection
+- [ ] → Phase 10: Edit Mesh Create, the other Edit Geometry buttons; Rotate and Scale at
+      sub-object level; Soft Selection
 - [x] **9.8** Transform Type-In (Tools menu, F12): a modeless floater, Absolute:World and
       Offset:World X / Y / Z for Move, Rotate (degrees) and Scale (percent); Enter applies
       the group typed in, one undo step; follows the tool and the selection
@@ -43,15 +49,16 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
       not yet) for Move's constraints and drag planes, Rotate's axis and the gizmo; transform
       centres (pivot, selection centre, system origin) for Rotate and the gizmo. Corrects
       View in ortho views: R3 uses the screen's axes there (Front: Y is up the screen)
-- [ ] The modifier gizmo in the views
-- [ ] Viewports and the selection in `.mlk` files
+- [ ] → Phase 10: the modifier gizmo in the views
+- [ ] → Phase 10: viewports and the selection in `.mlk` files
 - [x] **9.10** Tools > Mirror (axis or plane of the reference system, about the transform
       centre, offset; No Clone / Copy / Instance) and Tools > Array (incremental move,
       rotate, scale; 1D / 2D / 3D counts and offsets; Copy / Instance), one undo step each.
       Mirrored objects are drawn correctly: wireframe culling and two-sided shading follow
       the reversed winding
-- [ ] Group menu; Tools: Align
-- [ ] Picking: whether culled (back-facing) edges can be clicked — R3.1's behaviour to check
+- [x] **9.11** Wrap-up: technical documentation, documentation sweep, v0.9.0
+- [ ] → Phase 10: Group menu; Tools: Align
+- [ ] → list B: picking — whether R3.1 lets culled (back-facing) edges be clicked
 
 ## B. Need R3.1 evidence (screenshots or samples)
 - ~~Keyboard shortcuts~~ (step 9.2, from the menu screenshots); still open: Edit > Select
@@ -74,6 +81,16 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.11 verification
+- [x] Version 0.9.0; `docs/tech/phase9-tech-docs.md`; README, plan (Phases 6–8's
+      deferrals marked with the step that resolved them, Phase 10 added), menus spec (25
+      of 114 commands, counted from the code), UI look (the gizmo's axes), overview (two
+      design decisions), the `.mlk` format (Edit Mesh's new chunks), the technical-docs
+      index (in phase order)
+- [x] Builds warning-free; thirty-eight test programs pass (MinGW + Wine); the default
+      window unchanged; the Edit Mesh panel still 0 differing pixels against R3.1
+- [ ] On Windows: the unticked "On Windows" items of steps 9.1–9.10
 
 ## Step 9.10 verification
 - [x] Builds warning-free; thirty-eight test programs pass (MinGW + Wine)

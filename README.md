@@ -22,7 +22,7 @@ This is how it looks so far
 | 6 Selection and transforms (Objects strip, selection, Name and Color, Move/Rotate/Scale, X/Y/Z) | ✔ strip pixel-checked, gizmo measured | 0.6.0 |
 | 7 Modify panel (modifier stack, Bend/Taper/Twist, Edit Mesh at Vertex level) | ✔ panels pixel-checked | 0.7.0 |
 | 8 `.max` import (open R3-era files, saved viewports; maxlike's own `.mlk` files) | ✔ samples verified against R3.1 | 0.8.0 |
-| 9 Deferred items (inventory in `docs/phases/phase-9-deferred.md`) | in progress | |
+| 9 Deferred items (menus and shortcuts as R3.1, File / Edit commands, all Edit Mesh levels, Transform Type-In, coordinate systems, Mirror, Array) | ✔ menus verified against R3.1 | 0.9.0 |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 
@@ -33,7 +33,7 @@ Requires Visual Studio 2019+ (Desktop development with C++) and CMake 3.20+.
 ```sh
 cmake -S . -B build
 cmake --build build --config Debug
-ctest --test-dir build -C Debug      # 24 unit-test programs
+ctest --test-dir build -C Debug      # 38 unit-test programs
 build\Debug\maxlike.exe
 ```
 
@@ -43,6 +43,9 @@ client size of the R3.1 reference screenshot (useful for pixel comparisons).
 R3-era `.max` file: primitives, Editable Meshes and Edit Mesh stacks, with names, hierarchy,
 transforms and wire colours; a report lists anything it could not import. The seventeen R3.1
 samples are in `docs/reference/samples/`.
+The menus and their keyboard shortcuts follow R3.1 (Ctrl+O, Ctrl+S, Ctrl+Z, Ctrl+A for
+Redo as in R3.1, F12 for the Transform Type-In, M, 1, …); single-key shortcuts are ignored
+while typing in a field. The File menu lists the nine most recent files.
 `--demo-scene <name>|all` opens with hand-built objects (box, plane, pyramid, cylinder, cone,
 tube, torus, sphere, geosphere, teapot), `instances` (seven nodes sharing one modified box) or
 `deform` (three tall boxes with Bend, Twist and Taper). They were transcribed before maxlike
@@ -55,7 +58,7 @@ use estimated sizes and colours — open the sample itself for the real scene.
 |---|---|
 | `main` | Integrated, always-building code. Phases land here when done. |
 | `spec` | The original specification. Since Phase 1, spec updates travel with the phase that measured or decided them; use `spec` only for spec-only edits between phases. |
-| `phase/0-skeleton` … `phase/8-max-import` | One branch per phase of the plan in `docs/spec/02-plan.md`. |
+| `phase/0-skeleton` … `phase/9-deferred` | One branch per phase of the plan in `docs/spec/02-plan.md`. |
 
 ## Workflow
 
