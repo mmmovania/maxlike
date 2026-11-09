@@ -116,6 +116,33 @@ int main() {
         CHECK(Near(a->Transform().scale, {2, 1, 1}));
         a->Transform() = s4;
     }
+    // Sub-object Rotate and Scale (10.5): offsets for a world change, plain and scaled objects.
+    {
+        const double kPi = 3.14159265358979323846;
+        const math::Vec3 c{1, 0, 0};
+        const math::Mat4 turn = math::Translation(c) * math::Quat::FromAxisAngle({0, 0, 1}, kPi / 2).ToMat4() * math::Translation(c * -1.0);
+        const math::Mat4 plain = math::Translation({0, 0, 0});
+        auto d = SubObjectDeltas({{2, 0, 0}, {1, 0, 5}}, plain, turn);
+        CHECK(Near(d[0], {-1, 1, 0}) && Near(d[1], {0, 0, 0}));       // (2,0,0) -> (1,1,0); a point on the axis stays
+        // On an object scaled 2x in X and moved: the world positions turn rigidly.
+        scene::PRS t;
+        t.position = {5, 0, 0};
+        t.scale = {2, 1, 1};
+        const math::Mat4 m = t.Matrix();
+        const std::vector<math::Vec3> pts = {{1, 0, 0}, {0, 3, 0}};
+        d = SubObjectDeltas(pts, m, turn);
+        for (size_t i = 0; i < pts.size(); ++i) {
+            const math::Vec3 before = math::TransformPoint(m, pts[i]), after = math::TransformPoint(m, pts[i] + d[i]);
+            CHECK(Near(after, math::TransformPoint(turn, before)));
+        }
+        CHECK(std::fabs(math::Length(math::TransformPoint(m, pts[0] + d[0]) - math::TransformPoint(m, pts[1] + d[1])) -
+                        math::Length(math::TransformPoint(m, pts[0]) - math::TransformPoint(m, pts[1]))) < 1e-9);
+        // FrameScale along a frame turned 90 degrees about Z: its X axis is world Y.
+        scene::move::Frame f;
+        f.axis[0] = {0, 1, 0}; f.axis[1] = {-1, 0, 0};
+        const double s2[3] = {2, 1, 1};
+        CHECK(Near(math::TransformPoint(FrameScale(f, s2), {3, 4, 5}), {3, 8, 5}));
+    }
     if (failures == 0) std::printf("arrange: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

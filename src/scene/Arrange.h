@@ -38,6 +38,15 @@ struct AlignOptions {
 bool WorldBounds(const Node& node, math::Vec3& lo, math::Vec3& hi);
 PRS Aligned(Node& node, const Node& target, const AlignOptions& options);
 
+// The linear map scaling by s[a] along the frame's axis a (Array, Mirror, sub-object Scale).
+math::Mat4 FrameScale(const move::Frame& frame, const double s[3]);
+
+// Sub-object Rotate and Scale (Phase 10.5): the object-space offsets that move `points`
+// (object space, of an object placed by `objectToWorld`) by the world-space change
+// `worldChange`. Done in world space, so a scaled object still turns rigidly.
+std::vector<math::Vec3> SubObjectDeltas(const std::vector<math::Vec3>& points, const math::Mat4& objectToWorld,
+                                        const math::Mat4& worldChange);
+
 // A node's PRS once `worldChange` is applied to its world matrix (the node is unchanged).
 PRS Changed(Node& node, const math::Mat4& worldChange);
 

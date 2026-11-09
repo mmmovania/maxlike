@@ -20,9 +20,26 @@ items still buildable without new R3.1 evidence.
       Scale) and Center (Move), one undo step per drag; kept in `.mlk` files and clones
 - [x] **10.4** Viewports and the selection in `.mlk` files: the four views (type, pan,
       zoom, camera), the active one and the selection are saved and restored on opening
-- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
-      sub-object level; Soft Selection
+- [x] **10.5** Rotate and Scale at Edit Mesh's sub-object levels: about the selection's
+      centre (or the reference system's origin), in the reference system's frame, rigid
+      even on scaled objects; one undo step per drag
+- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Soft Selection
 - [ ] Wrap-up
+
+## Step 10.5 verification
+- [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)
+- [x] `test_arrange`: a 90° turn about a centre moves points exactly, a point on the axis
+      stays; on an object scaled 2x and moved, the world positions turn rigidly (distances
+      kept); a frame scale along a turned frame; Mirror and Array unchanged with the now
+      public FrameScale. `test_edit_mesh`: per-vertex offsets merge with existing moves
+- [x] Under Wine on `box.max`, Edit Mesh at Polygon level with the top selected: Scale up
+      50 px grows it about its centre by 1.497 (268 px from the centre instead of 179);
+      Ctrl+Z restores it exactly; Rotate 90 px turns it 45° into a diamond over the
+      unturned bottom
+- [ ] On Windows: each level; non-uniform and squash scaling; several constraint axes; the
+      three centre buttons
+- [ ] Unverified: R3's sub-object centre rules (here the vertices' average, or the system's
+      origin), whether Use Pivot Point Center means each face separately at Face level
 
 ## Step 10.4 verification
 - [x] Builds warning-free; thirty-nine test programs pass (MinGW + Wine)

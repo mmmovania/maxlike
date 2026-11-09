@@ -272,6 +272,13 @@ std::vector<EditMeshModifier::Move> EditMeshModifier::AddToMoves(const std::vect
     return out;
 }
 
+std::vector<EditMeshModifier::Move> EditMeshModifier::AddToMoves(const std::vector<Move>& moves, const std::vector<uint32_t>& vertices,
+                                                                 const std::vector<math::Vec3>& deltas) {
+    std::vector<Move> out = moves;
+    for (size_t k = 0; k < vertices.size() && k < deltas.size(); ++k) out = AddToMoves(out, {vertices[k]}, deltas[k]);
+    return out;
+}
+
 
 // ---------------------------------------------------------------- Bend / Taper / Twist
 

@@ -93,6 +93,11 @@ private:
         std::vector<scene::EditMeshModifier::Move> before;
         std::vector<uint32_t> vertices;
         math::Mat4 worldToObject;
+        // Rotate and Scale (10.5): the vertices' object-space positions at the start, the
+        // object's matrix, and the world centre they turn or scale about.
+        std::vector<math::Vec3> points;
+        math::Mat4 objectToWorld;
+        math::Vec3 centre{0, 0, 0};
     } vertexMove_;
     std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices or faces
     scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it

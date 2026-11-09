@@ -122,6 +122,9 @@ public:
     // The moves after adding `delta` (object space) to every vertex in `vertices`.
     static std::vector<Move> AddToMoves(const std::vector<Move>& moves, const std::vector<uint32_t>& vertices,
                                         const math::Vec3& delta);
+    // The same with one offset per vertex (sub-object Rotate and Scale, Phase 10.5).
+    static std::vector<Move> AddToMoves(const std::vector<Move>& moves, const std::vector<uint32_t>& vertices,
+                                        const std::vector<math::Vec3>& deltas);
 
     // Phase 9.4: Face level and Delete. Every index refers to the mesh coming into Edit
     // Mesh, so edits never renumber each other; Edited() gives the output with maps back.

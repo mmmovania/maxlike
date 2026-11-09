@@ -945,7 +945,21 @@ bool MainFrame::CreateRegions() {
                 std::sort(verts.begin(), verts.end());
                 verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
             }
-            vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix())};
+            vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix()), {}, node->ObjectMatrix(), {}};
+            // Positions now: the input with the current moves; the centre is the vertices'
+            // average, or the reference system's origin (Use Transform Coordinate Center).
+            // NOTE: R3's sub-object centre rules are unverified.
+            scene::Mesh at = EditMeshInput(mod);
+            for (const auto& mv : mod->Moves())
+                if (mv.vertex < at.verts.size()) at.verts[mv.vertex] = at.verts[mv.vertex] + mv.delta;
+            math::Vec3 sum{0, 0, 0};
+            for (uint32_t v : verts) {
+                const math::Vec3 p = v < at.verts.size() ? at.verts[v] : math::Vec3{0, 0, 0};
+                vertexMove_.points.push_back(p);
+                sum = sum + math::TransformPoint(vertexMove_.objectToWorld, p);
+            }
+            dragFrame_ = viewports_.ActiveView().CurrentFrame();
+            vertexMove_.centre = centre_ == 2 ? dragFrame_.origin : verts.empty() ? sum : sum * (1.0 / static_cast<double>(verts.size()));
             return;
         }
         for (scene::Node::Id id : scene_.Selection()) {
@@ -1000,13 +1014,30 @@ bool MainFrame::CreateRegions() {
             return;
         }
         if (vertexMove_.active) {
-            // Vertices move in the object's own space (NOTE: Rotate and Scale at vertex
-            // level are not implemented; only Move drags vertices).
-            if (tool_ != Tool::Move) return;
-            const math::Vec3 d = math::TransformPoint(vertexMove_.worldToObject, delta) -
-                                 math::TransformPoint(vertexMove_.worldToObject, {0, 0, 0});
-            vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, d));
-            ShowCoordinates(delta);
+            // Move: one offset in the object's space. Rotate and Scale (10.5): a world-space
+            // turn or scale about the centre, in the reference system's frame, applied to each
+            // vertex in world space and taken back to object space.
+            if (tool_ == Tool::Move) {
+                const math::Vec3 d = math::TransformPoint(vertexMove_.worldToObject, delta) -
+                                     math::TransformPoint(vertexMove_.worldToObject, {0, 0, 0});
+                vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, d));
+                ShowCoordinates(delta);
+            } else {
+                const math::Vec3& c = vertexMove_.centre;
+                math::Mat4 change;
+                if (tool_ == Tool::Rotate) {
+                    const int axis = scene::move::RotationAxis(constraint_);
+                    change = math::Translation(c) * scene::move::DragRotationInFrame(axis, up, dragFrame_).ToMat4() * math::Translation(c * -1.0);
+                    ShowCoordinates(scene::move::RotationDegrees(axis, up));
+                } else {
+                    const math::Vec3 f = scene::move::DragScale(scaleMode_, constraint_, up);
+                    const double s[3] = {f.x, f.y, f.z};
+                    change = math::Translation(c) * scene::tools::FrameScale(dragFrame_, s) * math::Translation(c * -1.0);
+                    ShowCoordinates(scene::move::ScalePercent(f));
+                }
+                const auto deltas = scene::tools::SubObjectDeltas(vertexMove_.points, vertexMove_.objectToWorld, change);
+                vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, deltas));
+            }
             viewports_.Redraw();
             return;
         }

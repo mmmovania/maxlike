@@ -181,6 +181,15 @@ int main() {
         em.SetState(em.AfterDeletingFaces(box, false));
         CHECK(em.Extract(box, {2, 3}).FaceCount() == 1);
     }
+    // Per-vertex offsets (10.5): each vertex gets its own, merged with existing moves.
+    {
+        const std::vector<scene::EditMeshModifier::Move> before = {{2, {1, 0, 0}}};
+        const auto after = scene::EditMeshModifier::AddToMoves(before, {2, 5}, std::vector<math::Vec3>{{0, 1, 0}, {0, 0, 3}});
+        scene::EditMeshModifier em(8, after);
+        const scene::Mesh out = em.Edited(box);
+        CHECK(out.verts[2].x == box.verts[2].x + 1 && out.verts[2].y == box.verts[2].y + 1 && out.verts[5].z == box.verts[5].z + 3);
+        CHECK(out.verts[3].x == box.verts[3].x);
+    }
     // Picking edges: the nearest segment within the tolerance; rectangles take segments
     // with an end inside.
     {

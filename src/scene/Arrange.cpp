@@ -6,9 +6,7 @@
 
 namespace scene::tools {
 
-namespace {
-// The 3 x 3 linear map that scales by s[a] along the frame's axis a.
-math::Mat4 AlongFrame(const move::Frame& f, const double s[3]) {
+math::Mat4 FrameScale(const move::Frame& f, const double s[3]) {
     // M = sum_a s[a] * axis_a axis_a^T (column vectors).
     math::Mat4 m = math::Translation({0, 0, 0});
     for (int c = 0; c < 3; ++c)
@@ -23,7 +21,6 @@ math::Mat4 AlongFrame(const move::Frame& f, const double s[3]) {
         }
     return m;
 }
-} // namespace
 
 math::Mat4 MirrorMatrix(const move::Frame& f, MirrorAxis axis, const math::Vec3& centre, double offset) {
     double s[3] = {1, 1, 1};
@@ -37,7 +34,7 @@ math::Mat4 MirrorMatrix(const move::Frame& f, MirrorAxis axis, const math::Vec3&
     }
     math::Vec3 shift{0, 0, 0};
     for (int a = 0; a < 3; ++a) if (s[a] < 0) shift = shift + f.axis[a] * offset;
-    return math::Translation(centre + shift) * AlongFrame(f, s) * math::Translation(centre * -1.0);
+    return math::Translation(centre + shift) * FrameScale(f, s) * math::Translation(centre * -1.0);
 }
 
 math::Mat4 ArrayStepMatrix(const ArrayStep& step, const move::Frame& f, const math::Vec3& centre) {
@@ -46,7 +43,7 @@ math::Mat4 ArrayStepMatrix(const ArrayStep& step, const move::Frame& f, const ma
     const math::Quat q = math::Quat::FromAxisAngle(f.axis[2], step.rotateDegrees.z * 3.14159265358979323846 / 180) *
                          math::Quat::FromAxisAngle(f.axis[1], step.rotateDegrees.y * 3.14159265358979323846 / 180) *
                          math::Quat::FromAxisAngle(f.axis[0], step.rotateDegrees.x * 3.14159265358979323846 / 180);
-    return math::Translation(step.move) * math::Translation(centre) * q.ToMat4() * AlongFrame(f, s) * math::Translation(centre * -1.0);
+    return math::Translation(step.move) * math::Translation(centre) * q.ToMat4() * FrameScale(f, s) * math::Translation(centre * -1.0);
 }
 
 bool WorldBounds(const Node& n, math::Vec3& lo, math::Vec3& hi) {
@@ -115,6 +112,15 @@ PRS Aligned(Node& node, const Node& target, const AlignOptions& o) {
     const PRS after = Changed(node, math::Translation(shift));
     node.Transform() = before;
     return after;
+}
+
+std::vector<math::Vec3> SubObjectDeltas(const std::vector<math::Vec3>& points, const math::Mat4& m, const math::Mat4& worldChange) {
+    const math::Mat4 inv = math::AffineInverse(m);
+    std::vector<math::Vec3> out;
+    out.reserve(points.size());
+    for (const math::Vec3& p : points)
+        out.push_back(math::TransformPoint(inv, math::TransformPoint(worldChange, math::TransformPoint(m, p))) - p);
+    return out;
 }
 
 PRS Changed(Node& node, const math::Mat4& worldChange) {
