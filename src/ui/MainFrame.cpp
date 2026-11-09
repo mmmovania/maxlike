@@ -1,4 +1,5 @@
 #include "ui/MainFrame.h"
+#include "scene/Arrange.h"
 #include "scene/TypeIn.h"
 #include "scene/MeshTopology.h"
 #include "scene/Summary.h"
@@ -1192,6 +1193,71 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "tools.transform_type_in") { typeIn_.Show(Hwnd()); UpdateTypeIn(); return; }
+    if (command == "tools.mirror" || command == "tools.array") {
+        if (scene_.Selection().empty()) { statusArea_.SetPrompt(1, L"Select the objects first"); return; }
+        // The topmost selected objects only: a selected child moves with its parent.
+        auto topmost = [&](const std::vector<scene::Node::Id>& ids) {
+            std::vector<scene::Node*> out;
+            for (scene::Node::Id id : ids) {
+                scene::Node* n = scene_.FindById(id);
+                if (!n) continue;
+                bool under = false;
+                for (const scene::Node* p = n->Parent(); p && !under; p = p->Parent())
+                    under = std::find(ids.begin(), ids.end(), p->GetId()) != ids.end();
+                if (!under) out.push_back(n);
+            }
+            return out;
+        };
+        const scene::move::Frame frame = viewports_.ActiveView().CurrentFrame();
+        const math::Vec3 centre = viewports_.ActiveView().TransformCenter();
+        const std::vector<scene::Node::Id> selection = scene_.Selection();
+        if (command == "tools.mirror") {
+            static const wchar_t* kNames[] = {L"View", L"Screen", L"World", L"Parent", L"Local", L"Grid", L"Pick"};
+            const ui::MirrorChoice c = ui::ShowMirrorDialog(Hwnd(), kNames[static_cast<int>(refCoord_)]);
+            if (!c.ok) return;
+            const math::Mat4 m = scene::tools::MirrorMatrix(frame, static_cast<scene::tools::MirrorAxis>(c.axis), centre, c.offset);
+            auto macro = std::make_unique<scene::MacroCommand>("Mirror");
+            if (c.clone == 0) {
+                for (scene::Node* n : topmost(selection))
+                    macro->Add(std::make_unique<scene::TransformCommand>(n->GetId(), n->Transform(), scene::tools::Changed(*n, m), "Mirror"));
+            } else {
+                const auto ids = scene::CloneNodes(scene_, selection, c.clone == 2);
+                for (scene::Node* n : topmost(ids)) n->Transform() = scene::tools::Changed(*n, m);
+                macro->Add(std::make_unique<scene::AddedNodesCommand>("Mirror", ids));
+                macro->Add(std::make_unique<scene::SelectCommand>(ids));
+            }
+            undo_.Execute(std::move(macro), scene_);
+        } else {
+            const ui::ArrayChoice c = ui::ShowArrayDialog(Hwnd());
+            if (!c.ok) return;
+            scene::tools::ArrayStep step;
+            step.move = c.move;
+            step.rotateDegrees = c.rotate;
+            step.scalePercent = c.scale;
+            const math::Mat4 stepM = scene::tools::ArrayStepMatrix(step, frame, centre);
+            const int n1 = std::max(1, c.count1), n2 = c.dimensions >= 2 ? std::max(1, c.count2) : 1, n3 = c.dimensions >= 3 ? std::max(1, c.count3) : 1;
+            if (static_cast<long long>(n1) * n2 * n3 > 10000) { statusArea_.SetPrompt(1, L"Array: too many copies (10,000 at most)"); return; }
+            std::vector<scene::Node::Id> all;
+            for (int k = 0; k < n3; ++k)
+                for (int j = 0; j < n2; ++j) {
+                    math::Mat4 along = math::Translation(c.offset2 * static_cast<double>(j) + c.offset3 * static_cast<double>(k));
+                    for (int i = 0; i < n1; ++i) {
+                        if (i > 0) along = along * stepM;          // step^i, then the row and layer offsets
+                        if (i == 0 && j == 0 && k == 0) continue;  // the original
+                        const auto ids = scene::CloneNodes(scene_, selection, c.instance);
+                        for (scene::Node* n : topmost(ids)) n->Transform() = scene::tools::Changed(*n, along);
+                        all.insert(all.end(), ids.begin(), ids.end());
+                    }
+                }
+            if (all.empty()) return;
+            undo_.Execute(std::make_unique<scene::AddedNodesCommand>("Array", all), scene_);
+            statusArea_.SetPrompt(1, L"Array: " + std::to_wstring(all.size()) + L" objects created");
+        }
+        UpdateSelectionStatus();
+        UpdateModifyPanel();
+        viewports_.Redraw();
+        return;
+    }
     if (command == "edit.clone") {
         const auto selection = scene_.Selection();
         if (selection.empty()) return;

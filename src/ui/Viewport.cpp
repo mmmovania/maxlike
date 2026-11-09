@@ -309,9 +309,10 @@ void Viewport::DrawScene(int w, int h) {
         std::vector<bool> shown(mesh.faces.size());
         const math::Vec3 outOfScreen = math::Cross(right, up);
         const math::Vec3 eye = persp ? perspective_.Eye() : math::Vec3{0, 0, 0};
+        const double flip = math::Mirrors(m) ? -1.0 : 1.0;      // a mirrored object winds the other way
         for (size_t i = 0; i < mesh.faces.size(); ++i) {
             const scene::Face& f = mesh.faces[i];
-            const math::Vec3 n = math::Cross(p[f.v[1]] - p[f.v[0]], p[f.v[2]] - p[f.v[0]]);
+            const math::Vec3 n = math::Cross(p[f.v[1]] - p[f.v[0]], p[f.v[2]] - p[f.v[0]]) * flip;
             const math::Vec3 toViewer = persp ? eye - p[f.v[0]] : outOfScreen;
             shown[i] = math::Dot(n, toViewer) > 0;
         }
@@ -437,7 +438,7 @@ Viewport::EditedMeshView Viewport::EditedView() const {
     for (uint32_t fi = 0; fi < v.mesh.faces.size(); ++fi) {
         const scene::Face& f = v.mesh.faces[fi];
         v.tris.push_back({f.v[0], f.v[1], f.v[2]});
-        const math::Vec3 n = math::Cross(v.world[f.v[1]] - v.world[f.v[0]], v.world[f.v[2]] - v.world[f.v[0]]);
+        const math::Vec3 n = math::Cross(v.world[f.v[1]] - v.world[f.v[0]], v.world[f.v[2]] - v.world[f.v[0]]) * (math::Mirrors(m) ? -1.0 : 1.0);
         v.backFacing.push_back(math::Dot(n, persp ? eye - v.world[f.v[0]] : outOfScreen) <= 0);
         for (int k = 0; k < 3; ++k)
             if (f.edgeVisible & (1u << k)) {
@@ -792,6 +793,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
         const math::Mat4 m = node->ObjectMatrix();
         // Normals transform with the inverse transpose (correct under non-uniform scale).
         const math::Mat4 inv = math::AffineInverse(m);
+        const bool mirrored = math::Mirrors(m);
         auto normalToWorld = [&](const math::Vec3& n) {
             return math::Normalize(math::Vec3{inv.m[0][0] * n.x + inv.m[0][1] * n.y + inv.m[0][2] * n.z,
                                               inv.m[1][0] * n.x + inv.m[1][1] * n.y + inv.m[1][2] * n.z,
@@ -802,7 +804,10 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
         v.reserve(mesh.faces.size() * 18);
         for (size_t i = 0; i < mesh.faces.size(); ++i) {
             const math::Vec3 fn = facets ? mesh.FaceNormal(i) : math::Vec3{};
-            for (int k = 0; k < 3; ++k) {
+            for (int j = 0; j < 3; ++j) {
+                // A mirrored object's corners in reverse order, so its winding (which the
+                // shader's two-sided lighting reads) agrees with its outward normals again.
+                const int k = mirrored ? (3 - j) % 3 : j;
                 const math::Vec3 p = math::TransformPoint(m, mesh.verts[mesh.faces[i].v[k]]);
                 const math::Vec3 n = normalToWorld(facets ? fn : corner[i * 3 + static_cast<size_t>(k)]);
                 v.insert(v.end(), {static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z),

@@ -45,7 +45,12 @@ checklist's unticked items and "Unverified" notes, the specs, the format notes, 
       View in ortho views: R3 uses the screen's axes there (Front: Y is up the screen)
 - [ ] The modifier gizmo in the views
 - [ ] Viewports and the selection in `.mlk` files
-- [ ] Group menu; Tools: Mirror, Array, Align
+- [x] **9.10** Tools > Mirror (axis or plane of the reference system, about the transform
+      centre, offset; No Clone / Copy / Instance) and Tools > Array (incremental move,
+      rotate, scale; 1D / 2D / 3D counts and offsets; Copy / Instance), one undo step each.
+      Mirrored objects are drawn correctly: wireframe culling and two-sided shading follow
+      the reversed winding
+- [ ] Group menu; Tools: Align
 - [ ] Picking: whether culled (back-facing) edges can be clicked — R3.1's behaviour to check
 
 ## B. Need R3.1 evidence (screenshots or samples)
@@ -69,6 +74,25 @@ The renderer (Render, Video Post, Environment, Effects, previews, RAM Player), T
 Schematic View, MAXScript, the Material Editor and Browser, Customize (UI, paths,
 preferences, units, grid and snap settings), XRefs, Archive, the Shapes / Lights / Cameras
 / Helpers / Space Warps / Systems categories, zlib (only later Max versions compress).
+
+## Step 9.10 verification
+- [x] Builds warning-free; thirty-eight test programs pass (MinGW + Wine)
+- [x] `test_arrange`: Mirror X negates world X (also through a centre, with an offset) and
+      leaves the object mirrored; twice restores it; XY is a half turn, not a mirror; an
+      array step moves, turns about the centre and scales about it; clones placed by two
+      steps land 50 units along, sharing the object (Instance)
+- [x] Under Wine on `box.max`: Mirror X without cloning leaves a symmetric box's
+      wireframe and shading pixel-identical (only the tripod's X axis flips); Array, Move X
+      70, Count 3: three boxes, Select All reports 3
+- [x] Found: a mirrored object's faces wind the other way, which inverted both the
+      wireframe culling and the shader's two-sided lighting (the box shaded dark); both now
+      follow the reversed winding (math::Mirrors). Also: in the test, Ctrl+A does not
+      select an edit field's text here, so typed values were appended ("0.070", "103")
+- [ ] On Windows: Mirror's six options and the clone options; Array in 2D and 3D, with
+      rotation and scale; undo of each
+- [ ] Unverified: both dialogs' layouts (from memory), R3's live preview while they are
+      open, the plane options' and Offset's exact meaning, Array's Totals columns and its
+      "Re-Orient" / "Uniform" options (not built)
 
 ## Step 9.9 verification
 - [x] Builds warning-free; thirty-seven test programs pass (MinGW + Wine)

@@ -269,6 +269,146 @@ void TypeInDialog::Update(const std::wstring& tool, bool enabled, bool absolute,
     }
 }
 
+// ---- Mirror and Array ---------------------------------------------------------------------
+
+namespace {
+constexpr WORD kMirAxis = 501, kMirOffset = 507, kMirClone = 508;          // 501..506 axes, 508..511 clone options
+constexpr WORD kArrMove = 601, kArrRot = 604, kArrScale = 607, kArrCopy = 610, kArrInstance = 611, kArrRef = 612;
+constexpr WORD kArr1D = 613, kArr2D = 614, kArr3D = 615, kArrCount1 = 616, kArrCount2 = 617, kArrCount3 = 618, kArrOff2 = 619, kArrOff3 = 622;
+
+struct MirrorState { MirrorChoice* c; };
+INT_PTR CALLBACK MirrorProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* st = reinterpret_cast<MirrorState*>(GetWindowLongPtrW(dlg, DWLP_USER));
+    switch (msg) {
+    case WM_INITDIALOG:
+        SetWindowLongPtrW(dlg, DWLP_USER, lp);
+        CheckRadioButton(dlg, kMirAxis, kMirAxis + 5, kMirAxis);
+        CheckRadioButton(dlg, kMirClone, kMirClone + 3, kMirClone);
+        EnableWindow(GetDlgItem(dlg, kMirClone + 3), FALSE);    // Reference: not available
+        SetDlgItemTextW(dlg, kMirOffset, L"0.0");
+        return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wp) == IDOK) {
+            for (int i = 0; i < 6; ++i) if (IsDlgButtonChecked(dlg, kMirAxis + i) == BST_CHECKED) st->c->axis = i;
+            for (int i = 0; i < 3; ++i) if (IsDlgButtonChecked(dlg, kMirClone + i) == BST_CHECKED) st->c->clone = i;
+            st->c->offset = Field(dlg, kMirOffset);
+            st->c->ok = true;
+            EndDialog(dlg, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDCANCEL) { EndDialog(dlg, IDCANCEL); return TRUE; }
+        break;
+    }
+    return FALSE;
+}
+
+struct ArrayState { ArrayChoice* c; };
+INT_PTR CALLBACK ArrayProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* st = reinterpret_cast<ArrayState*>(GetWindowLongPtrW(dlg, DWLP_USER));
+    switch (msg) {
+    case WM_INITDIALOG: {
+        SetWindowLongPtrW(dlg, DWLP_USER, lp);
+        for (int i = 0; i < 3; ++i) {
+            SetDlgItemTextW(dlg, kArrMove + i, L"0.0");
+            SetDlgItemTextW(dlg, kArrRot + i, L"0.0");
+            SetDlgItemTextW(dlg, kArrScale + i, L"100.0");
+            SetDlgItemTextW(dlg, kArrOff2 + i, L"0.0");
+            SetDlgItemTextW(dlg, kArrOff3 + i, L"0.0");
+        }
+        SetDlgItemTextW(dlg, kArrCount1, L"10");
+        SetDlgItemTextW(dlg, kArrCount2, L"1");
+        SetDlgItemTextW(dlg, kArrCount3, L"1");
+        CheckRadioButton(dlg, kArrCopy, kArrRef, kArrCopy);
+        EnableWindow(GetDlgItem(dlg, kArrRef), FALSE);
+        CheckRadioButton(dlg, kArr1D, kArr3D, kArr1D);
+        return TRUE;
+    }
+    case WM_COMMAND:
+        if (LOWORD(wp) == IDOK) {
+            ArrayChoice& c = *st->c;
+            auto vec = [&](WORD first) { return math::Vec3{Field(dlg, first), Field(dlg, static_cast<WORD>(first + 1)), Field(dlg, static_cast<WORD>(first + 2))}; };
+            c.move = vec(kArrMove);
+            c.rotate = vec(kArrRot);
+            c.scale = vec(kArrScale);
+            c.offset2 = vec(kArrOff2);
+            c.offset3 = vec(kArrOff3);
+            c.instance = IsDlgButtonChecked(dlg, kArrInstance) == BST_CHECKED;
+            c.dimensions = IsDlgButtonChecked(dlg, kArr3D) == BST_CHECKED ? 3 : IsDlgButtonChecked(dlg, kArr2D) == BST_CHECKED ? 2 : 1;
+            c.count1 = static_cast<int>(Field(dlg, kArrCount1));
+            c.count2 = static_cast<int>(Field(dlg, kArrCount2));
+            c.count3 = static_cast<int>(Field(dlg, kArrCount3));
+            c.ok = true;
+            EndDialog(dlg, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDCANCEL) { EndDialog(dlg, IDCANCEL); return TRUE; }
+        break;
+    }
+    return FALSE;
+}
+} // namespace
+
+MirrorChoice ShowMirrorDialog(HWND parent, const std::wstring& system) {
+    const std::wstring title = L"Mirror: " + system + L" Coordinates";
+    Template t(title.c_str(), 140, 120);
+    t.Add(L"Button", L"Mirror Axis:", 0xFFFF, BS_GROUPBOX, 5, 3, 130, 62);
+    const wchar_t* axes[6] = {L"X", L"Y", L"Z", L"XY", L"YZ", L"ZX"};
+    for (int i = 0; i < 6; ++i)
+        t.Add(L"Button", axes[i], static_cast<WORD>(kMirAxis + i), BS_AUTORADIOBUTTON | (i == 0 ? WS_GROUP | WS_TABSTOP : 0),
+              static_cast<short>(12 + 60 * (i / 3)), static_cast<short>(14 + 12 * (i % 3)), 40, 10);
+    t.Add(L"Static", L"Offset:", 0xFFFF, SS_RIGHT, 10, 52, 30, 9);
+    t.Add(L"Edit", L"", kMirOffset, ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP | WS_GROUP, 44, 50, 60, 11);
+    t.Add(L"Button", L"Clone Selection:", 0xFFFF, BS_GROUPBOX, 5, 68, 130, 32);
+    const wchar_t* clone[4] = {L"No Clone", L"Copy", L"Instance", L"Reference"};
+    for (int i = 0; i < 4; ++i)
+        t.Add(L"Button", clone[i], static_cast<WORD>(kMirClone + i), BS_AUTORADIOBUTTON | (i == 0 ? WS_GROUP | WS_TABSTOP : 0),
+              static_cast<short>(12 + 60 * (i / 2)), static_cast<short>(78 + 11 * (i % 2)), 55, 10);
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP, 26, 104, 50, 13);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 84, 104, 50, 13);
+    MirrorChoice c;
+    MirrorState st{&c};
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, MirrorProc, reinterpret_cast<LPARAM>(&st));
+    return c;
+}
+
+ArrayChoice ShowArrayDialog(HWND parent) {
+    Template t(L"Array", 260, 170);
+    t.Add(L"Button", L"Incremental", 0xFFFF, BS_GROUPBOX, 5, 3, 250, 54);
+    const wchar_t* rows[3] = {L"Move", L"Rotate", L"Scale"};
+    const WORD firsts[3] = {kArrMove, kArrRot, kArrScale};
+    const wchar_t* xyz[3] = {L"X", L"Y", L"Z"};
+    for (int c = 0; c < 3; ++c) t.Add(L"Static", xyz[c], 0xFFFF, SS_CENTER, static_cast<short>(50 + 64 * c), 12, 50, 8);
+    for (int r = 0; r < 3; ++r) {
+        const short y = static_cast<short>(22 + 11 * r);
+        t.Add(L"Static", rows[r], 0xFFFF, SS_RIGHT, 8, static_cast<short>(y + 1), 38, 8);
+        for (int c = 0; c < 3; ++c)
+            t.Add(L"Edit", L"", static_cast<WORD>(firsts[r] + c), ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, static_cast<short>(50 + 64 * c), y, 58, 10);
+    }
+    t.Add(L"Button", L"Type of Object", 0xFFFF, BS_GROUPBOX, 5, 60, 70, 46);
+    t.Add(L"Button", L"Copy", kArrCopy, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 12, 71, 55, 10);
+    t.Add(L"Button", L"Instance", kArrInstance, BS_AUTORADIOBUTTON, 12, 82, 55, 10);
+    t.Add(L"Button", L"Reference", kArrRef, BS_AUTORADIOBUTTON, 12, 93, 55, 10);
+    t.Add(L"Button", L"Array Dimensions", 0xFFFF, BS_GROUPBOX, 80, 60, 175, 84);
+    t.Add(L"Static", L"Count", 0xFFFF, SS_LEFT, 115, 69, 30, 8);
+    const WORD dims[3] = {kArr1D, kArr2D, kArr3D}, counts[3] = {kArrCount1, kArrCount2, kArrCount3};
+    const wchar_t* dimNames[3] = {L"1D", L"2D", L"3D"};
+    for (int d = 0; d < 3; ++d) {
+        const short y = static_cast<short>(79 + 20 * d);
+        t.Add(L"Button", dimNames[d], dims[d], BS_AUTORADIOBUTTON | (d == 0 ? WS_GROUP | WS_TABSTOP : 0), 86, y, 26, 10);
+        t.Add(L"Edit", L"", counts[d], ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP | WS_GROUP, 115, y, 30, 10);
+        if (d > 0)
+            for (int c = 0; c < 3; ++c)
+                t.Add(L"Edit", L"", static_cast<WORD>((d == 1 ? kArrOff2 : kArrOff3) + c), ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP,
+                      static_cast<short>(150 + 34 * c), y, 30, 10);
+    }
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP, 150, 152, 50, 13);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 205, 152, 50, 13);
+    ArrayChoice c;
+    ArrayState st{&c};
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, ArrayProc, reinterpret_cast<LPARAM>(&st));
+    return c;
+}
+
 DetachChoice ShowDetachDialog(HWND parent, const std::wstring& suggestedName) {
     Template t(L"Detach", 160, 70);
     t.Add(L"Static", L"Detach as:", 0xFFFF, SS_LEFT, 7, 9, 36, 9);

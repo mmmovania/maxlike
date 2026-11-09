@@ -41,6 +41,19 @@ private:
     double neutral_ = 0;
 };
 
+// Tools > Mirror and Tools > Array (9.10; NOTE: layouts from memory, no R3.1 screenshot;
+// R3's live preview while the dialogs are open is not built).
+struct MirrorChoice { bool ok = false; int axis = 0; double offset = 0; int clone = 0; };   // axis: X Y Z XY YZ ZX; clone: 0 no, 1 copy, 2 instance
+MirrorChoice ShowMirrorDialog(HWND parent, const std::wstring& system);
+struct ArrayChoice {
+    bool ok = false;
+    math::Vec3 move{0, 0, 0}, rotate{0, 0, 0}, scale{100, 100, 100};
+    bool instance = false;
+    int dimensions = 1, count1 = 10, count2 = 1, count3 = 1;
+    math::Vec3 offset2{0, 0, 0}, offset3{0, 0, 0};
+};
+ArrayChoice ShowArrayDialog(HWND parent);
+
 // The Summary as text (Save to File...).
 std::wstring SummaryText(const scene::Summary& summary, const std::wstring& description);
 
