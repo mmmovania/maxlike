@@ -121,6 +121,8 @@ public:
         if (Hwnd()) InvalidateRect(Hwnd(), nullptr, FALSE);
     }
     scene::move::Frame CurrentFrame() const;
+    // The direction out of the screen, in world space (towards the viewer).
+    math::Vec3 OutOfScreen() const { math::Vec3 r, u; OrthoBasis(r, u); return math::Normalize(math::Cross(r, u)); }
     math::Vec3 TransformCenter() const;
     void SetTransformTool(bool on) { transformTool_ = on; }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {

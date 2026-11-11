@@ -19,7 +19,8 @@
 //     f64 centre[3]; Edit Mesh: 0x0050 u64 count, 0x0051 moves, 0x0052 selection,
 //     Phase 9: 0x0053 selected faces, 0x0054 deleted faces, 0x0055 deleted vertices,
 //     0x0056 selected edges, 0x0057 hidden faces, 0x0058 hidden vertices (each u32 n,
-//     n x u32), 0x0059 welds (u32 n, n x (u32 from, u32 to)) } } }. Every Edit Mesh
+//     n x u32), 0x0059 welds (u32 n, n x (u32 from, u32 to)), Phase 10.7: 0x005A added
+//     vertices (u32 n, n x f64[3]), 0x005B added faces (as 0x0031) } } }. Every Edit Mesh
 //     index refers to the mesh coming into it; older files simply lack the newer chunks.
 //   0x1200 nodes: 0x1210 node { 0x0001 name, 0x0002 u32 wire colour, 0x0003 i32 parent,
 //     0x0004 i32 object, 0x0005 transform, 0x0006 object offset,

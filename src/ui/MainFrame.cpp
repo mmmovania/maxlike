@@ -205,6 +205,25 @@ std::shared_ptr<scene::DeformModifier> MainFrame::GizmoEditingMod() const {
     return std::dynamic_pointer_cast<scene::DeformModifier>(CurrentModifier());
 }
 
+std::vector<uint32_t> MainFrame::SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
+    std::vector<uint32_t> verts = mod->SelectedVertices();
+    if (subLevel_ >= 1) {
+        verts.clear();
+        const scene::Mesh ext = mod->Extended(EditMeshInput(mod));          // added geometry too
+        if (subLevel_ == 1)
+            for (uint32_t e : mod->SelectedEdges()) {
+                uint32_t a, b;
+                if (scene::EdgeVertices(ext, e, a, b)) { verts.push_back(a); verts.push_back(b); }
+            }
+        if (subLevel_ >= 2)
+            for (uint32_t f : mod->SelectedFaces())
+                if (f < ext.faces.size()) verts.insert(verts.end(), ext.faces[f].v, ext.faces[f].v + 3);
+    }
+    std::sort(verts.begin(), verts.end());
+    verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
+    return verts;
+}
+
 scene::Mesh MainFrame::EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
     scene::Node* node = nullptr;
     const auto stack = const_cast<MainFrame*>(this)->SelectedStack(&node);
@@ -828,6 +847,40 @@ bool MainFrame::CreateRegions() {
             viewports_.Redraw();
             return;
         }
+        // Edit Geometry (10.7): Remove Isolated Vertices, Select Open Edges, Collapse, Make
+        // Planar, View Align, Grid Align; one undo step each.
+        if (const auto mod = VertexEditingMod(); mod && (label == L"Remove Isolated Vertices" || label == L"Select Open Edges" ||
+                                                          label == L"Collapse" || label == L"Make Planar" || label == L"View Align" ||
+                                                          label == L"Grid Align")) {
+            const scene::Mesh input = EditMeshInput(mod);
+            const std::vector<uint32_t> verts = SubObjectVertices(mod);
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            const math::Mat4 toObject = node ? math::AffineInverse(node->ObjectMatrix()) : math::Translation({0, 0, 0});
+            auto direction = [&](const math::Vec3& world) {           // a world direction in object space
+                return math::TransformPoint(toObject, world) - math::TransformPoint(toObject, {0, 0, 0});
+            };
+            scene::EditMeshModifier::State after;
+            if (label == L"Remove Isolated Vertices") after = mod->AfterRemovingIsolated(input);
+            else if (label == L"Select Open Edges") after = mod->AfterSelectingOpenEdges(input);
+            else {
+                if (verts.empty()) return;
+                if (label == L"Collapse") after = mod->AfterCollapsing(input, verts);
+                else if (label == L"Make Planar") after = mod->AfterMakingPlanar(input, verts);
+                else if (label == L"View Align") after = mod->AfterAligning(input, verts, direction(viewports_.ActiveView().OutOfScreen()), nullptr);
+                else {
+                    const scene::ConstructionPlane plane = viewports_.ActivePlane();
+                    const math::Vec3 at = math::TransformPoint(toObject, {0, 0, 0});   // the plane passes through the world origin
+                    after = mod->AfterAligning(input, verts, direction(plane.normal), &at);
+                }
+            }
+            std::string name;
+            for (wchar_t c : label) name += static_cast<char>(c);
+            undo_.Execute(std::make_unique<scene::EditMeshStateCommand>(name, mod, after), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
         // Selection > Hide / Unhide All, and Edit Geometry > Weld > Selected (Phase 9.6).
         if (const auto mod = VertexEditingMod(); mod && (label == L"Hide" || label == L"Unhide All" || label == L"Selected")) {
             const bool faces = subLevel_ >= 1;
@@ -928,31 +981,13 @@ bool MainFrame::CreateRegions() {
         if (const auto mod = VertexEditingMod()) {
             scene::Node* node = nullptr;
             SelectedStack(&node);
-            // At Face level the selected faces' vertices move (each once).
-            std::vector<uint32_t> verts = mod->SelectedVertices();
-            if (subLevel_ >= 1) {
-                // Edges move their two vertices; faces, polygons and elements their faces'.
-                verts.clear();
-                const scene::Mesh input = EditMeshInput(mod);
-                if (subLevel_ == 1) {
-                    for (uint32_t e : mod->SelectedEdges()) {
-                        uint32_t a, b;
-                        if (scene::EdgeVertices(input, e, a, b)) { verts.push_back(a); verts.push_back(b); }
-                    }
-                }
-                if (subLevel_ >= 2)
-                    for (uint32_t f : mod->SelectedFaces())
-                        if (f < input.faces.size()) verts.insert(verts.end(), input.faces[f].v, input.faces[f].v + 3);
-                std::sort(verts.begin(), verts.end());
-                verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
-            }
+            // The selection's vertices (edges' and faces' too, added geometry included).
+            const std::vector<uint32_t> verts = SubObjectVertices(mod);
             vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix()), {}, node->ObjectMatrix(), {}, {}};
             // Positions now: the input with the current moves; the centre is the vertices'
             // average, or the reference system's origin (Use Transform Coordinate Center).
             // NOTE: R3's sub-object centre rules are unverified.
-            scene::Mesh at = EditMeshInput(mod);
-            for (const auto& mv : mod->Moves())
-                if (mv.vertex < at.verts.size()) at.verts[mv.vertex] = at.verts[mv.vertex] + mv.delta;
+            const scene::Mesh at = mod->Positions(EditMeshInput(mod));    // added geometry too (10.7)
             math::Vec3 sum{0, 0, 0};
             for (uint32_t v : verts) {
                 const math::Vec3 p = v < at.verts.size() ? at.verts[v] : math::Vec3{0, 0, 0};

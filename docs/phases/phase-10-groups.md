@@ -26,8 +26,33 @@ items still buildable without new R3.1 evidence.
 - [x] **10.6** Soft Selection: the rollout's contents (Use Soft Selection, Edge Distance,
       Affect Backfacing, Falloff, Pinch, Bubble); Max's affect-region curve; vertices
       coloured by weight; Move, Rotate and Scale carry neighbours by their weights
-- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons
+- [x] **10.7** Edit Mesh can add geometry (vertices and faces numbered after the input's,
+      kept in `.mlk` files); the Edit Geometry buttons follow the sub-object level; Remove
+      Isolated Vertices, Select Open Edges, Collapse, Make Planar, View Align, Grid Align
+- [ ] Edit Mesh: Break, Turn, Tessellate, Extrude, Chamfer, Explode, Attach (10.8)
+- [ ] Edit Mesh: Create, Slice Plane / Slice, Cut (10.9); Create Shape from Edges stays
+      greyed (maxlike has no shapes)
 - [ ] Wrap-up
+
+## Step 10.7 verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_edit_mesh`: an added vertex and face are moved, deleted and taken with their
+      isolated vertex like any other; Remove Isolated removes an unused added vertex and no
+      corner; Select Open Edges after deleting a box's top selects exactly its 4 rim edges;
+      Collapse leaves 5 vertices with the new one at the top's centre; Make Planar and View
+      Align bring a lifted corner back into one plane; Grid Align onto z = 0. Phase 9's
+      Delete / Weld tests unchanged. `test_native_file`: added geometry round-trips
+- [x] Under Wine: at Vertex level the Edit Mesh panel still matches R3.1 pixel for pixel
+      (the per-level table's Vertex column reproduces the screenshot); at Face level
+      Extrude, Cut, Tessellate and Explode become available, Break, Turn, Chamfer, Weld and
+      Select Open Edges are greyed
+- [x] Found: the panel comparison script still waited a fixed 13 s after restarting the
+      display; it captured an empty window (25,590 "differences"). It now waits for the
+      window to be drawn
+- [ ] On Windows: each of the six buttons at each level; the buttons below the panel's edge
+      reached by scrolling
+- [ ] Unverified: the button availability at Edge, Face, Polygon and Element level; Make
+      Planar's normal (the touching faces'), View Align's plane (through the centroid)
 
 ## Step 10.6 verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)

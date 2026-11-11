@@ -5,6 +5,7 @@
 #include "scene/Primitives.h"
 #include "scene/Undo.h"
 #include "view/Picking.h"
+#include <cmath>
 #include <cstdio>
 
 static int failures = 0;
@@ -189,6 +190,67 @@ int main() {
         const scene::Mesh out = em.Edited(box);
         CHECK(out.verts[2].x == box.verts[2].x + 1 && out.verts[2].y == box.verts[2].y + 1 && out.verts[5].z == box.verts[5].z + 3);
         CHECK(out.verts[3].x == box.verts[3].x);
+    }
+    // Added geometry and the simple Edit Geometry tools (10.7). The box: bottom z 0, top z 20.
+    {
+        const std::vector<uint32_t> top = {4, 5, 6, 7};
+        for (uint32_t v : top) CHECK(box.verts[v].z == 20);
+        // An added vertex and face (vertex 8, face 12) behave like any other.
+        scene::EditMeshModifier em(8, {});
+        auto st = em.GetState();
+        st.addedVertices = {{0, 0, 50}};
+        scene::Face f{};
+        f.v[0] = 4; f.v[1] = 5; f.v[2] = 8; f.edgeVisible = 7;
+        st.addedFaces = {f};
+        st.moves = {{8, {0, 0, 5}}};
+        em.SetState(st);
+        scene::Mesh out = em.Edited(box);
+        CHECK(out.verts.size() == 9 && out.FaceCount() == 13 && out.verts[8].z == 55);
+        em.SetSelectedFaces({12});
+        em.SetState(em.AfterDeletingFaces(box, true));
+        out = em.Edited(box);
+        CHECK(out.FaceCount() == 12 && out.verts.size() == 8);           // its own vertex went with it (isolated)
+        // Remove Isolated Vertices: an unused added vertex goes, the box's corners stay.
+        scene::EditMeshModifier iso(8, {});
+        auto si = iso.GetState();
+        si.addedVertices = {{100, 0, 0}};
+        iso.SetState(si);
+        iso.SetState(iso.AfterRemovingIsolated(box));
+        CHECK(iso.Edited(box).verts.size() == 8 && iso.DeletedVertices() == std::vector<uint32_t>{8});
+        // Select Open Edges: with the top's two faces deleted, exactly its 4 rim edges.
+        scene::EditMeshModifier open(8, {});
+        open.SetSelectedFaces({2, 3});
+        open.SetState(open.AfterDeletingFaces(box, false));
+        open.SetState(open.AfterSelectingOpenEdges(box));
+        CHECK(open.SelectedEdges().size() == 4);
+        for (uint32_t e : open.SelectedEdges()) {
+            uint32_t a, b;
+            CHECK(scene::EdgeVertices(box, e, a, b) && box.verts[a].z == 20 && box.verts[b].z == 20);
+        }
+        // Collapse the top's corners: one vertex at their centre.
+        scene::EditMeshModifier col(8, {});
+        col.SetState(col.AfterCollapsing(box, top));
+        out = col.Edited(box);
+        CHECK(out.verts.size() == 5);
+        bool centred = false;
+        for (const auto& v : out.verts) centred = centred || (std::fabs(v.x) < 1e-9 && std::fabs(v.y) < 1e-9 && v.z == 20);
+        CHECK(centred);
+        // Make Planar: a corner lifted by 6 comes back into the top's plane (normal +Z,
+        // through the centroid at z 21.5): every top corner ends at the same height.
+        scene::EditMeshModifier pl(8, {{4, {0, 0, 6}}});
+        pl.SetState(pl.AfterMakingPlanar(box, top));
+        out = pl.Edited(box);
+        for (uint32_t v : top) CHECK(std::fabs(out.verts[v].z - 21.5) < 1e-9);
+        // View Align (normal Z through the centroid) and Grid Align (the plane z = 0).
+        scene::EditMeshModifier va(8, {{4, {0, 0, 6}}});
+        va.SetState(va.AfterAligning(box, top, {0, 0, 1}, nullptr));
+        out = va.Edited(box);
+        for (uint32_t v : top) CHECK(std::fabs(out.verts[v].z - 21.5) < 1e-9);
+        const math::Vec3 origin{0, 0, 0};
+        scene::EditMeshModifier ga(8, {});
+        ga.SetState(ga.AfterAligning(box, top, {0, 0, 1}, &origin));
+        out = ga.Edited(box);
+        for (uint32_t v : top) CHECK(std::fabs(out.verts[v].z) < 1e-9);
     }
     // Picking edges: the nearest segment within the tolerance; rectangles take segments
     // with an end inside.

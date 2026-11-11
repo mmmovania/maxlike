@@ -146,10 +146,35 @@ public:
         std::vector<uint32_t> selectedEdges;
         std::vector<uint32_t> hiddenFaces, hiddenVertices;          // 9.6
         std::vector<std::pair<uint32_t, uint32_t>> welds;           // 9.6: vertex -> the vertex it merged into
+        // 10.7: geometry Edit Mesh adds, numbered after the input's vertices and faces
+        // (vertex input.size() + k is addedVertices[k]); everything else treats them alike.
+        std::vector<math::Vec3> addedVertices;
+        std::vector<Face> addedFaces;
     };
     State GetState() const {
-        return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_, hiddenFaces_, hiddenVerts_, welds_};
+        return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_, hiddenFaces_, hiddenVerts_, welds_,
+                addedVertices_, addedFaces_};
     }
+    const std::vector<math::Vec3>& AddedVertices() const { return addedVertices_; }
+    const std::vector<Face>& AddedFaces() const { return addedFaces_; }
+    // The input with the added geometry appended (positions before the moves), and the
+    // same with the moves applied: what the operations below work on.
+    Mesh Extended(const Mesh& input) const;
+    Mesh Positions(const Mesh& input) const;
+
+    // Edit Geometry (10.7). Remove Isolated Vertices: vertices no remaining face uses.
+    State AfterRemovingIsolated(const Mesh& input) const;
+    // Select Open Edges: the edges of the remaining faces that only one face has.
+    State AfterSelectingOpenEdges(const Mesh& input) const;
+    // Collapse: `vertices` welded into one at their average.
+    State AfterCollapsing(const Mesh& input, const std::vector<uint32_t>& vertices) const;
+    // Make Planar / View Align / Grid Align: `vertices` projected onto a plane: through
+    // their centroid with the normal of the faces touching them (Make Planar); through
+    // their centroid facing `normal` (View Align: the view direction in object space); or
+    // the plane through `point` with `normal` (Grid Align: the construction plane).
+    State AfterMakingPlanar(const Mesh& input, const std::vector<uint32_t>& vertices) const;
+    State AfterAligning(const Mesh& input, const std::vector<uint32_t>& vertices, const math::Vec3& normal,
+                        const math::Vec3* point) const;
     void SetState(const State& s);
 
     // The input with the moves applied, then the deleted faces and vertices removed (a
@@ -191,6 +216,8 @@ private:
     std::vector<uint32_t> selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_;
     std::vector<uint32_t> hiddenFaces_, hiddenVerts_;
     std::vector<std::pair<uint32_t, uint32_t>> welds_;
+    std::vector<math::Vec3> addedVertices_;
+    std::vector<Face> addedFaces_;
 };
 
 // A base object with a stack of modifiers. Index 0 is the bottom of the stack (applied

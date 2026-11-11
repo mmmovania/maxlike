@@ -1,4 +1,5 @@
 #include "ui/ParametersSpec.h"
+#include <algorithm>
 #include "scene/Primitives.h"
 #include "scene/Modifier.h"
 
@@ -197,7 +198,7 @@ Spec ModifierParametersFor(const std::string& name) {
     return {};
 }
 
-std::vector<Spec> ModifierRollouts(const std::string& name) {
+std::vector<Spec> ModifierRollouts(const std::string& name, int level) {
     if (name != "Edit Mesh") {
         Spec s = ModifierParametersFor(name);
         if (s.rows.empty()) return {};
@@ -304,6 +305,24 @@ std::vector<Spec> ModifierRollouts(const std::string& name) {
     // NOTE: below both screenshots. Its height is inferred from the scroll indicator
     // (the column scrolls 463 rows); its contents are not built.
     surface.contentHeight = 186;
+    // The Edit Geometry buttons available at each level (bit n = level n). The Vertex
+    // column reproduces r3.1-modify-editmesh-vertex.png exactly; the others are from memory
+    // (NOTE: unverified). Create Shape from Edges needs shapes, which maxlike lacks; Slice
+    // needs Slice Plane's mode (not built yet).
+    {
+        constexpr int V = 1, E = 2, F = 4, P = 8, L = 16, All = 31;
+        const std::pair<const wchar_t*, int> kAvailable[] = {
+            {L"Create", All}, {L"Delete", All}, {L"Attach", All}, {L"Detach", V | F | P | L}, {L"Break", V}, {L"Turn", E},
+            {L"Extrude", E | F | P | L}, {L"Chamfer", V | E}, {L"Slice Plane", All}, {L"Slice", 0}, {L"Cut", E | F | P | L},
+            {L"Selected", V}, {L"Target", V}, {L"Tessellate", F | P | L}, {L"Explode", F | P | L},
+            {L"Remove Isolated Vertices", All}, {L"Select Open Edges", E}, {L"Create Shape from Edges", 0},
+            {L"View Align", All}, {L"Grid Align", All}, {L"Make Planar", All}, {L"Collapse", All}};
+        const int bit = 1 << std::max(0, std::min(4, level));
+        for (Row& r : geo.rows)
+            if (r.kind == Kind::Button)
+                for (const auto& [label, levels] : kAvailable)
+                    if (r.label == label) r.enabled = (levels & bit) != 0;
+    }
     return {sel, soft, geo, surface};
 }
 

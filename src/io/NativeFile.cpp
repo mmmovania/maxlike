@@ -163,6 +163,17 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                                     list(0x0056, em->SelectedEdges());      // Phase 9.5
                                     list(0x0057, em->HiddenFaces());        // Phase 9.6
                                     list(0x0058, em->HiddenVertices());
+                                    w.Leaf(0x005A, [&] {                   // Phase 10.7: added geometry
+                                        w.Put(static_cast<uint32_t>(em->AddedVertices().size()));
+                                        for (const auto& v : em->AddedVertices()) { w.Put(v.x); w.Put(v.y); w.Put(v.z); }
+                                    });
+                                    w.Leaf(0x005B, [&] {
+                                        w.Put(static_cast<uint32_t>(em->AddedFaces().size()));
+                                        for (const auto& f : em->AddedFaces()) {
+                                            w.Put(f.v[0]); w.Put(f.v[1]); w.Put(f.v[2]);
+                                            w.Put(f.smoothing); w.Put(f.materialId); w.Put(f.edgeVisible); w.Put(uint8_t{0});
+                                        }
+                                    });
                                     w.Leaf(0x0059, [&] {
                                         w.Put(static_cast<uint32_t>(em->Welds().size()));
                                         for (const auto& [from, to] : em->Welds()) { w.Put(from); w.Put(to); }
@@ -329,6 +340,23 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
                             !readList(0x0054, state.deletedFaces) || !readList(0x0055, state.deletedVertices) ||
                             !readList(0x0056, state.selectedEdges) || !readList(0x0057, state.hiddenFaces) ||
                             !readList(0x0058, state.hiddenVertices)) return bad("damaged Edit Mesh data");
+                        if (const Chunk* k = Child(mk, 0x005A)) {
+                            size_t p = k->begin; uint32_t n = 0;
+                            if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 24 > k->end - p) return bad("damaged added vertices");
+                            for (uint32_t i = 0; i < n; ++i) { math::Vec3 v; Get(d, p, k->end, v.x); Get(d, p, k->end, v.y); Get(d, p, k->end, v.z); state.addedVertices.push_back(v); }
+                        }
+                        if (const Chunk* k = Child(mk, 0x005B)) {
+                            size_t p = k->begin; uint32_t n = 0;
+                            if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 20 > k->end - p) return bad("damaged added faces");
+                            for (uint32_t i = 0; i < n; ++i) {
+                                scene::Face f; uint8_t pad = 0;
+                                Get(d, p, k->end, f.v[0]); Get(d, p, k->end, f.v[1]); Get(d, p, k->end, f.v[2]);
+                                Get(d, p, k->end, f.smoothing); Get(d, p, k->end, f.materialId); Get(d, p, k->end, f.edgeVisible); Get(d, p, k->end, pad);
+                                for (uint32_t v : f.v)
+                                    if (v >= expected + state.addedVertices.size()) return bad("an added face refers to a missing vertex");
+                                state.addedFaces.push_back(f);
+                            }
+                        }
                         if (const Chunk* k = Child(mk, 0x0059)) {
                             size_t p = k->begin; uint32_t n = 0;
                             if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 8 > k->end - p) return bad("damaged Edit Mesh welds");

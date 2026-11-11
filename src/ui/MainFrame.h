@@ -102,6 +102,8 @@ private:
     } vertexMove_;
     std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices or faces
     scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it
+    // The vertices of the current sub-object selection (edges' and faces' too), by index.
+    std::vector<uint32_t> SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const;
     void UpdateModifyPanel();
     // The selected object's stack: its Derived Object (or null) and the entry shown.
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;

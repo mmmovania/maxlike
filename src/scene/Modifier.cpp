@@ -2,6 +2,7 @@
 #include "scene/MeshTopology.h"
 #include <cmath>
 #include <algorithm>
+#include <map>
 #include <cstdint>
 
 namespace scene {
@@ -67,15 +68,17 @@ void EditMeshModifier::SetState(const State& s) {
     hiddenFaces_ = SortedUnique(s.hiddenFaces);
     hiddenVerts_ = SortedUnique(s.hiddenVertices);
     welds_ = s.welds;
+    addedVertices_ = s.addedVertices;
+    addedFaces_ = s.addedFaces;
 }
 
 Mesh EditMeshModifier::Edited(const Mesh& input, std::vector<uint32_t>* vertexMap, std::vector<uint32_t>* faceMap) const {
-    Mesh m = input;
+    Mesh m = Extended(input);                                // added geometry first (10.7)
     for (const Move& mv : moves_)
         if (mv.vertex < m.verts.size()) m.verts[mv.vertex] = m.verts[mv.vertex] + mv.delta;
     if (vertexMap) vertexMap->clear();
     if (faceMap) faceMap->clear();
-    if (deletedFaces_.empty() && deletedVerts_.empty() && welds_.empty() && hiddenFaces_.empty()) {
+    if (deletedFaces_.empty() && deletedVerts_.empty() && welds_.empty() && hiddenFaces_.empty()) {   // (added faces need no remapping)
         if (vertexMap) for (uint32_t i = 0; i < m.verts.size(); ++i) vertexMap->push_back(i);
         if (faceMap) for (uint32_t i = 0; i < m.faces.size(); ++i) faceMap->push_back(i);
         return m;
@@ -113,7 +116,8 @@ Mesh EditMeshModifier::Edited(const Mesh& input, std::vector<uint32_t>* vertexMa
     return out;
 }
 
-EditMeshModifier::State EditMeshModifier::AfterDeletingFaces(const Mesh& input, bool isolated) const {
+EditMeshModifier::State EditMeshModifier::AfterDeletingFaces(const Mesh& raw, bool isolated) const {
+    const Mesh input = Extended(raw);                       // added geometry too (10.7)
     State s = GetState();
     std::vector<uint32_t> faces = s.deletedFaces;
     faces.insert(faces.end(), selectedFaces_.begin(), selectedFaces_.end());
@@ -141,7 +145,7 @@ EditMeshModifier::State EditMeshModifier::AfterDeletingEdges(const Mesh& input, 
     EditMeshModifier copy = *this;
     std::vector<uint32_t> faces;
     for (uint32_t e : selectedEdges_)
-        for (uint32_t f : FacesOnEdge(input, e)) faces.push_back(f);
+        for (uint32_t f : FacesOnEdge(Extended(input), e)) faces.push_back(f);
     copy.SetSelectedFaces(faces);
     State s = copy.AfterDeletingFaces(input, isolated);
     s.selectedFaces = selectedFaces_;
@@ -174,9 +178,7 @@ EditMeshModifier::State EditMeshModifier::AfterWelding(const Mesh& input, double
     State s = GetState();
     if (merged) *merged = 0;
     // Positions after the moves.
-    std::vector<math::Vec3> p = input.verts;
-    for (const Move& mv : moves_)
-        if (mv.vertex < p.size()) p[mv.vertex] = p[mv.vertex] + mv.delta;
+    const std::vector<math::Vec3> p = Positions(input).verts;   // added vertices too (10.7)
     // Candidates: selected vertices still present (not deleted, not merged away before).
     std::vector<uint32_t> cand;
     for (uint32_t v : selected_) {
@@ -415,6 +417,104 @@ void TwistModifier::Deform(Mesh& mesh) const {
         At(v, f.b) = s * a + c * b;
     }
     return;
+}
+
+// ---- Edit Geometry (10.7) -----------------------------------------------------------------
+
+Mesh EditMeshModifier::Extended(const Mesh& input) const {
+    Mesh m = input;
+    m.verts.insert(m.verts.end(), addedVertices_.begin(), addedVertices_.end());
+    m.faces.insert(m.faces.end(), addedFaces_.begin(), addedFaces_.end());
+    return m;
+}
+
+Mesh EditMeshModifier::Positions(const Mesh& input) const {
+    Mesh m = Extended(input);
+    for (const Move& mv : moves_)
+        if (mv.vertex < m.verts.size()) m.verts[mv.vertex] = m.verts[mv.vertex] + mv.delta;
+    return m;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterRemovingIsolated(const Mesh& input) const {
+    State s = GetState();
+    std::vector<uint32_t> vmap, fmap;
+    const Mesh out = Edited(input, &vmap, &fmap);
+    std::vector<char> used(out.verts.size(), 0);
+    for (const Face& f : out.faces) for (uint32_t v : f.v) if (v < used.size()) used[v] = 1;
+    for (uint32_t i = 0; i < out.verts.size(); ++i) if (!used[i]) s.deletedVertices.push_back(vmap[i]);
+    s.deletedVertices = SortedUnique(s.deletedVertices);
+    s.selectedVertices = Without(s.selectedVertices, s.deletedVertices);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterSelectingOpenEdges(const Mesh& input) const {
+    State s = GetState();
+    std::vector<uint32_t> fmap;
+    const Mesh out = Edited(input, nullptr, &fmap);
+    std::map<std::pair<uint32_t, uint32_t>, int> count;
+    auto key = [](uint32_t a, uint32_t b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); };
+    for (const Face& f : out.faces) for (int k = 0; k < 3; ++k) ++count[key(f.v[k], f.v[(k + 1) % 3])];
+    s.selectedEdges.clear();
+    for (uint32_t f = 0; f < out.faces.size(); ++f)
+        for (int k = 0; k < 3; ++k)
+            if (count[key(out.faces[f].v[k], out.faces[f].v[(k + 1) % 3])] == 1) s.selectedEdges.push_back(fmap[f] * 3 + static_cast<uint32_t>(k));
+    s.selectedEdges = SortedUnique(s.selectedEdges);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterCollapsing(const Mesh& input, const std::vector<uint32_t>& vertices) const {
+    // Weld Selected with no distance limit, on these vertices.
+    EditMeshModifier copy = *this;
+    copy.SetSelectedVertices(vertices);
+    State s = copy.AfterWelding(input, 1e300, nullptr);
+    s.selectedVertices = selected_;
+    s.selectedVertices = Without(s.selectedVertices, [&] { std::vector<uint32_t> gone; for (const auto& w : s.welds) gone.push_back(w.first); return SortedUnique(gone); }());
+    return s;
+}
+
+namespace {
+// The moves projecting `vertices` (at positions `p`) onto the plane through `q` with unit `n`.
+std::vector<EditMeshModifier::Move> Projected(const std::vector<EditMeshModifier::Move>& moves, const Mesh& p,
+                                              const std::vector<uint32_t>& vertices, const math::Vec3& q, const math::Vec3& n) {
+    std::vector<uint32_t> vs;
+    std::vector<math::Vec3> ds;
+    for (uint32_t v : vertices) {
+        if (v >= p.verts.size()) continue;
+        vs.push_back(v);
+        ds.push_back(n * -math::Dot(p.verts[v] - q, n));
+    }
+    return EditMeshModifier::AddToMoves(moves, vs, ds);
+}
+math::Vec3 Centroid(const Mesh& p, const std::vector<uint32_t>& vertices) {
+    math::Vec3 c{0, 0, 0};
+    size_t n = 0;
+    for (uint32_t v : vertices) if (v < p.verts.size()) { c = c + p.verts[v]; ++n; }
+    return n ? c * (1.0 / static_cast<double>(n)) : c;
+}
+} // namespace
+
+EditMeshModifier::State EditMeshModifier::AfterMakingPlanar(const Mesh& input, const std::vector<uint32_t>& vertices) const {
+    State s = GetState();
+    const Mesh p = Positions(input);
+    // The normal: the (area-weighted) normals of the faces touching the vertices.
+    math::Vec3 n{0, 0, 0};
+    for (const Face& f : p.faces) {
+        bool touches = false;
+        for (uint32_t v : f.v) touches = touches || std::binary_search(vertices.begin(), vertices.end(), v);
+        if (touches && f.v[0] < p.verts.size() && f.v[1] < p.verts.size() && f.v[2] < p.verts.size())
+            n = n + math::Cross(p.verts[f.v[1]] - p.verts[f.v[0]], p.verts[f.v[2]] - p.verts[f.v[0]]);
+    }
+    if (math::Length(n) < 1e-12) n = {0, 0, 1};
+    s.moves = Projected(s.moves, p, vertices, Centroid(p, vertices), math::Normalize(n));
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterAligning(const Mesh& input, const std::vector<uint32_t>& vertices,
+                                                        const math::Vec3& normal, const math::Vec3* point) const {
+    State s = GetState();
+    const Mesh p = Positions(input);
+    s.moves = Projected(s.moves, p, vertices, point ? *point : Centroid(p, vertices), math::Normalize(normal));
+    return s;
 }
 
 // ---- the gizmo (Phase 10.3) ---------------------------------------------------------------

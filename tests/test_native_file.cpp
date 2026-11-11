@@ -113,6 +113,10 @@ int main() {
             st.hiddenFaces = {4};                           // Phase 9.6: hidden and welded
             st.hiddenVertices = {5};
             st.welds = {{6, 4}};
+            st.addedVertices = {{1.5, -2.5, 99}};       // Phase 10.7: added geometry
+            scene::Face af{};
+            af.v[0] = 0; af.v[1] = 1; af.v[2] = 8; af.smoothing = 5; af.materialId = 3; af.edgeVisible = 6;
+            st.addedFaces = {af};
             em->SetState(st);
         }
         CHECK(io::LoadNative(io::SaveNative(original), loaded, error));
@@ -123,7 +127,10 @@ int main() {
               em2->DeletedVertices() == std::vector<uint32_t>{7});
         CHECK(em2 && em2->HiddenFaces() == std::vector<uint32_t>{4} && em2->HiddenVertices() == std::vector<uint32_t>{5} &&
               em2->Welds().size() == 1 && em2->Welds()[0] == std::make_pair(6u, 4u));
-        CHECK(em2 && d2 && d2->Evaluate().verts.size() == 6);   // the deletion and the weld apply after loading
+        CHECK(em2 && em2->AddedVertices().size() == 1 && em2->AddedVertices()[0].z == 99 && em2->AddedFaces().size() == 1 &&
+              em2->AddedFaces()[0].v[2] == 8 && em2->AddedFaces()[0].smoothing == 5 && em2->AddedFaces()[0].materialId == 3 &&
+              em2->AddedFaces()[0].edgeVisible == 6);
+        CHECK(em2 && d2 && d2->Evaluate().verts.size() == 7);   // deletion and weld apply; the added vertex is there
     }
     // Damaged or foreign input: an error, nothing created.
     {
