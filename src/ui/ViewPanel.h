@@ -34,9 +34,11 @@ public:
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
     void SetTransformTool(bool on) { for (auto& v : views_) v.SetTransformTool(on); }
     void SetReferenceSystem(scene::move::RefCoord s, int centre) { for (auto& v : views_) v.SetReferenceSystem(s, centre); }
+    void SetGizmoEditing(const Viewport::GizmoEditing& g) { for (auto& v : views_) v.SetGizmoEditing(g); }
     void SetVertexEditing(const Viewport::VertexEditing& e) { for (auto& v : views_) v.SetVertexEditing(e); }
     std::function<void(const std::vector<uint32_t>&, bool, bool, bool)> onVertexSelect;
     std::function<void(uint32_t, uint32_t)> onWeldTarget;
+    std::function<void(const Viewport::ToolClick&)> onToolClick;
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     // File > Reset: the startup types and views (Top, Front, Left, Perspective).
@@ -48,6 +50,7 @@ public:
         views_[static_cast<size_t>(slot)].SetViewState(ortho, perspective);
     }
     int  Active() const { return active_; }
+    const Viewport& ViewAt(int slot) const { return views_[static_cast<size_t>(slot)]; }   // 0..3, layout order
     Viewport& ActiveView() { return views_[static_cast<size_t>(active_)]; }
     void SetActive(int index);
     void ToggleMaximized();                 // Min/Max: the active viewport fills the area

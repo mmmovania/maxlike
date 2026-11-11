@@ -1,4 +1,5 @@
 #pragma once
+#include "scene/Node.h"
 #include "scene/Object.h"
 #include "scene/ParamBlock.h"
 #include <algorithm>
@@ -40,30 +41,58 @@ private:
 // lower and upper limits (h values) and the rest follows rigidly.
 // NOTE: the parameter indices follow memory of R3's parameter blocks, and the Twist
 // bias and Taper curve formulas are approximations; all unverified.
-class BendModifier : public Modifier {
+// Bend, Taper and Twist share a gizmo and a centre (Phase 10.3): points are taken into
+// the gizmo's frame, relative to the centre (gizmo space), deformed there, and brought
+// back. With the identity gizmo and a zero centre nothing is transformed, so the results
+// are exactly Phase 7's (verified against R3.1).
+class DeformModifier : public Modifier {
+public:
+    bool Apply(Mesh& mesh) const final;
+    struct Gizmo {
+        PRS transform;                       // the gizmo in the object's space
+        math::Vec3 center{0, 0, 0};          // the centre, in the gizmo's space
+    };
+    const Gizmo& GetGizmo() const { return gizmo_; }
+    void SetGizmo(const Gizmo& g) { gizmo_ = g; }
+    // The gizmo as R3 draws it: the input's bounding box in gizmo space, each edge in
+    // `segments` pieces, deformed by this modifier; pairs of object-space points.
+    std::vector<std::pair<math::Vec3, math::Vec3>> GizmoLines(const Mesh& input, int segments = 8) const;
+    math::Vec3 CenterPoint() const;          // the centre in object space
+
+protected:
+    virtual void Deform(Mesh& mesh) const = 0;   // in gizmo space
+
+private:
+    Gizmo gizmo_;
+};
+
+class BendModifier : public DeformModifier {
 public:
     enum { kAngle = 0, kDirection, kAxis, kLimit, kLower, kUpper };
     BendModifier();
     std::string ClassName() const override { return "Bend"; }
-    bool Apply(Mesh& mesh) const override;
+protected:
+    void Deform(Mesh& mesh) const override;
 };
 
-class TaperModifier : public Modifier {
+class TaperModifier : public DeformModifier {
 public:
     enum { kAmount = 0, kCurve, kAxis, kEffect, kSymmetry, kLimit, kLower, kUpper };
     // kEffect: which perpendicular axes are scaled: 0 the first, 1 the second, 2 both (as
     // the rollout's X / Y / XY radios; R3's default is both).
     TaperModifier();
     std::string ClassName() const override { return "Taper"; }
-    bool Apply(Mesh& mesh) const override;
+protected:
+    void Deform(Mesh& mesh) const override;
 };
 
-class TwistModifier : public Modifier {
+class TwistModifier : public DeformModifier {
 public:
     enum { kAngle = 0, kBias, kAxis, kLimit, kLower, kUpper };
     TwistModifier();
     std::string ClassName() const override { return "Twist"; }
-    bool Apply(Mesh& mesh) const override;
+protected:
+    void Deform(Mesh& mesh) const override;
 };
 
 // Edit Mesh, vertex moves only (local data 0x4000: 0x0100 vertex count, 0x0140 moves).
@@ -78,7 +107,9 @@ public:
     // outside a parameter block).
     enum { kIgnoreBackfacing = 0, kPlanarThresh, kExtrudeAmount, kChamferAmount, kSplit, kRefineEnds,
            kWeldThreshold, kNormalLocal, kWeldTargetPixels, kTessTension, kTessByFace, kExplodeAngle,
-           kExplodeToElements };
+           kExplodeToElements,
+           // Soft Selection (Phase 10.6), after the others so no index moves.
+           kUseSoftSelection, kEdgeDistance, kEdgeIterations, kAffectBackfacing, kFalloff, kPinch, kBubble };
     EditMeshModifier(size_t expectedVertexCount, std::vector<Move> moves);
     std::string ClassName() const override { return "Edit Mesh"; }
     bool Apply(Mesh& mesh) const override;
@@ -93,6 +124,9 @@ public:
     // The moves after adding `delta` (object space) to every vertex in `vertices`.
     static std::vector<Move> AddToMoves(const std::vector<Move>& moves, const std::vector<uint32_t>& vertices,
                                         const math::Vec3& delta);
+    // The same with one offset per vertex (sub-object Rotate and Scale, Phase 10.5).
+    static std::vector<Move> AddToMoves(const std::vector<Move>& moves, const std::vector<uint32_t>& vertices,
+                                        const std::vector<math::Vec3>& deltas);
 
     // Phase 9.4: Face level and Delete. Every index refers to the mesh coming into Edit
     // Mesh, so edits never renumber each other; Edited() gives the output with maps back.
@@ -112,10 +146,70 @@ public:
         std::vector<uint32_t> selectedEdges;
         std::vector<uint32_t> hiddenFaces, hiddenVertices;          // 9.6
         std::vector<std::pair<uint32_t, uint32_t>> welds;           // 9.6: vertex -> the vertex it merged into
+        // 10.7: geometry Edit Mesh adds, numbered after the input's vertices and faces
+        // (vertex input.size() + k is addedVertices[k]); everything else treats them alike.
+        std::vector<math::Vec3> addedVertices;
+        std::vector<Face> addedFaces;
     };
     State GetState() const {
-        return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_, hiddenFaces_, hiddenVerts_, welds_};
+        return {moves_, selected_, selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_, hiddenFaces_, hiddenVerts_, welds_,
+                addedVertices_, addedFaces_};
     }
+    const std::vector<math::Vec3>& AddedVertices() const { return addedVertices_; }
+    const std::vector<Face>& AddedFaces() const { return addedFaces_; }
+    // The input with the added geometry appended (positions before the moves), and the
+    // same with the moves applied: what the operations below work on.
+    Mesh Extended(const Mesh& input) const;
+    Mesh Positions(const Mesh& input) const;
+
+    // Edit Geometry (10.7). Remove Isolated Vertices: vertices no remaining face uses.
+    State AfterRemovingIsolated(const Mesh& input) const;
+    // Select Open Edges: the edges of the remaining faces that only one face has.
+    State AfterSelectingOpenEdges(const Mesh& input) const;
+    // Collapse: `vertices` welded into one at their average.
+    State AfterCollapsing(const Mesh& input, const std::vector<uint32_t>& vertices) const;
+    // Make Planar / View Align / Grid Align: `vertices` projected onto a plane: through
+    // their centroid with the normal of the faces touching them (Make Planar); through
+    // their centroid facing `normal` (View Align: the view direction in object space); or
+    // the plane through `point` with `normal` (Grid Align: the construction plane).
+    State AfterMakingPlanar(const Mesh& input, const std::vector<uint32_t>& vertices) const;
+    State AfterAligning(const Mesh& input, const std::vector<uint32_t>& vertices, const math::Vec3& normal,
+                        const math::Vec3* point) const;
+
+    // Edit Geometry, topology (10.8). Faces that change are deleted and added again, so
+    // face indices of changed faces are new (selections follow where it makes sense).
+    // Break: each selected vertex gets its own copy for every face but the first using it.
+    State AfterBreaking(const Mesh& input) const;
+    // Turn: each selected edge shared by two triangles becomes their other diagonal.
+    State AfterTurning(const Mesh& input) const;
+    // Tessellate the selected faces: by edge (4 each, through shared midpoints) or by face
+    // centre (3 each).
+    State AfterTessellating(const Mesh& input, bool byCenter) const;
+    // Extrude the selected faces by `amount` along their averaged normal; side walls on the
+    // selection's boundary. The extruded faces stay selected.
+    State AfterExtruding(const Mesh& input, double amount) const;
+    // Chamfer the selected vertices: new vertices `amount` along each of their edges, the
+    // faces re-cut, the vertex moved to the new vertices' centre as the cap.
+    State AfterChamfering(const Mesh& input, double amount) const;
+    // Explode the selected faces into groups whose neighbouring normals differ by at most
+    // `angle` degrees (as faces of the input). To Elements: the groups are separated by
+    // duplicated vertices. To Objects, the caller detaches each group (see ExplodeGroups).
+    std::vector<std::vector<uint32_t>> ExplodeGroups(const Mesh& input, double angle) const;
+    State AfterExplodingToElements(const Mesh& input, double angle) const;
+    // Attach: `other` (already in this object's space) appended as added geometry.
+    State AfterAttaching(const Mesh& input, const Mesh& other) const;
+
+    // Interactive tools (10.9). Create: a vertex at `point` (selected), or a face from three
+    // vertices, wound so its normal points along `towards` (the viewer).
+    State AfterCreatingVertex(const Mesh& input, const math::Vec3& point) const;
+    State AfterCreatingFace(const Mesh& input, uint32_t a, uint32_t b, uint32_t c, const math::Vec3& towards) const;
+    // Slice: the faces (the selected ones, or all with `onlySelected` false) cut by the plane
+    // through `point` with `normal`; neighbours share the new vertices, so a closed mesh
+    // stays closed. `split`: the positive side gets its own copies of them.
+    State AfterSlicing(const Mesh& input, const math::Vec3& point, const math::Vec3& normal, bool split, bool onlySelected) const;
+    // Cut: a face split along the line from a point on one of its edges (edge id, 0..1 along
+    // it) to a point on another; the faces across those edges are split there too.
+    State AfterCutting(const Mesh& input, uint32_t edgeA, double tA, uint32_t edgeB, double tB) const;
     void SetState(const State& s);
 
     // The input with the moves applied, then the deleted faces and vertices removed (a
@@ -157,6 +251,8 @@ private:
     std::vector<uint32_t> selectedFaces_, deletedFaces_, deletedVerts_, selectedEdges_;
     std::vector<uint32_t> hiddenFaces_, hiddenVerts_;
     std::vector<std::pair<uint32_t, uint32_t>> welds_;
+    std::vector<math::Vec3> addedVertices_;
+    std::vector<Face> addedFaces_;
 };
 
 // A base object with a stack of modifiers. Index 0 is the bottom of the stack (applied

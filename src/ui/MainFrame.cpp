@@ -1,4 +1,5 @@
 #include "ui/MainFrame.h"
+#include "scene/SoftSelection.h"
 #include "scene/Groups.h"
 #include "scene/Arrange.h"
 #include "scene/TypeIn.h"
@@ -199,6 +200,30 @@ std::shared_ptr<scene::EditMeshModifier> MainFrame::VertexEditingMod() const {
     return std::dynamic_pointer_cast<scene::EditMeshModifier>(CurrentModifier());
 }
 
+std::shared_ptr<scene::DeformModifier> MainFrame::GizmoEditingMod() const {
+    if (!subObject_ || !commandPanel_.InModify()) return nullptr;
+    return std::dynamic_pointer_cast<scene::DeformModifier>(CurrentModifier());
+}
+
+std::vector<uint32_t> MainFrame::SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
+    std::vector<uint32_t> verts = mod->SelectedVertices();
+    if (subLevel_ >= 1) {
+        verts.clear();
+        const scene::Mesh ext = mod->Extended(EditMeshInput(mod));          // added geometry too
+        if (subLevel_ == 1)
+            for (uint32_t e : mod->SelectedEdges()) {
+                uint32_t a, b;
+                if (scene::EdgeVertices(ext, e, a, b)) { verts.push_back(a); verts.push_back(b); }
+            }
+        if (subLevel_ >= 2)
+            for (uint32_t f : mod->SelectedFaces())
+                if (f < ext.faces.size()) verts.insert(verts.end(), ext.faces[f].v, ext.faces[f].v + 3);
+    }
+    std::sort(verts.begin(), verts.end());
+    verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
+    return verts;
+}
+
 scene::Mesh MainFrame::EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
     scene::Node* node = nullptr;
     const auto stack = const_cast<MainFrame*>(this)->SelectedStack(&node);
@@ -241,8 +266,10 @@ void MainFrame::UpdateModifyPanel() {
             if (base->ClassName() == scene::PrimitiveBaseName(t)) info.baseType = t;
         if (std::dynamic_pointer_cast<scene::EditMeshModifier>(mod))
             info.subObjectLevels = {L"Vertex", L"Edge", L"Face", L"Polygon", L"Element"};
+        if (std::dynamic_pointer_cast<scene::DeformModifier>(mod)) info.subObjectLevels = {L"Gizmo", L"Center"};
         if (info.subObjectLevels.empty()) subObject_ = false;
-        info.subObjectOn = subObject_;
+        info.sliceMode = editTool_ == 3 && VertexEditingMod() != nullptr;
+    info.subObjectOn = subObject_;
         info.subObjectLevel = subLevel_;
         if (const auto em = std::dynamic_pointer_cast<scene::EditMeshModifier>(mod)) {
             // NOTE: R3's wording for one vertex or none is unverified.
@@ -254,6 +281,23 @@ void MainFrame::UpdateModifyPanel() {
         }
     }
     commandPanel_.SetModifyInfo(info);
+    // A deformer shown in the Modify panel draws its gizmo; at sub-object level it is edited.
+    {
+        ui::Viewport::GizmoEditing gizmo;
+        scene::Node* gnode = nullptr;
+        const auto gstack = commandPanel_.InModify() ? SelectedStack(&gnode) : nullptr;
+        if (const auto dm = std::dynamic_pointer_cast<scene::DeformModifier>(commandPanel_.InModify() ? CurrentModifier() : nullptr); dm && gstack && gnode) {
+            const auto& mods = gstack->Modifiers();
+            for (size_t i = 0; i < mods.size(); ++i)
+                if (mods[i] == dm) gizmo.index = i;
+            gizmo.on = true;
+            gizmo.node = gnode->GetId();
+            gizmo.stack = gstack;
+            gizmo.mod = dm;
+            gizmo.level = subObject_ ? subLevel_ : -1;
+        }
+        viewports_.SetGizmoEditing(gizmo);
+    }
     // The views draw and pick vertices while an Edit Mesh is at Vertex level.
     if (!VertexEditingMod() || subLevel_ != 0) weldTargetMode_ = false;   // Weld > Target ends with the level
     ui::Viewport::VertexEditing editing;
@@ -264,10 +308,16 @@ void MainFrame::UpdateModifyPanel() {
         editing.mod = em;
         editing.level = subLevel_;
         editing.weldTarget = weldTargetMode_ && subLevel_ == 0;
+        editing.tool = editTool_;
+        editing.slicePlane = editTool_ == 3;
+        editing.planePoint = slicePoint_;
+        editing.planeNormal = sliceNormal_;
         const auto& mods = stack->Modifiers();
         for (size_t i = 0; i < mods.size(); ++i)
             if (mods[i] == em) editing.upTo = i + 1;
     }
+    if (!VertexEditingMod()) editTool_ = 0;          // the tools end with sub-object editing
+    lastEditing_ = editing;
     viewports_.SetVertexEditing(editing);
 }
 
@@ -326,7 +376,8 @@ bool MainFrame::OpenFile(const std::wstring& path) {
     scene::Scene imported;
     io::ImportReport report;
     std::string error;
-    if (native ? !io::LoadNative(bytes, imported, error) : !io::ImportMax(bytes, imported, report, error)) {
+    io::NativeViews savedViews;                       // .mlk files keep the views (10.4)
+    if (native ? !io::LoadNative(bytes, imported, error, &savedViews) : !io::ImportMax(bytes, imported, report, error)) {
         const std::wstring text = L"Could not open " + fileName + L":\n" + std::wstring(error.begin(), error.end());
         MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
         return false;
@@ -345,7 +396,12 @@ bool MainFrame::OpenFile(const std::wstring& path) {
     viewports_.Redraw();
     if (native) report.nodes = scene_.Nodes().size();
     docPath_ = native ? path : std::wstring();       // Save writes .mlk files only
-    // R3 restores the viewports saved in the file.
+    // R3 restores the viewports saved in the file; so do maxlike's own files.
+    if (native && savedViews.present) {
+        for (int i = 0; i < 4; ++i)
+            viewports_.ApplySavedView(i, static_cast<ViewType>(savedViews.type[i]), savedViews.ortho[i], savedViews.perspective[i]);
+        viewports_.SetActive(savedViews.active);
+    }
     if (!native) {
         std::vector<io::MaxViewport> views;
         std::string ignored;
@@ -386,7 +442,19 @@ bool MainFrame::OpenFile(const std::wstring& path) {
 }
 
 bool MainFrame::SaveFile(const std::wstring& path) {
-    const std::vector<uint8_t> bytes = io::SaveNative(scene_);
+    // The scene with its selection, and the four views (Phase 10.4).
+    io::NativeViews views;
+    views.present = true;
+    views.active = viewports_.Active();
+    for (int i = 0; i < 4; ++i) {
+        const ui::Viewport& v = viewports_.ViewAt(i);
+        views.type[i] = static_cast<int>(v.Type());
+        views.ortho[i] = v.OrthoState();
+        views.perspective[i] = v.PerspectiveState();
+    }
+    std::vector<scene::Node::Id> all;
+    for (const auto& n : scene_.Nodes()) all.push_back(n->GetId());
+    const std::vector<uint8_t> bytes = io::SaveNative(scene_, all, &views);
     HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     DWORD written = 0;
     const bool ok = file != INVALID_HANDLE_VALUE &&
@@ -653,6 +721,54 @@ bool MainFrame::CreateRegions() {
             viewports_.Redraw();
             return;
         }
+        if (attachMeshPick_) {
+            // Edit Mesh > Attach (10.8): the picked object's mesh joins this Edit Mesh (in
+            // this object's space; a mirroring transform reverses its winding) and the
+            // object is removed, as one undo step.
+            attachMeshPick_ = false;
+            const auto mod = VertexEditingMod();
+            scene::Node* self = nullptr;
+            SelectedStack(&self);
+            scene::Node* other = picked.empty() ? nullptr : scene_.FindById(picked.front());
+            if (!mod || !self || !other || other == self || !other->GetObject()) { statusArea_.SetPrompt(1, L"Attach: pick another object"); return; }
+            scene::Mesh m = other->GetObject()->Evaluate();
+            const math::Mat4 into = math::AffineInverse(self->ObjectMatrix()) * other->ObjectMatrix();
+            for (auto& v : m.verts) v = math::TransformPoint(into, v);
+            if (math::Mirrors(into))
+                for (auto& f : m.faces) { std::swap(f.v[1], f.v[2]); f.edgeVisible = (f.edgeVisible & 2u) | ((f.edgeVisible & 1u) << 2) | ((f.edgeVisible & 4u) >> 2); }
+            auto macro = std::make_unique<scene::MacroCommand>("Attach");
+            macro->Add(std::make_unique<scene::EditMeshStateCommand>("Attach", mod, mod->AfterAttaching(EditMeshInput(mod), m)));
+            macro->Add(std::make_unique<scene::DeleteNodeCommand>(other->GetId()));
+            undo_.Execute(std::move(macro), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
+        if (alignPick_) {
+            // Tools > Align (10.2): the clicked object (its group, if closed) is the target.
+            alignPick_ = false;
+            scene::Node* target = picked.empty() ? nullptr : scene::groups::SelectableFor(scene_.FindById(picked.front()));
+            if (!target || scene_.IsSelected(target->GetId())) { statusArea_.SetPrompt(1, L"Align: pick an object that is not selected"); return; }
+            const std::wstring name(target->Name().begin(), target->Name().end());
+            const ui::AlignChoice c = ui::ShowAlignDialog(Hwnd(), name);
+            if (!c.ok) return;
+            scene::tools::AlignOptions o;
+            for (int i = 0; i < 3; ++i) { o.position[i] = c.position[i]; o.orientation[i] = c.orientation[i]; o.scale[i] = c.scale[i]; }
+            o.current = static_cast<scene::tools::AlignPoint>(c.current);
+            o.target = static_cast<scene::tools::AlignPoint>(c.target);
+            auto macro = std::make_unique<scene::MacroCommand>("Align");
+            const auto& sel = scene_.Selection();
+            for (scene::Node::Id id : sel) {
+                scene::Node* n = scene_.FindById(id);
+                bool under = false;                   // a selected child moves with its parent
+                for (const scene::Node* p = n ? n->Parent() : nullptr; p && !under; p = p->Parent()) under = scene_.IsSelected(p->GetId());
+                if (!n || under) continue;
+                macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), scene::tools::Aligned(*n, *target, o), "Align"));
+            }
+            undo_.Execute(std::move(macro), scene_);
+            viewports_.Redraw();
+            return;
+        }
         // Clicking a member of a closed group selects the group (Phase 10).
         const std::vector<scene::Node::Id> ids = scene::groups::Selectable(scene_, picked);
         std::vector<scene::Node::Id> next = scene_.Selection();
@@ -761,6 +877,144 @@ bool MainFrame::CreateRegions() {
             viewports_.Redraw();
             return;
         }
+        // Edit Geometry (10.7): Remove Isolated Vertices, Select Open Edges, Collapse, Make
+        // Planar, View Align, Grid Align; one undo step each.
+        if (const auto mod = VertexEditingMod(); mod && (label == L"Remove Isolated Vertices" || label == L"Select Open Edges" ||
+                                                          label == L"Collapse" || label == L"Make Planar" || label == L"View Align" ||
+                                                          label == L"Grid Align")) {
+            const scene::Mesh input = EditMeshInput(mod);
+            const std::vector<uint32_t> verts = SubObjectVertices(mod);
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            const math::Mat4 toObject = node ? math::AffineInverse(node->ObjectMatrix()) : math::Translation({0, 0, 0});
+            auto direction = [&](const math::Vec3& world) {           // a world direction in object space
+                return math::TransformPoint(toObject, world) - math::TransformPoint(toObject, {0, 0, 0});
+            };
+            scene::EditMeshModifier::State after;
+            if (label == L"Remove Isolated Vertices") after = mod->AfterRemovingIsolated(input);
+            else if (label == L"Select Open Edges") after = mod->AfterSelectingOpenEdges(input);
+            else {
+                if (verts.empty()) return;
+                if (label == L"Collapse") after = mod->AfterCollapsing(input, verts);
+                else if (label == L"Make Planar") after = mod->AfterMakingPlanar(input, verts);
+                else if (label == L"View Align") after = mod->AfterAligning(input, verts, direction(viewports_.ActiveView().OutOfScreen()), nullptr);
+                else {
+                    const scene::ConstructionPlane plane = viewports_.ActivePlane();
+                    const math::Vec3 at = math::TransformPoint(toObject, {0, 0, 0});   // the plane passes through the world origin
+                    after = mod->AfterAligning(input, verts, direction(plane.normal), &at);
+                }
+            }
+            std::string name;
+            for (wchar_t c : label) name += static_cast<char>(c);
+            undo_.Execute(std::make_unique<scene::EditMeshStateCommand>(name, mod, after), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
+        // Interactive tools (10.9): Create, Cut and Slice Plane are modes (the button again
+        // ends them); Slice cuts along the plane.
+        if (const auto mod = VertexEditingMod(); mod && (label == L"Create" || label == L"Cut" || label == L"Slice Plane" || label == L"Slice")) {
+            if (label == L"Slice") {
+                if (editTool_ != 3) return;
+                const auto after = mod->AfterSlicing(EditMeshInput(mod), slicePoint_, sliceNormal_,
+                                                     mod->Params().Int(scene::EditMeshModifier::kSplit, 0) != 0, subLevel_ >= 2);
+                undo_.Execute(std::make_unique<scene::EditMeshStateCommand>("Slice", mod, after), scene_);
+                UpdateModifyPanel();
+                viewports_.Redraw();
+                return;
+            }
+            const int tool = label == L"Create" ? 1 : label == L"Cut" ? 2 : 3;
+            editTool_ = editTool_ == tool ? 0 : tool;
+            pendingFace_.clear();
+            cutEdge_ = -1;
+            if (editTool_ == 3) {
+                // The plane starts through the selection's centre (else the mesh's), facing +Z.
+                const scene::Mesh p = mod->Positions(EditMeshInput(mod));
+                const auto verts = SubObjectVertices(mod);
+                math::Vec3 c{0, 0, 0};
+                if (!verts.empty()) { for (uint32_t v : verts) c = c + p.verts[v]; c = c * (1.0 / static_cast<double>(verts.size())); }
+                else if (!p.verts.empty()) { const scene::Bounds b = p.GetBounds(); c = (b.min + b.max) * 0.5; }
+                slicePoint_ = c;
+                sliceNormal_ = {0, 0, 1};
+            }
+            // NOTE: R3's prompts unverified.
+            const wchar_t* prompt = editTool_ == 0 ? L"" : editTool_ == 1 ? (subLevel_ == 0 ? L"Click to create vertices" : L"Click three vertices to create a face")
+                                  : editTool_ == 2 ? L"Click on an edge, then on another edge of the same face"
+                                                   : L"Move or rotate the slice plane, then click Slice";
+            statusArea_.SetPrompt(1, prompt);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
+        // Edit Geometry, topology (10.8).
+        if (const auto mod = VertexEditingMod(); mod && (label == L"Break" || label == L"Turn" || label == L"Tessellate" ||
+                                                          label == L"Extrude" || label == L"Chamfer" || label == L"Explode" ||
+                                                          label == L"Attach")) {
+            const scene::Mesh input = EditMeshInput(mod);
+            const auto& prm = mod->Params();
+            if (label == L"Attach") {
+                attachMeshPick_ = true;
+                statusArea_.SetPrompt(1, L"Pick object to attach");                 // NOTE: R3's prompt unverified
+                return;
+            }
+            scene::EditMeshModifier::State after;
+            std::unique_ptr<scene::MacroCommand> macro;
+            if (label == L"Break") after = mod->AfterBreaking(input);
+            else if (label == L"Turn") after = mod->AfterTurning(input);
+            else if (label == L"Tessellate") after = mod->AfterTessellating(input, prm.Int(scene::EditMeshModifier::kTessByFace, 0) != 0);
+            else if (label == L"Extrude") {
+                // NOTE: R3 also extrudes by dragging in a viewport; here the spinner's amount.
+                const double amount = prm.Float(scene::EditMeshModifier::kExtrudeAmount, 0);
+                if (amount == 0) { statusArea_.SetPrompt(1, L"Set the Extrude amount, then click Extrude"); return; }
+                if (subLevel_ < 2) { statusArea_.SetPrompt(1, L"Extrude works on faces (edges: not implemented yet)"); return; }
+                after = mod->AfterExtruding(input, amount);
+            } else if (label == L"Chamfer") {
+                if (subLevel_ != 0) { statusArea_.SetPrompt(1, L"Chamfer works on vertices (edges: not implemented yet)"); return; }
+                after = mod->AfterChamfering(input, prm.Float(scene::EditMeshModifier::kChamferAmount, 0));
+            } else {                                                             // Explode
+                const double angle = prm.Float(scene::EditMeshModifier::kExplodeAngle, 24);
+                if (prm.Int(scene::EditMeshModifier::kExplodeToElements, 0) != 0) after = mod->AfterExplodingToElements(input, angle);
+                else {
+                    // To Objects: each group becomes an Editable Mesh in place, named after a base
+                    // name asked once; the faces leave this object.
+                    const auto groups = mod->ExplodeGroups(input, angle);
+                    if (groups.empty()) return;
+                    scene::Node* node = nullptr;
+                    SelectedStack(&node);
+                    if (!node) return;
+                    const std::wstring base = ui::AskName(Hwnd(), L"Explode to Objects", L"Object Name:", L"Object");
+                    if (base.empty()) return;
+                    std::string b8;
+                    for (wchar_t c : base) b8 += static_cast<char>(c < 0x80 ? c : '?');
+                    std::vector<scene::Node::Id> made;
+                    std::vector<uint32_t> allFaces;
+                    for (const auto& g : groups) {
+                        scene::Node* part = scene_.CreateNode(scene_.UniqueName(b8));
+                        part->SetObject(std::make_shared<scene::MeshObject>(mod->Extract(input, g)));
+                        part->SetWireColor(node->WireColor());
+                        scene::Scene::SetWorldMatrix(part, node->WorldMatrix());
+                        part->ObjectOffset() = node->ObjectOffset();
+                        made.push_back(part->GetId());
+                        allFaces.insert(allFaces.end(), g.begin(), g.end());
+                    }
+                    scene::EditMeshModifier tmp = *mod;
+                    tmp.SetSelectedFaces(allFaces);
+                    macro = std::make_unique<scene::MacroCommand>("Explode");
+                    macro->Add(std::make_unique<scene::AddedNodesCommand>("Explode", made));
+                    macro->Add(std::make_unique<scene::EditMeshStateCommand>("Explode", mod, tmp.AfterDeletingFaces(input, true)));
+                }
+            }
+            if (!macro) {
+                std::string name;
+                for (wchar_t c : label) name += static_cast<char>(c);
+                macro = std::make_unique<scene::MacroCommand>(name);
+                macro->Add(std::make_unique<scene::EditMeshStateCommand>(name, mod, after));
+            }
+            undo_.Execute(std::move(macro), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
         // Selection > Hide / Unhide All, and Edit Geometry > Weld > Selected (Phase 9.6).
         if (const auto mod = VertexEditingMod(); mod && (label == L"Hide" || label == L"Unhide All" || label == L"Selected")) {
             const bool faces = subLevel_ >= 1;
@@ -796,6 +1050,41 @@ bool MainFrame::CreateRegions() {
         viewports_.Redraw();
     };
     // Vertex selection: a click replaces it (Ctrl adds, Alt removes); one "Select" step.
+    viewports_.onToolClick = [this](const ui::Viewport::ToolClick& c) {
+        const auto mod = VertexEditingMod();
+        scene::Node* node = nullptr;
+        SelectedStack(&node);
+        if (!mod || !node) return;
+        const math::Mat4 toObject = math::AffineInverse(node->ObjectMatrix());
+        const scene::Mesh input = EditMeshInput(mod);
+        scene::EditMeshModifier::State after;
+        std::string name;
+        if (editTool_ == 1 && subLevel_ == 0) {
+            if (!c.onPlane) return;
+            after = mod->AfterCreatingVertex(input, math::TransformPoint(toObject, c.point));
+            name = "Create";
+        } else if (editTool_ == 1 && subLevel_ >= 2) {
+            if (c.vertex < 0) return;
+            pendingFace_.push_back(static_cast<uint32_t>(c.vertex));
+            if (pendingFace_.size() < 3) { statusArea_.SetPrompt(1, std::to_wstring(3 - pendingFace_.size()) + L" more vertices"); return; }
+            const math::Vec3 towards = math::TransformPoint(toObject, c.towards) - math::TransformPoint(toObject, {0, 0, 0});
+            after = mod->AfterCreatingFace(input, pendingFace_[0], pendingFace_[1], pendingFace_[2], towards);
+            pendingFace_.clear();
+            name = "Create";
+        } else if (editTool_ == 2) {
+            if (c.edge < 0) return;
+            if (cutEdge_ < 0) { cutEdge_ = c.edge; cutT_ = c.t; statusArea_.SetPrompt(1, L"Click on another edge of the same face"); return; }
+            after = mod->AfterCutting(input, static_cast<uint32_t>(cutEdge_), cutT_, static_cast<uint32_t>(c.edge), c.t);
+            cutEdge_ = -1;
+            if (after.addedVertices.size() == mod->AddedVertices().size()) { statusArea_.SetPrompt(1, L"Cut: both edges must belong to one face"); return; }   // NOTE: R3 cuts across faces
+            name = "Cut";
+        } else {
+            return;
+        }
+        undo_.Execute(std::make_unique<scene::EditMeshStateCommand>(name, mod, after), scene_);
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
     viewports_.onWeldTarget = [this](uint32_t from, uint32_t to) {
         const auto mod = VertexEditingMod();
         if (!mod) return;
@@ -849,28 +1138,57 @@ bool MainFrame::CreateRegions() {
     // Moving: a live preview from the starting positions, then one "Move" undo step.
     viewports_.onMoveBegin = [this] {
         moving_.clear();
+        if (editTool_ == 3 && VertexEditingMod()) {
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            if (!node) return;
+            planeMove_ = {true, slicePoint_, sliceNormal_, node->ObjectMatrix(), scene::typein::WorldRotation(*node) * node->ObjectOffset().rotation};
+            dragFrame_ = viewports_.ActiveView().CurrentFrame();
+            return;
+        }
+        if (const auto dm = GizmoEditingMod()) {
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            if (!node) return;
+            gizmoMove_ = {true, dm, dm->GetGizmo(), node->ObjectMatrix(),
+                          scene::typein::WorldRotation(*node) * node->ObjectOffset().rotation};
+            dragFrame_ = viewports_.ActiveView().CurrentFrame();
+            return;
+        }
         if (const auto mod = VertexEditingMod()) {
             scene::Node* node = nullptr;
             SelectedStack(&node);
-            // At Face level the selected faces' vertices move (each once).
-            std::vector<uint32_t> verts = mod->SelectedVertices();
-            if (subLevel_ >= 1) {
-                // Edges move their two vertices; faces, polygons and elements their faces'.
-                verts.clear();
-                const scene::Mesh input = EditMeshInput(mod);
-                if (subLevel_ == 1) {
-                    for (uint32_t e : mod->SelectedEdges()) {
-                        uint32_t a, b;
-                        if (scene::EdgeVertices(input, e, a, b)) { verts.push_back(a); verts.push_back(b); }
-                    }
-                }
-                if (subLevel_ >= 2)
-                    for (uint32_t f : mod->SelectedFaces())
-                        if (f < input.faces.size()) verts.insert(verts.end(), input.faces[f].v, input.faces[f].v + 3);
-                std::sort(verts.begin(), verts.end());
-                verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
+            // The selection's vertices (edges' and faces' too, added geometry included).
+            const std::vector<uint32_t> verts = SubObjectVertices(mod);
+            vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix()), {}, node->ObjectMatrix(), {}, {}};
+            // Positions now: the input with the current moves; the centre is the vertices'
+            // average, or the reference system's origin (Use Transform Coordinate Center).
+            // NOTE: R3's sub-object centre rules are unverified.
+            const scene::Mesh at = mod->Positions(EditMeshInput(mod));    // added geometry too (10.7)
+            math::Vec3 sum{0, 0, 0};
+            for (uint32_t v : verts) {
+                const math::Vec3 p = v < at.verts.size() ? at.verts[v] : math::Vec3{0, 0, 0};
+                vertexMove_.points.push_back(p);
+                sum = sum + math::TransformPoint(vertexMove_.objectToWorld, p);
             }
-            vertexMove_ = {true, mod, mod->Moves(), verts, math::AffineInverse(node->ObjectMatrix())};
+            dragFrame_ = viewports_.ActiveView().CurrentFrame();
+            vertexMove_.centre = centre_ == 2 ? dragFrame_.origin : verts.empty() ? sum : sum * (1.0 / static_cast<double>(verts.size()));
+            // Soft Selection (10.6): every vertex the falloff reaches joins, with its weight;
+            // the centre stays the selection's.
+            const auto& sp = mod->Params();
+            if (sp.Int(scene::EditMeshModifier::kUseSoftSelection, 0) != 0) {
+                const int edges = sp.Int(scene::EditMeshModifier::kEdgeDistance, 0) != 0 ? sp.Int(scene::EditMeshModifier::kEdgeIterations, 1) : -1;
+                const auto w = scene::soft::Weights(at, verts, sp.Float(scene::EditMeshModifier::kFalloff, 20),
+                                                    sp.Float(scene::EditMeshModifier::kPinch, 0), sp.Float(scene::EditMeshModifier::kBubble, 0), edges);
+                vertexMove_.vertices.clear();
+                vertexMove_.points.clear();
+                for (uint32_t v = 0; v < w.size(); ++v)
+                    if (w[v] > 0) {
+                        vertexMove_.vertices.push_back(v);
+                        vertexMove_.points.push_back(at.verts[v]);
+                        vertexMove_.weights.push_back(w[v]);
+                    }
+            }
             return;
         }
         for (scene::Node::Id id : scene_.Selection()) {
@@ -893,14 +1211,89 @@ bool MainFrame::CreateRegions() {
     // Move follows the mouse in the world; Rotate and Scale follow its vertical movement,
     // each object about its own pivot (NOTE: R3's pivot options are not implemented yet).
     viewports_.onMoveDrag = [this](const math::Vec3& delta, int up) {
+        if (planeMove_.active) {
+            // The slice plane (UI state, not an undo step): Move shifts it, Rotate turns it.
+            const math::Mat4 inv = math::AffineInverse(planeMove_.objectWorld);
+            if (tool_ == Tool::Move) {
+                slicePoint_ = planeMove_.point + (math::TransformPoint(inv, delta) - math::TransformPoint(inv, {0, 0, 0}));
+                ShowCoordinates(delta);
+            } else if (tool_ == Tool::Rotate) {
+                const int axis = scene::move::RotationAxis(constraint_);
+                const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);
+                const math::Quat& o = planeMove_.objectRotation;
+                sliceNormal_ = math::Normalize((math::Quat{-o.x, -o.y, -o.z, o.w} * turn * o).Rotate(planeMove_.normal));
+                ShowCoordinates(scene::move::RotationDegrees(axis, up));
+            }
+            lastEditing_.planePoint = slicePoint_;
+            lastEditing_.planeNormal = sliceNormal_;
+            viewports_.SetVertexEditing(lastEditing_);
+            viewports_.Redraw();
+            return;
+        }
+        if (gizmoMove_.active) {
+            // In the object's space: Move shifts the gizmo (Gizmo) or its centre (Center);
+            // Rotate turns the gizmo about its centre; Scale scales it (Gizmo level only).
+            const math::Mat4 inv = math::AffineInverse(gizmoMove_.objectWorld);
+            const math::Vec3 d = math::TransformPoint(inv, delta) - math::TransformPoint(inv, {0, 0, 0});
+            scene::DeformModifier::Gizmo g = gizmoMove_.start;
+            if (tool_ == Tool::Move) {
+                if (subLevel_ == 0) g.transform.position = g.transform.position + d;
+                else {
+                    const math::Mat4 gi = math::AffineInverse(g.transform.Matrix());
+                    g.center = g.center + (math::TransformPoint(gi, d) - math::TransformPoint(gi, {0, 0, 0}));
+                }
+                ShowCoordinates(delta);
+            } else if (subLevel_ == 0 && tool_ == Tool::Rotate) {
+                const int axis = scene::move::RotationAxis(constraint_);
+                const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);
+                const math::Quat& o = gizmoMove_.objectRotation;
+                const math::Quat q = math::Quat{-o.x, -o.y, -o.z, o.w} * turn * o;        // the turn in object space
+                const math::Vec3 pc = gizmoMove_.mod->CenterPoint();
+                g.transform.position = pc + q.Rotate(g.transform.position - pc);
+                g.transform.rotation = (q * g.transform.rotation).Normalized();
+                ShowCoordinates(scene::move::RotationDegrees(axis, up));
+            } else if (subLevel_ == 0 && tool_ == Tool::Scale) {
+                const math::Vec3 f = scene::move::DragScale(scaleMode_, constraint_, up);
+                g.transform.scale = {g.transform.scale.x * f.x, g.transform.scale.y * f.y, g.transform.scale.z * f.z};
+                ShowCoordinates(scene::move::ScalePercent(f));
+            }
+            gizmoMove_.mod->SetGizmo(g);
+            viewports_.Redraw();
+            return;
+        }
         if (vertexMove_.active) {
-            // Vertices move in the object's own space (NOTE: Rotate and Scale at vertex
-            // level are not implemented; only Move drags vertices).
-            if (tool_ != Tool::Move) return;
-            const math::Vec3 d = math::TransformPoint(vertexMove_.worldToObject, delta) -
-                                 math::TransformPoint(vertexMove_.worldToObject, {0, 0, 0});
-            vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, d));
-            ShowCoordinates(delta);
+            // Move: one offset in the object's space. Rotate and Scale (10.5): a world-space
+            // turn or scale about the centre, in the reference system's frame, applied to each
+            // vertex in world space and taken back to object space.
+            const auto& wts = vertexMove_.weights;
+            if (tool_ == Tool::Move) {
+                const math::Vec3 d = math::TransformPoint(vertexMove_.worldToObject, delta) -
+                                     math::TransformPoint(vertexMove_.worldToObject, {0, 0, 0});
+                if (wts.empty()) {
+                    vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, d));
+                } else {
+                    std::vector<math::Vec3> deltas;
+                    for (double w : wts) deltas.push_back(d * w);
+                    vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, deltas));
+                }
+                ShowCoordinates(delta);
+            } else {
+                const math::Vec3& c = vertexMove_.centre;
+                math::Mat4 change;
+                if (tool_ == Tool::Rotate) {
+                    const int axis = scene::move::RotationAxis(constraint_);
+                    change = math::Translation(c) * scene::move::DragRotationInFrame(axis, up, dragFrame_).ToMat4() * math::Translation(c * -1.0);
+                    ShowCoordinates(scene::move::RotationDegrees(axis, up));
+                } else {
+                    const math::Vec3 f = scene::move::DragScale(scaleMode_, constraint_, up);
+                    const double s[3] = {f.x, f.y, f.z};
+                    change = math::Translation(c) * scene::tools::FrameScale(dragFrame_, s) * math::Translation(c * -1.0);
+                    ShowCoordinates(scene::move::ScalePercent(f));
+                }
+                auto deltas = scene::tools::SubObjectDeltas(vertexMove_.points, vertexMove_.objectToWorld, change);
+                for (size_t i = 0; i < wts.size() && i < deltas.size(); ++i) deltas[i] = deltas[i] * wts[i];   // Soft Selection
+                vertexMove_.mod->SetMoves(scene::EditMeshModifier::AddToMoves(vertexMove_.before, vertexMove_.vertices, deltas));
+            }
             viewports_.Redraw();
             return;
         }
@@ -959,6 +1352,20 @@ bool MainFrame::CreateRegions() {
         UpdateTypeIn();                                 // Absolute shows the result; Offset returns to neutral
     };
     viewports_.onMoveEnd = [this](bool commit) {
+        if (planeMove_.active) {
+            planeMove_.active = false;
+            if (!commit) { slicePoint_ = planeMove_.point; sliceNormal_ = planeMove_.normal; UpdateModifyPanel(); }
+            viewports_.Redraw();
+            return;
+        }
+        if (gizmoMove_.active) {
+            gizmoMove_.active = false;
+            const auto after = gizmoMove_.mod->GetGizmo();
+            gizmoMove_.mod->SetGizmo(gizmoMove_.start);         // so the command records the real "before"
+            if (commit) undo_.Execute(std::make_unique<scene::GizmoCommand>(gizmoMove_.mod, gizmoMove_.start, after), scene_);
+            viewports_.Redraw();
+            return;
+        }
         if (vertexMove_.active) {
             vertexMove_.active = false;
             const auto after = vertexMove_.mod->Moves();
@@ -1266,6 +1673,12 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "tools.transform_type_in") { typeIn_.Show(Hwnd()); UpdateTypeIn(); return; }
+    if (command == "tools.align") {
+        if (scene_.Selection().empty()) { statusArea_.SetPrompt(1, L"Select the objects first"); return; }
+        alignPick_ = true;
+        statusArea_.SetPrompt(1, L"Pick Align Target Object");        // NOTE: R3's prompt unverified
+        return;
+    }
     if (command == "tools.mirror" || command == "tools.array") {
         if (scene_.Selection().empty()) { statusArea_.SetPrompt(1, L"Select the objects first"); return; }
         // The topmost selected objects only: a selected child moves with its parent.

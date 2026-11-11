@@ -41,6 +41,7 @@ public:
         std::vector<std::wstring> subObjectLevels;   // e.g. Edit Mesh: Vertex, Edge, Face, Polygon, Element
         bool subObjectOn = false;                 // the Sub-Object button pressed
         int subObjectLevel = 0;
+        bool sliceMode = false;                   // Edit Mesh's Slice Plane is on (Slice available)
         std::wstring selectionText;               // e.g. "4 Vertices Selected" (Edit Mesh)
         const scene::ParamBlock* params = nullptr;   // the current entry's parameters
     };

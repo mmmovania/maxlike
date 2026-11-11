@@ -136,14 +136,20 @@ buildable now, needing R3.1 evidence, or separate subsystems; worked through in 
       (9.9); Tools > Mirror and Array, with mirrored objects drawn correctly (9.10).
 - [x] Wrap-up: `docs/tech/phase9-tech-docs.md`, documentation sweep, v0.9.0 (9.11).
 
-## Phase 10 — Groups and the rest of list A (`phase/10-groups`)
+## Phase 10 — Groups and the rest of list A (`phase/10-groups`) ✔ v0.10.0
 From Phase 9's inventory, still buildable without new evidence:
 - [x] The Group menu (Group, Ungroup, Open, Close, Explode, Detach, Attach): a hidden
       group helper its members are linked to; selection and picking through groups (10.1).
-- [ ] Tools > Align; the modifier gizmo; viewports and the selection in `.mlk` files.
-- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons; Rotate and Scale at
-      sub-object level; Soft Selection.
+- [x] Tools > Align (10.2).
+- [x] The modifier gizmo (10.3).
+- [x] Viewports and the selection in `.mlk` files (10.4).
+- [x] Rotate and Scale at Edit Mesh's sub-object levels (10.5).
+- [x] Soft Selection (10.6).
+- [x] Edit Mesh's Edit Geometry buttons (10.7–10.9), except Create Shape from Edges (no
+      shapes yet); edge-level Extrude and Chamfer, Extrude by dragging and multi-face Cut
+      strokes are simplified or not built (see the Phase 10 checklist).
 - Waiting for R3.1 evidence (list B of the inventory): dialogs built from memory (New,
   Clone, Detach, Mirror, Array, Transform Type-In), Edit Mesh's look at sub-object levels,
   the Select By / Region / Grids submenus, the perspective grid's extent, Bend / Taper /
   Twist and Backface Cull in files, materials.
+- [x] Wrap-up: `docs/tech/phase10-tech-docs.md`, documentation sweep, v0.10.0 (10.10).

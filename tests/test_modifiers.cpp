@@ -246,6 +246,57 @@ int main() {
     StackOrderAndDisable();
     SharedDerivedObject();
     SmoothingNormals();
+    // The gizmo and centre (10.3).
+    {
+        auto box = std::make_shared<scene::BoxObject>(20, 20, 40);
+        const scene::Mesh input = box->Evaluate();
+        auto near = [](const math::Vec3& a, const math::Vec3& b) { return math::Length(a - b) < 1e-9; };
+        scene::BendModifier bend;
+        bend.Params().Set(scene::BendModifier::kAngle, 90);
+        // A centre offset is the same as moving the gizmo by it.
+        scene::DeformModifier::Gizmo byCenter, byGizmo;
+        byCenter.center = {0, 0, 10};
+        byGizmo.transform.position = {0, 0, 10};
+        scene::Mesh m1 = input, m2 = input;
+        bend.SetGizmo(byCenter); bend.Apply(m1);
+        bend.SetGizmo(byGizmo);  bend.Apply(m2);
+        bool same = true;
+        for (size_t i = 0; i < m1.verts.size(); ++i) same = same && near(m1.verts[i], m2.verts[i]);
+        CHECK(same);
+        // A translated gizmo is: shift into it, deform, shift back.
+        scene::Mesh shifted = input, manual;
+        for (auto& v : shifted.verts) v = v - math::Vec3{0, 0, 10};
+        bend.SetGizmo({});
+        bend.Apply(shifted);
+        for (auto& v : shifted.verts) v = v + math::Vec3{0, 0, 10};
+        same = true;
+        for (size_t i = 0; i < m2.verts.size(); ++i) same = same && near(m2.verts[i], shifted.verts[i]);
+        CHECK(same);
+        // The lattice: with no angle exactly the box's twelve edges (8 pieces each)...
+        scene::BendModifier flat;
+        const auto lines = flat.GizmoLines(input, 8);
+        CHECK(lines.size() == 96);
+        const scene::Bounds b = input.GetBounds();
+        for (const auto& [p, q] : lines)
+            for (const math::Vec3& v : {p, q})
+                CHECK(v.x >= b.min.x - 1e-9 && v.x <= b.max.x + 1e-9 && v.z >= b.min.z - 1e-9 && v.z <= b.max.z + 1e-9);
+        // ...and bent, its corners are exactly the bent box's corners.
+        scene::Mesh bent = input;
+        bend.Apply(bent);
+        const auto bentLines = bend.GizmoLines(input, 8);
+        for (const auto& corner : bent.verts) {
+            bool found = false;
+            for (const auto& [p, q] : bentLines) found = found || near(p, corner) || near(q, corner);
+            CHECK(found);
+        }
+        // The centre in object space follows the gizmo.
+        scene::DeformModifier::Gizmo g;
+        g.transform.position = {5, 0, 0};
+        g.transform.rotation = math::Quat::FromAxisAngle({0, 0, 1}, 3.14159265358979323846 / 2);
+        g.center = {1, 0, 0};
+        bend.SetGizmo(g);
+        CHECK(near(bend.CenterPoint(), {5, 1, 0}));
+    }
     if (failures == 0) std::printf("modifiers: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

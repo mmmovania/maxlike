@@ -113,6 +113,10 @@ int main() {
             st.hiddenFaces = {4};                           // Phase 9.6: hidden and welded
             st.hiddenVertices = {5};
             st.welds = {{6, 4}};
+            st.addedVertices = {{1.5, -2.5, 99}};       // Phase 10.7: added geometry
+            scene::Face af{};
+            af.v[0] = 0; af.v[1] = 1; af.v[2] = 8; af.smoothing = 5; af.materialId = 3; af.edgeVisible = 6;
+            st.addedFaces = {af};
             em->SetState(st);
         }
         CHECK(io::LoadNative(io::SaveNative(original), loaded, error));
@@ -123,7 +127,10 @@ int main() {
               em2->DeletedVertices() == std::vector<uint32_t>{7});
         CHECK(em2 && em2->HiddenFaces() == std::vector<uint32_t>{4} && em2->HiddenVertices() == std::vector<uint32_t>{5} &&
               em2->Welds().size() == 1 && em2->Welds()[0] == std::make_pair(6u, 4u));
-        CHECK(em2 && d2 && d2->Evaluate().verts.size() == 6);   // the deletion and the weld apply after loading
+        CHECK(em2 && em2->AddedVertices().size() == 1 && em2->AddedVertices()[0].z == 99 && em2->AddedFaces().size() == 1 &&
+              em2->AddedFaces()[0].v[2] == 8 && em2->AddedFaces()[0].smoothing == 5 && em2->AddedFaces()[0].materialId == 3 &&
+              em2->AddedFaces()[0].edgeVisible == 6);
+        CHECK(em2 && d2 && d2->Evaluate().verts.size() == 7);   // deletion and weld apply; the added vertex is there
     }
     // Damaged or foreign input: an error, nothing created.
     {
@@ -149,6 +156,69 @@ int main() {
         CHECK(back.Find("Group01") && back.Find("Group01")->IsGroupHead() && !back.Find("Group01")->GroupOpen());
         CHECK(back.Find("Group02") && back.Find("Group02")->IsGroupHead() && back.Find("Group02")->GroupOpen());
         CHECK(back.Find("Box01") && !back.Find("Box01")->IsGroupHead() && back.Find("Box01")->Parent() == back.Find("Group01"));
+    }
+    // A deformer's gizmo and centre (Phase 10.3) survive saving and loading.
+    {
+        scene::Scene g, back;
+        auto bend = std::make_shared<scene::BendModifier>();
+        bend->Params().Set(scene::BendModifier::kAngle, 45);
+        scene::DeformModifier::Gizmo gz;
+        gz.transform.position = {1, 2, 3};
+        gz.transform.rotation = math::Quat::FromAxisAngle({0, 0, 1}, 0.25);
+        gz.transform.scale = {1, 2, 0.5};
+        gz.center = {0, 0, 7};
+        bend->SetGizmo(gz);
+        auto derived = std::make_shared<scene::DerivedObject>(std::make_shared<scene::BoxObject>(10, 10, 20));
+        derived->AddModifier(bend);
+        g.CreateNode("Box01")->SetObject(derived);
+        std::string error;
+        CHECK(io::LoadNative(io::SaveNative(g), back, error));
+        auto d2 = back.Find("Box01") ? std::dynamic_pointer_cast<scene::DerivedObject>(back.Find("Box01")->GetObject()) : nullptr;
+        auto b2 = d2 ? std::dynamic_pointer_cast<scene::BendModifier>(d2->Modifiers()[0]) : nullptr;
+        CHECK(b2 && b2->GetGizmo().center.z == 7 && b2->GetGizmo().transform.scale.y == 2 && b2->GetGizmo().transform.position.x == 1);
+        const scene::Mesh a = derived->Evaluate(), c = d2 ? d2->Evaluate() : scene::Mesh{};
+        bool same = a.verts.size() == c.verts.size();
+        for (size_t i = 0; same && i < a.verts.size(); ++i) same = math::Length(a.verts[i] - c.verts[i]) == 0;
+        CHECK(same);
+    }
+    // Views and the selection (Phase 10.4): every field round-trips exactly.
+    {
+        scene::Scene g, back, back2;
+        scene::Node* a = g.CreateNode("Box01");
+        a->SetObject(std::make_shared<scene::BoxObject>(1, 1, 1));
+        scene::Node* b = g.CreateNode("Box02");
+        b->SetObject(std::make_shared<scene::BoxObject>(1, 1, 1));
+        g.SetSelection({b->GetId()});
+        io::NativeViews v;
+        v.present = true;
+        v.active = 3;
+        const int types[4] = {6, 1, 5, 0};
+        for (int i = 0; i < 4; ++i) {
+            v.type[i] = types[i];
+            v.ortho[i].width = 123.5 + i;
+            v.ortho[i].centerU = -7.25 * i;
+            v.ortho[i].centerV = 3.125 + i;
+            v.perspective[i].target = {1.5 * i, -2.0, 0.5};
+            v.perspective[i].distance = 321.0 + i;
+            v.perspective[i].elevationDeg = 33.0 - i;
+            v.perspective[i].azimuthDeg = -45.0 + 10 * i;
+            v.perspective[i].fovDeg = 50.0;
+        }
+        std::string error;
+        io::NativeViews r;
+        CHECK(io::LoadNative(io::SaveNative(g, {a->GetId(), b->GetId()}, &v), back, error, &r));
+        CHECK(r.present && r.active == 3);
+        for (int i = 0; i < 4; ++i) {
+            CHECK(r.type[i] == types[i] && r.ortho[i].width == v.ortho[i].width && r.ortho[i].centerU == v.ortho[i].centerU &&
+                  r.ortho[i].centerV == v.ortho[i].centerV);
+            CHECK(r.perspective[i].target.x == v.perspective[i].target.x && r.perspective[i].distance == v.perspective[i].distance &&
+                  r.perspective[i].elevationDeg == v.perspective[i].elevationDeg && r.perspective[i].azimuthDeg == v.perspective[i].azimuthDeg &&
+                  r.perspective[i].fovDeg == v.perspective[i].fovDeg);
+        }
+        CHECK(back.Selection().size() == 1 && back.FindById(back.Selection()[0])->Name() == "Box02");
+        // Saved without views: none reported; the selection still comes back.
+        io::NativeViews none;
+        CHECK(io::LoadNative(io::SaveNative(g), back2, error, &none) && !none.present && back2.Selection().size() == 1);
     }
     if (failures == 0) std::printf("native file: all tests passed\n");
     return failures == 0 ? 0 : 1;

@@ -279,6 +279,20 @@ private:
     std::vector<std::unique_ptr<DeleteNodeCommand>> parts_;
 };
 
+// A deformer's gizmo or centre moved, turned or scaled (Phase 10.3).
+class GizmoCommand : public Command {
+public:
+    GizmoCommand(std::shared_ptr<DeformModifier> mod, DeformModifier::Gizmo before, DeformModifier::Gizmo after)
+        : mod_(std::move(mod)), before_(before), after_(after) {}
+    std::string Name() const override { return "Gizmo"; }
+    void Do(Scene&) override { mod_->SetGizmo(after_); }
+    void Undo(Scene&) override { mod_->SetGizmo(before_); }
+
+private:
+    std::shared_ptr<DeformModifier> mod_;
+    DeformModifier::Gizmo before_, after_;
+};
+
 // Group > Open / Close (Phase 10): a group head's open flag.
 class GroupOpenCommand : public Command {
 public:

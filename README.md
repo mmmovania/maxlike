@@ -23,7 +23,7 @@ This is how it looks so far
 | 7 Modify panel (modifier stack, Bend/Taper/Twist, Edit Mesh at Vertex level) | ✔ panels pixel-checked | 0.7.0 |
 | 8 `.max` import (open R3-era files, saved viewports; maxlike's own `.mlk` files) | ✔ samples verified against R3.1 | 0.8.0 |
 | 9 Deferred items (menus and shortcuts as R3.1, File / Edit commands, all Edit Mesh levels, Transform Type-In, coordinate systems, Mirror, Array) | ✔ menus verified against R3.1 | 0.9.0 |
-| 10 Groups and the rest of list A (`docs/phases/phase-10-groups.md`) | in progress | |
+| 10 Groups, Align, modifier gizmos, views in files, Soft Selection, Edit Mesh's Edit Geometry tools | ✔ Edit Mesh panel verified against R3.1 | 0.10.0 |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 
@@ -34,7 +34,7 @@ Requires Visual Studio 2019+ (Desktop development with C++) and CMake 3.20+.
 ```sh
 cmake -S . -B build
 cmake --build build --config Debug
-ctest --test-dir build -C Debug      # 39 unit-test programs
+ctest --test-dir build -C Debug      # 40 unit-test programs
 build\Debug\maxlike.exe
 ```
 

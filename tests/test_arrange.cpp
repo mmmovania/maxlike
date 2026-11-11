@@ -63,6 +63,86 @@ int main() {
         CHECK(Near(math::TransformPoint(copy->WorldMatrix(), {0, 0, 0}), p0 + math::Vec3{50, 0, 0}));
         CHECK(copy->GetObject() == box->GetObject());
     }
+    // Align (10.2): A (10 units, pivot at the origin) to B (20 units, pivot at x 50).
+    {
+        scene::Scene t;
+        scene::Node* a = t.CreateNode("A");
+        a->SetObject(std::make_shared<scene::BoxObject>(10, 10, 10));
+        scene::Node* b = t.CreateNode("B");
+        b->SetObject(std::make_shared<scene::BoxObject>(20, 20, 20));
+        b->Transform().position = {50, 0, 0};
+        auto pivot = [](const scene::Node* n) { return math::TransformPoint(n->WorldMatrix(), {0, 0, 0}); };
+        auto run = [&](const AlignOptions& o) { const scene::PRS before = a->Transform(); a->Transform() = Aligned(*a, *b, o); const math::Vec3 p = pivot(a); return std::make_pair(p, before); };
+        AlignOptions o;
+        o.position[0] = true;
+        o.current = AlignPoint::Minimum;
+        o.target = AlignPoint::Maximum;
+        auto [p1, s1] = run(o);
+        math::Vec3 lo, hi;
+        CHECK(Near(p1, {65, 0, 0}) && WorldBounds(*a, lo, hi) && std::fabs(lo.x - 60) < 1e-9);   // flush against B's right side
+        a->Transform() = s1;
+        // Centres on all three axes: A's centre (half its height up) on B's.
+        AlignOptions c;
+        c.position[0] = c.position[1] = c.position[2] = true;
+        auto [p2, s2] = run(c);
+        CHECK(Near(p2, {50, 0, 5}));
+        a->Transform() = s2;
+        // Pivots: exactly B's pivot.
+        c.current = c.target = AlignPoint::Pivot;
+        auto [p3, s3] = run(c);
+        CHECK(Near(p3, {50, 0, 0}));
+        a->Transform() = s3;
+        // Orientation: all three axes gives B's rotation; the pivot stays where it was.
+        b->Transform().rotation = math::Quat::FromAxisAngle({0, 0, 1}, 0.5);
+        AlignOptions r;
+        r.orientation[0] = r.orientation[1] = r.orientation[2] = true;
+        a->Transform().position = {7, 8, 9};
+        const scene::PRS s4 = a->Transform();
+        a->Transform() = Aligned(*a, *b, r);
+        CHECK(Near(a->Transform().rotation.Rotate({1, 0, 0}), b->Transform().rotation.Rotate({1, 0, 0})) && Near(pivot(a), {7, 8, 9}));
+        a->Transform() = s4;
+        // One axis: B tipped 90 degrees about X; A's Z turns onto B's Z (world -Y).
+        b->Transform().rotation = math::Quat::FromAxisAngle({1, 0, 0}, 3.14159265358979323846 / 2);
+        AlignOptions z;
+        z.orientation[2] = true;
+        a->Transform() = Aligned(*a, *b, z);
+        CHECK(Near(a->Transform().rotation.Rotate({0, 0, 1}), {0, -1, 0}));
+        a->Transform() = s4;
+        // Scale: A takes B's X scale only.
+        b->Transform().scale = {2, 3, 4};
+        AlignOptions sc;
+        sc.scale[0] = true;
+        a->Transform() = Aligned(*a, *b, sc);
+        CHECK(Near(a->Transform().scale, {2, 1, 1}));
+        a->Transform() = s4;
+    }
+    // Sub-object Rotate and Scale (10.5): offsets for a world change, plain and scaled objects.
+    {
+        const double kPi = 3.14159265358979323846;
+        const math::Vec3 c{1, 0, 0};
+        const math::Mat4 turn = math::Translation(c) * math::Quat::FromAxisAngle({0, 0, 1}, kPi / 2).ToMat4() * math::Translation(c * -1.0);
+        const math::Mat4 plain = math::Translation({0, 0, 0});
+        auto d = SubObjectDeltas({{2, 0, 0}, {1, 0, 5}}, plain, turn);
+        CHECK(Near(d[0], {-1, 1, 0}) && Near(d[1], {0, 0, 0}));       // (2,0,0) -> (1,1,0); a point on the axis stays
+        // On an object scaled 2x in X and moved: the world positions turn rigidly.
+        scene::PRS t;
+        t.position = {5, 0, 0};
+        t.scale = {2, 1, 1};
+        const math::Mat4 m = t.Matrix();
+        const std::vector<math::Vec3> pts = {{1, 0, 0}, {0, 3, 0}};
+        d = SubObjectDeltas(pts, m, turn);
+        for (size_t i = 0; i < pts.size(); ++i) {
+            const math::Vec3 before = math::TransformPoint(m, pts[i]), after = math::TransformPoint(m, pts[i] + d[i]);
+            CHECK(Near(after, math::TransformPoint(turn, before)));
+        }
+        CHECK(std::fabs(math::Length(math::TransformPoint(m, pts[0] + d[0]) - math::TransformPoint(m, pts[1] + d[1])) -
+                        math::Length(math::TransformPoint(m, pts[0]) - math::TransformPoint(m, pts[1]))) < 1e-9);
+        // FrameScale along a frame turned 90 degrees about Z: its X axis is world Y.
+        scene::move::Frame f;
+        f.axis[0] = {0, 1, 0}; f.axis[1] = {-1, 0, 0};
+        const double s2[3] = {2, 1, 1};
+        CHECK(Near(math::TransformPoint(FrameScale(f, s2), {3, 4, 5}), {3, 8, 5}));
+    }
     if (failures == 0) std::printf("arrange: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

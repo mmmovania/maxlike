@@ -1,4 +1,5 @@
 #include "ui/ParametersSpec.h"
+#include <algorithm>
 #include "scene/Primitives.h"
 #include "scene/Modifier.h"
 
@@ -197,7 +198,7 @@ Spec ModifierParametersFor(const std::string& name) {
     return {};
 }
 
-std::vector<Spec> ModifierRollouts(const std::string& name) {
+std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool sliceMode) {
     if (name != "Edit Mesh") {
         Spec s = ModifierParametersFor(name);
         if (s.rows.empty()) return {};
@@ -242,8 +243,20 @@ std::vector<Spec> ModifierRollouts(const std::string& name) {
     sel.contentHeight = 195;                 // frame's shadow line at title + 209
     Spec soft;
     soft.title = L"Soft Selection";
-    soft.startsOpen = false;                 // NOTE: its contents are not built yet
-    soft.contentHeight = 40;
+    soft.startsOpen = false;                 // closed, as in R3.1's screenshot
+    // NOTE: the contents are from memory (the rollout was only ever seen closed); R3's
+    // falloff curve display is not built.
+    // Row tops are measured from the rollout's title, as in the other rollouts (the first
+    // row below the title starts at 24 or later).
+    soft.rows = {check(L"Use Soft Selection", EditMeshModifier::kUseSoftSelection, 26, 12, true),
+                 check(L"Edge Distance:", EditMeshModifier::kEdgeDistance, 46, 12, true),
+                 [] { Row r{L"", EditMeshModifier::kEdgeIterations, Kind::Int, 1, 999, 1, 44};
+                      r.fieldLeft = 104; r.fieldWidth = 40; r.arrowsLeft = 145; return r; }(),
+                 check(L"Affect Backfacing", EditMeshModifier::kAffectBackfacing, 66, 12, true),
+                 spinner(L"Falloff:", EditMeshModifier::kFalloff, 88, 92, 52, 145, true, 0, 1e6),
+                 spinner(L"Pinch:", EditMeshModifier::kPinch, 108, 92, 52, 145, true, -10, 10),
+                 spinner(L"Bubble:", EditMeshModifier::kBubble, 128, 92, 52, 145, true, -10, 10)};
+    soft.contentHeight = 150;
     Spec geo;
     geo.title = L"Edit Geometry";
     geo.groups = {{90, 157, L"", 0, 14, 165}, {163, 233, L"", 0, 14, 165}, {243, 298, L"Weld", 49, 14, 166, 21, 23},
@@ -292,6 +305,40 @@ std::vector<Spec> ModifierRollouts(const std::string& name) {
     // NOTE: below both screenshots. Its height is inferred from the scroll indicator
     // (the column scrolls 463 rows); its contents are not built.
     surface.contentHeight = 186;
+    // The Edit Geometry buttons available at each level (bit n = level n). The Vertex
+    // column reproduces r3.1-modify-editmesh-vertex.png exactly; the others are from memory
+    // (NOTE: unverified). Create Shape from Edges needs shapes, which maxlike lacks; Slice
+    // needs Slice Plane's mode (not built yet).
+    {
+        constexpr int V = 1, E = 2, F = 4, P = 8, L = 16, All = 31;
+        const std::pair<const wchar_t*, int> kAvailable[] = {
+            {L"Create", All}, {L"Delete", All}, {L"Attach", All}, {L"Detach", V | F | P | L}, {L"Break", V}, {L"Turn", E},
+            {L"Extrude", E | F | P | L}, {L"Chamfer", V | E}, {L"Slice Plane", All}, {L"Slice", 0}, {L"Cut", E | F | P | L},
+            {L"Selected", V}, {L"Target", V}, {L"Tessellate", F | P | L}, {L"Explode", F | P | L},
+            {L"Remove Isolated Vertices", All}, {L"Select Open Edges", E}, {L"Create Shape from Edges", 0},
+            {L"View Align", All}, {L"Grid Align", All}, {L"Make Planar", All}, {L"Collapse", All}};
+        const int bit = 1 << std::max(0, std::min(4, level));
+        for (Row& r : geo.rows)
+            if (r.kind == Kind::Button)
+                for (const auto& [label, levels] : kAvailable)
+                    if (r.label == label) r.enabled = (levels & bit) != 0 || (sliceMode && r.label == L"Slice");
+        // The spinners, options and labels that belong to those buttons (10.8).
+        const std::pair<int, int> kParams[] = {
+            {EditMeshModifier::kExtrudeAmount, E | F | P | L}, {EditMeshModifier::kNormalLocal, E | F | P | L},
+            {EditMeshModifier::kChamferAmount, V | E}, {EditMeshModifier::kTessTension, F | P | L},
+            {EditMeshModifier::kTessByFace, F | P | L}, {EditMeshModifier::kExplodeAngle, F | P | L},
+            {EditMeshModifier::kExplodeToElements, F | P | L}, {EditMeshModifier::kWeldThreshold, V},
+            {EditMeshModifier::kWeldTargetPixels, V}};
+        const std::pair<const wchar_t*, int> kLabels[] = {{L"Normal:", E | F | P | L}, {L"by:", F | P | L}, {L"to:", F | P | L}};
+        for (Row& r : geo.rows) {
+            if (r.kind != Kind::Button && r.kind != Kind::Label)
+                for (const auto& [index, levels] : kParams)
+                    if (r.paramIndex == index) r.enabled = (levels & bit) != 0;
+            if (r.kind == Kind::Label)
+                for (const auto& [text, levels] : kLabels)
+                    if (r.label == text) r.enabled = (levels & bit) != 0;
+        }
+    }
     return {sel, soft, geo, surface};
 }
 

@@ -93,9 +93,17 @@ private:
         std::vector<scene::EditMeshModifier::Move> before;
         std::vector<uint32_t> vertices;
         math::Mat4 worldToObject;
+        // Rotate and Scale (10.5): the vertices' object-space positions at the start, the
+        // object's matrix, and the world centre they turn or scale about.
+        std::vector<math::Vec3> points;
+        math::Mat4 objectToWorld;
+        math::Vec3 centre{0, 0, 0};
+        std::vector<double> weights;       // Soft Selection (10.6): one per vertex; empty = all 1
     } vertexMove_;
     std::shared_ptr<scene::EditMeshModifier> VertexEditingMod() const;   // non-null while editing vertices or faces
     scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it
+    // The vertices of the current sub-object selection (edges' and faces' too), by index.
+    std::vector<uint32_t> SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const;
     void UpdateModifyPanel();
     // The selected object's stack: its Derived Object (or null) and the entry shown.
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;
@@ -124,6 +132,28 @@ private:
     bool weldTargetMode_ = false;                      // Edit Mesh > Weld > Target pressed
     ui::TypeInDialog typeIn_;                          // Tools > Transform Type-In (F12)
     bool attachPick_ = false;                          // Group > Attach: the next click picks the group
+    bool alignPick_ = false;                           // Tools > Align: the next click picks the target
+    bool attachMeshPick_ = false;                      // Edit Mesh > Attach: the next click picks the object
+    // Edit Mesh's interactive tools (10.9): 0 none, 1 Create, 2 Cut, 3 Slice Plane; the
+    // vertices clicked so far for a face, the first edge of a cut, and the slice plane
+    // (object space). `lastEditing_` is what the views were last given.
+    int editTool_ = 0;
+    std::vector<uint32_t> pendingFace_;
+    long long cutEdge_ = -1;
+    double cutT_ = 0;
+    math::Vec3 slicePoint_{0, 0, 0}, sliceNormal_{0, 0, 1};
+    struct PlaneMove { bool active = false; math::Vec3 point, normal; math::Mat4 objectWorld; math::Quat objectRotation; } planeMove_;
+    ui::Viewport::VertexEditing lastEditing_;
+    // A deformer's gizmo being dragged (10.3): the modifier, its gizmo at the start, and the
+    // object's world matrix and rotation (movements become object space).
+    struct GizmoMove {
+        bool active = false;
+        std::shared_ptr<scene::DeformModifier> mod;
+        scene::DeformModifier::Gizmo start;
+        math::Mat4 objectWorld;
+        math::Quat objectRotation;
+    } gizmoMove_;
+    std::shared_ptr<scene::DeformModifier> GizmoEditingMod() const;   // non-null at a deformer's sub-object level
     void UpdateTypeIn();                         // File > Summary Info's Description (NOTE: not saved yet)
 
     // Regions, in the order of FrameLayout.

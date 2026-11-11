@@ -111,6 +111,10 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene) {
 }
 
 std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<scene::Node::Id>& only) {
+    return SaveNative(scene, only, nullptr);
+}
+
+std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<scene::Node::Id>& only, const NativeViews* views) {
     std::vector<const scene::Node*> saved;
     for (const auto& n : scene.Nodes())
         if (std::find(only.begin(), only.end(), n->GetId()) != only.end()) saved.push_back(n.get());
@@ -139,6 +143,10 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                                 w.Leaf(0x0001, [&] { w.Text(m->ClassName()); });
                                 w.Leaf(0x0002, [&] { w.Put(static_cast<uint8_t>(m->Enabled())); });
                                 PutParams(w, m->Params());
+                                if (auto* dm = dynamic_cast<const scene::DeformModifier*>(m.get())) {   // Phase 10.3
+                                    PutPrs(w, 0x0060, dm->GetGizmo().transform);
+                                    w.Leaf(0x0061, [&] { const math::Vec3& c = dm->GetGizmo().center; w.Put(c.x); w.Put(c.y); w.Put(c.z); });
+                                }
                                 if (auto* em = dynamic_cast<const scene::EditMeshModifier*>(m.get())) {
                                     w.Leaf(0x0050, [&] { w.Put(static_cast<uint64_t>(em->ExpectedVertexCount())); });
                                     w.Leaf(0x0051, [&] {
@@ -155,6 +163,17 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                                     list(0x0056, em->SelectedEdges());      // Phase 9.5
                                     list(0x0057, em->HiddenFaces());        // Phase 9.6
                                     list(0x0058, em->HiddenVertices());
+                                    w.Leaf(0x005A, [&] {                   // Phase 10.7: added geometry
+                                        w.Put(static_cast<uint32_t>(em->AddedVertices().size()));
+                                        for (const auto& v : em->AddedVertices()) { w.Put(v.x); w.Put(v.y); w.Put(v.z); }
+                                    });
+                                    w.Leaf(0x005B, [&] {
+                                        w.Put(static_cast<uint32_t>(em->AddedFaces().size()));
+                                        for (const auto& f : em->AddedFaces()) {
+                                            w.Put(f.v[0]); w.Put(f.v[1]); w.Put(f.v[2]);
+                                            w.Put(f.smoothing); w.Put(f.materialId); w.Put(f.edgeVisible); w.Put(uint8_t{0});
+                                        }
+                                    });
                                     w.Leaf(0x0059, [&] {
                                         w.Put(static_cast<uint32_t>(em->Welds().size()));
                                         for (const auto& [from, to] : em->Welds()) { w.Put(from); w.Put(to); }
@@ -209,10 +228,35 @@ std::vector<uint8_t> SaveNative(const scene::Scene& scene, const std::vector<sce
                 PutPrs(w, 0x0006, n->ObjectOffset());
             });
     });
+    // The selection, among the saved nodes (Phase 10.4).
+    std::vector<int32_t> selected;
+    for (scene::Node::Id id : scene.Selection())
+        for (size_t i = 0; i < saved.size(); ++i)
+            if (saved[i]->GetId() == id) selected.push_back(static_cast<int32_t>(i));
+    if (!selected.empty())
+        w.Leaf(0x1400, [&] { w.Put(static_cast<uint32_t>(selected.size())); for (int32_t i : selected) w.Put(i); });
+    if (views && views->present)
+        w.Container(0x1300, [&] {
+            w.Leaf(0x1301, [&] { w.Put(static_cast<uint32_t>(views->active)); });
+            for (int i = 0; i < 4; ++i)
+                w.Container(0x1310, [&] {
+                    w.Leaf(0x0001, [&] { w.Put(static_cast<uint32_t>(views->type[i])); });
+                    w.Leaf(0x0002, [&] { w.Put(views->ortho[i].width); w.Put(views->ortho[i].centerU); w.Put(views->ortho[i].centerV); });
+                    w.Leaf(0x0003, [&] {
+                        const view::PerspectiveView& p = views->perspective[i];
+                        w.Put(p.target.x); w.Put(p.target.y); w.Put(p.target.z);
+                        w.Put(p.distance); w.Put(p.elevationDeg); w.Put(p.azimuthDeg); w.Put(p.fovDeg);
+                    });
+                });
+        });
     return w.bytes;
 }
 
 bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string& error) {
+    return LoadNative(d, scene, error, nullptr);
+}
+
+bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string& error, NativeViews* views) {
     if (!IsNativeFile(d)) { error = "not a maxlike scene file"; return false; }
     uint32_t version = 0;
     std::memcpy(&version, &d[8], 4);
@@ -296,6 +340,23 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
                             !readList(0x0054, state.deletedFaces) || !readList(0x0055, state.deletedVertices) ||
                             !readList(0x0056, state.selectedEdges) || !readList(0x0057, state.hiddenFaces) ||
                             !readList(0x0058, state.hiddenVertices)) return bad("damaged Edit Mesh data");
+                        if (const Chunk* k = Child(mk, 0x005A)) {
+                            size_t p = k->begin; uint32_t n = 0;
+                            if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 24 > k->end - p) return bad("damaged added vertices");
+                            for (uint32_t i = 0; i < n; ++i) { math::Vec3 v; Get(d, p, k->end, v.x); Get(d, p, k->end, v.y); Get(d, p, k->end, v.z); state.addedVertices.push_back(v); }
+                        }
+                        if (const Chunk* k = Child(mk, 0x005B)) {
+                            size_t p = k->begin; uint32_t n = 0;
+                            if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 20 > k->end - p) return bad("damaged added faces");
+                            for (uint32_t i = 0; i < n; ++i) {
+                                scene::Face f; uint8_t pad = 0;
+                                Get(d, p, k->end, f.v[0]); Get(d, p, k->end, f.v[1]); Get(d, p, k->end, f.v[2]);
+                                Get(d, p, k->end, f.smoothing); Get(d, p, k->end, f.materialId); Get(d, p, k->end, f.edgeVisible); Get(d, p, k->end, pad);
+                                for (uint32_t v : f.v)
+                                    if (v >= expected + state.addedVertices.size()) return bad("an added face refers to a missing vertex");
+                                state.addedFaces.push_back(f);
+                            }
+                        }
                         if (const Chunk* k = Child(mk, 0x0059)) {
                             size_t p = k->begin; uint32_t n = 0;
                             if (!Get(d, p, k->end, n) || static_cast<uint64_t>(n) * 8 > k->end - p) return bad("damaged Edit Mesh welds");
@@ -311,6 +372,15 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
                     }
                     if (!GetParams(d, Child(mk, 0x0020), mod->Params())) return bad("damaged modifier parameters");
                     if (const Chunk* k = Child(mk, 0x0002)) { size_t p = k->begin; uint8_t on = 1; Get(d, p, k->end, on); mod->SetEnabled(on != 0); }
+                    if (auto dm = std::dynamic_pointer_cast<scene::DeformModifier>(mod)) {
+                        scene::DeformModifier::Gizmo g;
+                        if (Child(mk, 0x0060) && !GetPrs(d, Child(mk, 0x0060), g.transform)) return bad("damaged gizmo");
+                        if (const Chunk* k = Child(mk, 0x0061)) {
+                            size_t p = k->begin;
+                            if (!Get(d, p, k->end, g.center.x) || !Get(d, p, k->end, g.center.y) || !Get(d, p, k->end, g.center.z)) return bad("damaged gizmo centre");
+                        }
+                        dm->SetGizmo(g);
+                    }
                     derived->AddModifier(mod);
                 }
             obj = derived;
@@ -343,6 +413,48 @@ bool LoadNative(const std::vector<uint8_t>& d, scene::Scene& scene, std::string&
     for (const Pending& p : nodes)
         if (p.parent >= 0 && static_cast<size_t>(p.parent) < nodes.size()) scene.Link(p.node, nodes[static_cast<size_t>(p.parent)].node);
     for (const Pending& p : nodes) { p.node->Transform() = p.transform; p.node->ObjectOffset() = p.offset; }
+    // The selection and the views (Phase 10.4); older files have neither.
+    for (const Chunk& c : top)
+        if (c.type == 0x1400) {
+            size_t at = c.begin; uint32_t n = 0;
+            if (!Get(d, at, c.end, n) || static_cast<uint64_t>(n) * 4 > c.end - at) return bad("damaged selection");
+            std::vector<scene::Node::Id> ids;
+            for (uint32_t i = 0; i < n; ++i) {
+                int32_t k = -1;
+                Get(d, at, c.end, k);
+                if (k >= 0 && static_cast<size_t>(k) < nodes.size()) ids.push_back(nodes[static_cast<size_t>(k)].node->GetId());
+            }
+            scene.SetSelection(ids);
+        }
+    if (views)
+        for (const Chunk& c : top) {
+            if (c.type != 0x1300) continue;
+            if (const Chunk* k = Child(c, 0x1301)) { size_t at = k->begin; uint32_t a = 0; if (Get(d, at, k->end, a) && a < 4) views->active = static_cast<int>(a); }
+            int slot = 0;
+            for (const Chunk& v : c.children) {
+                if (v.type != 0x1310 || slot >= 4) continue;
+                uint32_t type = 0;
+                const Chunk *t = Child(v, 0x0001), *o = Child(v, 0x0002), *p = Child(v, 0x0003);
+                size_t at = 0;
+                bool ok = t && o && p;
+                if (ok) { at = t->begin; ok = Get(d, at, t->end, type) && type <= 6; }
+                view::OrthoView ov;
+                if (ok) { at = o->begin; ok = Get(d, at, o->end, ov.width) && Get(d, at, o->end, ov.centerU) && Get(d, at, o->end, ov.centerV); }
+                view::PerspectiveView pv;
+                if (ok) {
+                    at = p->begin;
+                    ok = Get(d, at, p->end, pv.target.x) && Get(d, at, p->end, pv.target.y) && Get(d, at, p->end, pv.target.z) &&
+                         Get(d, at, p->end, pv.distance) && Get(d, at, p->end, pv.elevationDeg) && Get(d, at, p->end, pv.azimuthDeg) &&
+                         Get(d, at, p->end, pv.fovDeg);
+                }
+                if (!ok) return bad("damaged views");
+                views->type[slot] = static_cast<int>(type);
+                views->ortho[slot] = ov;
+                views->perspective[slot] = pv;
+                ++slot;
+            }
+            views->present = slot == 4;
+        }
     return true;
 }
 

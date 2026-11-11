@@ -66,7 +66,8 @@ void CommandPanel::SetModifyInfo(const ModifyInfo& info) {
     {
         // The rollouts below the stack: the base object's Parameters, or the modifier's.
         std::vector<params::Spec> specs;
-        if (modify_.currentIsModifier) specs = params::ModifierRollouts(modify_.currentClass);
+        if (modify_.currentIsModifier)
+            specs = params::ModifierRollouts(modify_.currentClass, modify_.subObjectOn ? modify_.subObjectLevel : 0, modify_.sliceMode);
         else if (!params::ParametersFor(modify_.baseType).rows.empty()) specs = {params::ParametersFor(modify_.baseType)};
         bool same = specs.size() == modSpecs_.size();
         for (size_t i = 0; same && i < specs.size(); ++i) same = specs[i].title == modSpecs_[i].title;

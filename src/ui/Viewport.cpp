@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "scene/SoftSelection.h"
 #include "scene/Groups.h"
 #include "scene/TypeIn.h"
 #include "scene/MeshTopology.h"
@@ -344,6 +345,37 @@ void Viewport::DrawScene(int w, int h) {
         lines_->Draw(lines, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f);
     }
     DrawOpenGroups(w, h);
+    DrawGizmo(w, h);
+}
+
+// The gizmo: its lattice (the input's box, deformed by the modifier) and the centre as a
+// small cross. NOTE: R3's colours from memory: orange, yellow at the sub-object level
+// being edited.
+void Viewport::DrawGizmo(int w, int h) {
+    const GizmoEditing& g = gizmoEditing_;
+    if (!g.on || !g.mod || !g.stack || !scene_) return;
+    const scene::Node* node = scene_->FindById(g.node);
+    if (!node) return;
+    const math::Mat4 m = node->ObjectMatrix();
+    const scene::Mesh input = g.stack->EvaluateUpTo(g.index);
+    std::vector<gl::LineRenderer::Line> lattice, centre;
+    for (const auto& [a, b] : g.mod->GizmoLines(input)) {
+        double ax, ay, bx, by, d;
+        if (!WorldToWindow(math::TransformPoint(m, a), ax, ay, d) || !WorldToWindow(math::TransformPoint(m, b), bx, by, d)) continue;
+        lattice.push_back({static_cast<float>(ax), static_cast<float>(ay), 0.0f, static_cast<float>(bx), static_cast<float>(by), 0.0f});
+    }
+    double cx, cy, d;
+    if (WorldToWindow(math::TransformPoint(m, g.mod->CenterPoint()), cx, cy, d)) {
+        const float x = static_cast<float>(std::floor(cx)) + 0.5f, y = static_cast<float>(std::floor(cy)) + 0.5f;
+        centre.push_back({x - 4, y, 0, x + 5, y, 0});
+        centre.push_back({x, y - 4, 0, x, y + 5, 0});
+    }
+    const math::Mat4 toClip = math::PixelToClip(w, h);
+    const float orange[3] = {1.0f, 0.55f, 0.0f}, yellow[3] = {1.0f, 1.0f, 0.0f};
+    const float* lc = g.level == 0 ? yellow : orange;
+    const float* cc = g.level == 1 ? yellow : orange;
+    if (!lattice.empty()) lines_->Draw(lattice, toClip, lc[0], lc[1], lc[2]);
+    if (!centre.empty()) lines_->Draw(centre, toClip, cc[0], cc[1], cc[2]);
 }
 
 // An open group shows its members' bounding box (NOTE: pink in R3, from memory; drawn
@@ -553,6 +585,28 @@ void Viewport::DrawVertices(int w, int h) {
     const auto& pts = v.pixels;
     if (pts.empty()) return;
     const math::Mat4 toClip = math::PixelToClip(w, h);
+    if (vertexEditing_.slicePlane && scene_) {
+        // The slice plane (10.9): a yellow square through its point, sized to the object
+        // (NOTE: R3's plane gizmo look from memory).
+        const scene::Node* node = scene_->FindById(vertexEditing_.node);
+        const scene::Bounds b = v.mesh.GetBounds();
+        if (node && !b.Empty()) {
+            const math::Vec3 n = math::Normalize(vertexEditing_.planeNormal);
+            const math::Vec3 a = math::Normalize(std::fabs(n.z) < 0.9 ? math::Cross(n, {0, 0, 1}) : math::Cross(n, {1, 0, 0}));
+            const math::Vec3 c = math::Cross(n, a);
+            const double r = 0.6 * math::Length(b.max - b.min);
+            const math::Mat4 m = node->ObjectMatrix();
+            math::Vec3 corner[4] = {vertexEditing_.planePoint + (a + c) * r, vertexEditing_.planePoint + (c - a) * r,
+                                    vertexEditing_.planePoint - (a + c) * r, vertexEditing_.planePoint + (a - c) * r};
+            std::vector<gl::LineRenderer::Line> lines;
+            for (int i = 0; i < 4; ++i) {
+                double x0, y0, x1, y1, d;
+                if (!WorldToWindow(math::TransformPoint(m, corner[i]), x0, y0, d) || !WorldToWindow(math::TransformPoint(m, corner[(i + 1) % 4]), x1, y1, d)) continue;
+                lines.push_back({static_cast<float>(x0), static_cast<float>(y0), 0.0f, static_cast<float>(x1), static_cast<float>(y1), 0.0f});
+            }
+            if (!lines.empty()) lines_->Draw(lines, toClip, 1.0f, 1.0f, 0.0f);
+        }
+    }
     if (vertexEditing_.level > 0) {
         // Edge level: the selected edges in red. Face level: the selected faces' three
         // edges; Polygon and Element: the selected faces' visible edges (their outlines).
@@ -580,18 +634,42 @@ void Viewport::DrawVertices(int w, int h) {
         return;
     }
     const auto& sel = vertexEditing_.mod->SelectedVertices();
-    for (int pass = 0; pass < 2; ++pass) {
+    // Each vertex's colour group: 0 unselected (blue), 17 selected (red); with Soft Selection
+    // on, 1..16 by weight, from blue through green and yellow to red (NOTE: R3's exact hues
+    // unverified).
+    std::vector<int> group(pts.size(), 0);
+    std::vector<uint32_t> selOut;
+    for (size_t i = 0; i < pts.size(); ++i)
+        if (std::binary_search(sel.begin(), sel.end(), v.vertexMap[i])) { group[i] = 17; selOut.push_back(static_cast<uint32_t>(i)); }
+    const auto& sp = vertexEditing_.mod->Params();
+    if (sp.Int(scene::EditMeshModifier::kUseSoftSelection, 0) != 0 && !selOut.empty()) {
+        const int edges = sp.Int(scene::EditMeshModifier::kEdgeDistance, 0) != 0 ? sp.Int(scene::EditMeshModifier::kEdgeIterations, 1) : -1;
+        const auto w = scene::soft::Weights(v.mesh, selOut, sp.Float(scene::EditMeshModifier::kFalloff, 20),
+                                            sp.Float(scene::EditMeshModifier::kPinch, 0), sp.Float(scene::EditMeshModifier::kBubble, 0), edges);
+        for (size_t i = 0; i < pts.size() && i < w.size(); ++i)
+            if (group[i] == 0 && w[i] > 0) group[i] = 1 + std::min(15, static_cast<int>(w[i] * 16));
+    }
+    for (int g = 0; g <= 17; ++g) {
         std::vector<float> run;
         for (size_t i = 0; i < pts.size(); ++i) {
-            const bool selected = std::binary_search(sel.begin(), sel.end(), v.vertexMap[i]);
-            if (selected != (pass == 1)) continue;
+            if (group[i] != g) continue;
             const int cx = static_cast<int>(std::floor(pts[i].x)), cy = static_cast<int>(std::floor(pts[i].y));
             static const int kHalf[5] = {0, 1, 2, 1, 0};
             for (int dy = -2; dy <= 2; ++dy)
                 for (int dx = -kHalf[dy + 2]; dx <= kHalf[dy + 2]; ++dx)
                     run.insert(run.end(), {cx + dx + 0.5f, cy + dy + 0.5f, 0.0f});
         }
-        if (!run.empty()) lines_->DrawPoints(run, toClip, pass == 1 ? 1.0f : 0.0f, 0.0f, pass == 1 ? 0.0f : 1.0f);
+        if (run.empty()) continue;
+        float r = 0, gr = 0, b = 1;                                   // unselected: blue
+        if (g == 17) { r = 1; gr = 0; b = 0; }                        // selected: red
+        else if (g > 0) {
+            // Hue from 240 (blue, weight ~0) to 0 (red, weight 1).
+            const double hue = 240.0 * (1.0 - (g - 0.5) / 16.0), x = 1.0 - std::fabs(std::fmod(hue / 60.0, 2.0) - 1.0);
+            const int sector = static_cast<int>(hue / 60.0);
+            const double rgb[6][3] = {{1, x, 0}, {x, 1, 0}, {0, 1, x}, {0, x, 1}, {x, 0, 1}, {1, 0, x}};
+            r = static_cast<float>(rgb[sector][0]); gr = static_cast<float>(rgb[sector][1]); b = static_cast<float>(rgb[sector][2]);
+        }
+        lines_->DrawPoints(run, toClip, r, gr, b);
     }
 }
 
@@ -860,6 +938,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
     glDisable(GL_DEPTH_TEST);
     DrawBrackets(w, h, toClip);
     DrawOpenGroups(w, h);
+    DrawGizmo(w, h);
 }
 
 void Viewport::SetShowGrid(bool show) {
@@ -1049,6 +1128,43 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             creatingDrag_ = true;
             SetCapture(Hwnd());
             CreateEvent(scene::Creator::Event::Press, lp);
+        } else if (gizmoEditing_.on && gizmoEditing_.level >= 0 && transformTool_ && onMoveBegin && scene_) {
+            // A deformer's gizmo or centre (10.3): a press anywhere drags it (NOTE: in R3 the
+            // press may need to be on the gizmo; unverified). The drag plane passes through the
+            // centre.
+            const scene::Node* node = scene_->FindById(gizmoEditing_.node);
+            moving_ = true;
+            moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            movePivot_ = node ? math::TransformPoint(node->ObjectMatrix(), gizmoEditing_.mod->CenterPoint()) : math::Vec3{0, 0, 0};
+            SetCapture(Hwnd());
+            onMoveBegin();
+        } else if (vertexEditing_.on && (vertexEditing_.tool == 1 || vertexEditing_.tool == 2) && onToolClick) {
+            // Create / Cut (10.9): the click goes to the tool, not to selection.
+            const EditedMeshView v = EditedView();
+            const double px = GET_X_LPARAM(lp) + 0.5, py = GET_Y_LPARAM(lp) + 0.5;
+            ToolClick c;
+            c.towards = OutOfScreen();
+            scene::ConstructionPlane plane;
+            double u = 0, w = 0, upp = 0;
+            if (PointOnPlane(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), plane, u, w, upp)) { c.onPlane = true; c.point = plane.ToWorld(u, w); }
+            const int hv = view::PickNearestPoint(v.pixels, px, py, 4.0);
+            if (hv >= 0) c.vertex = static_cast<int>(v.vertexMap[static_cast<size_t>(hv)]);
+            const int he = view::PickNearestSegment(v.pixels, v.segs, px, py, 4.0);
+            if (he >= 0) {
+                const view::Point2 &a = v.pixels[v.segs[static_cast<size_t>(he)].a], &b = v.pixels[v.segs[static_cast<size_t>(he)].b];
+                const double dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+                c.edge = v.segEdge[static_cast<size_t>(he)];
+                c.t = len2 > 0 ? std::min(1.0, std::max(0.0, ((px - a.x) * dx + (py - a.y) * dy) / len2)) : 0.5;
+            }
+            onToolClick(c);
+        } else if (vertexEditing_.on && vertexEditing_.tool == 3 && transformTool_ && onMoveBegin && scene_) {
+            // Slice Plane (10.9): a transform tool drags the plane, from anywhere.
+            const scene::Node* node = scene_->FindById(vertexEditing_.node);
+            moving_ = true;
+            moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            movePivot_ = node ? math::TransformPoint(node->ObjectMatrix(), vertexEditing_.planePoint) : math::Vec3{0, 0, 0};
+            SetCapture(Hwnd());
+            onMoveBegin();
         } else if (vertexEditing_.on && vertexEditing_.weldTarget && vertexEditing_.level == 0 && onWeldTarget) {
             // Weld > Target: press on a vertex; where it is released decides the target.
             const EditedMeshView v = EditedView();

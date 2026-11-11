@@ -54,6 +54,17 @@ struct ArrayChoice {
 };
 ArrayChoice ShowArrayDialog(HWND parent);
 
+// Tools > Align's "Align Selection (target)" (10.2; NOTE: layout from memory; R3's live
+// preview and Apply button are not built).
+struct AlignChoice {
+    bool ok = false;
+    bool position[3] = {false, false, false};
+    int current = 1, target = 1;                   // 0 Minimum, 1 Center, 2 Pivot Point, 3 Maximum
+    bool orientation[3] = {false, false, false};
+    bool scale[3] = {false, false, false};
+};
+AlignChoice ShowAlignDialog(HWND parent, const std::wstring& targetName);
+
 // A name asked for in a small dialog (Group > Group: "Group name:"; NOTE: from memory).
 // Empty if cancelled.
 std::wstring AskName(HWND parent, const std::wstring& title, const std::wstring& label, const std::wstring& suggested);
