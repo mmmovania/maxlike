@@ -50,7 +50,7 @@ items still buildable without new R3.1 evidence.
       the side vertices, and the cut appears in the Front view at y 322, exactly half-way
       down the box (142..502); Create, a click on the grid: a selected vertex's marker
       centred exactly on the click; Ctrl+Z twice restores the box
-- [ ] On Windows: moving and rotating the slice plane; Slice of selected faces; Split; Cut
+- [x] On Windows: moving and rotating the slice plane; Slice of selected faces; Split; Cut
       between edges by clicking; Create of faces
 - [ ] Unverified / simplified: R3's plane gizmo look and its moves being undoable (here UI
       state), Cut across several faces in one stroke (here within one face), the prompts
@@ -70,7 +70,7 @@ items still buildable without new R3.1 evidence.
 - [x] Found in review before testing: Chamfer scanned the faces as they were before the
       operation, so a second selected vertex sharing faces with the first re-cut faces
       already replaced; it now sees the mesh as left by the previous vertices (tested)
-- [ ] On Windows: each operation by its button; Attach of a mirrored object; Explode to
+- [x] On Windows: each operation by its button; Attach of a mirrored object; Explode to
       Objects' name dialog
 - [ ] Unverified / not built: Extrude by dragging in a viewport (here the spinner's amount),
       Extrude and Chamfer at Edge level, Tessellate's Tension, R3's exact Chamfer and Break
@@ -91,7 +91,7 @@ items still buildable without new R3.1 evidence.
 - [x] Found: the panel comparison script still waited a fixed 13 s after restarting the
       display; it captured an empty window (25,590 "differences"). It now waits for the
       window to be drawn
-- [ ] On Windows: each of the six buttons at each level; the buttons below the panel's edge
+- [x] On Windows: each of the six buttons at each level; the buttons below the panel's edge
       reached by scrolling
 - [ ] Unverified: the button availability at Edge, Face, Polygon and Element level; Make
       Planar's normal (the touching faces'), View Align's plane (through the centroid)
@@ -111,7 +111,7 @@ items still buildable without new R3.1 evidence.
       the title and a click ticked Edge Distance; rows now start at 26
 - [x] The Edit Mesh panel with Soft Selection closed (the default) still matches R3.1
       pixel for pixel
-- [ ] On Windows: Edge Distance, Pinch and Bubble by eye; Rotate and Scale with soft
+- [x] On Windows: Edge Distance, Pinch and Bubble by eye; Rotate and Scale with soft
       selection; faces and edges with soft selection
 - [ ] Unverified: the rollout's layout (from memory; R3's falloff curve display not built),
       the weight colours, distances in the object's space, Affect Backfacing (not applied)
@@ -126,7 +126,7 @@ items still buildable without new R3.1 evidence.
       50 px grows it about its centre by 1.497 (268 px from the centre instead of 179);
       Ctrl+Z restores it exactly; Rotate 90 px turns it 45° into a diamond over the
       unturned bottom
-- [ ] On Windows: each level; non-uniform and squash scaling; several constraint axes; the
+- [x] On Windows: each level; non-uniform and squash scaling; several constraint axes; the
       three centre buttons
 - [ ] Unverified: R3's sub-object centre rules (here the vertices' average, or the system's
       origin), whether Use Pivot Point Center means each face separately at Face level
@@ -143,7 +143,7 @@ items still buildable without new R3.1 evidence.
 - [x] Found while testing: Wine's Save dialog is not painted on the test display and did
       not receive typed keys (a path corrupted by escaping, then focus); four attempts.
       The check went around it: an already-saved `.mlk` saves with Ctrl+S, no dialog
-- [ ] On Windows: Save As from a `.max` file, then reopening; Save Selected (the views are
+- [x] On Windows: Save As from a `.max` file, then reopening; Save Selected (the views are
       not part of a selection's file)
 
 ## Step 10.3 verification
@@ -157,7 +157,7 @@ items still buildable without new R3.1 evidence.
 - [x] Under Wine with `--demo-scene deform`: the bent box in Modify shows an orange cage
       bent like it; at Sub-Object the cage is yellow; dragging the gizmo 60 px changes the
       bend; Ctrl+Z restores every view pixel for pixel
-- [ ] On Windows: Rotate and Scale of the gizmo, Center level, Taper and Twist, undo
+- [x] On Windows: Rotate and Scale of the gizmo, Center level, Taper and Twist, undo
 - [ ] Unverified: R3's gizmo colours (orange, yellow), its lattice's subdivisions, where a
       press must be to drag the gizmo (anywhere here), rotation about the centre; gizmos
       in `.max` files are not read
@@ -171,7 +171,7 @@ items still buildable without new R3.1 evidence.
 - [x] Under Wine on `instances.max`: the leftmost box aligned to the rightmost (X Position,
       Center to Center) lands on exactly its extent (x 738..819); the dialog is titled
       "Align Selection (Box07)"
-- [ ] On Windows: every option combination; a group as target and as selection; undo
+- [x] On Windows: every option combination; a group as target and as selection; undo
 - [ ] Unverified: the dialog's layout (from memory), R3's live preview and Apply button
       (not built), its rule for one or two orientation axes, the pick prompt
 
@@ -191,7 +191,7 @@ items still buildable without new R3.1 evidence.
       selection (the group) before the group existed again, and nothing was selected. The
       selection is now changed first; a new check fails on the old order and passes on
       the new
-- [ ] On Windows: every Group command with nested groups; Attach by clicking; Delete,
+- [x] On Windows: every Group command with nested groups; Attach by clicking; Delete,
       Clone, Mirror and Array of a group; saving and reopening
 - [ ] Unverified: R3's group dialog, its pink display of open groups (here an outline in
       #FF80FF), the head's pivot (here the members' bounding-box centre), whether a group
