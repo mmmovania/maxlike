@@ -133,6 +133,7 @@ private:
     ui::TypeInDialog typeIn_;                          // Tools > Transform Type-In (F12)
     bool attachPick_ = false;                          // Group > Attach: the next click picks the group
     bool alignPick_ = false;                           // Tools > Align: the next click picks the target
+    bool attachMeshPick_ = false;                      // Edit Mesh > Attach: the next click picks the object
     // A deformer's gizmo being dragged (10.3): the modifier, its gizmo at the start, and the
     // object's world matrix and rotation (movements become object space).
     struct GizmoMove {

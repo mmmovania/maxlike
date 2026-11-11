@@ -29,10 +29,33 @@ items still buildable without new R3.1 evidence.
 - [x] **10.7** Edit Mesh can add geometry (vertices and faces numbered after the input's,
       kept in `.mlk` files); the Edit Geometry buttons follow the sub-object level; Remove
       Isolated Vertices, Select Open Edges, Collapse, Make Planar, View Align, Grid Align
-- [ ] Edit Mesh: Break, Turn, Tessellate, Extrude, Chamfer, Explode, Attach (10.8)
+- [x] **10.8** Edit Mesh: Break, Turn, Tessellate (by edge / face centre), Extrude (faces,
+      by the spinner's amount), Chamfer (vertices), Explode (to objects / elements, by
+      angle), Attach (pick); their spinners and options follow the level; one undo step each
 - [ ] Edit Mesh: Create, Slice Plane / Slice, Cut (10.9); Create Shape from Edges stays
       greyed (maxlike has no shapes)
 - [ ] Wrap-up
+
+## Step 10.8 verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_edit_mesh`, by structure (closed, every directed edge once with its reverse,
+      Euler V - E + F = 2): turning the top's diagonal keeps the box closed and removes the
+      old diagonal; extruding the top by 10 gives 12 vertices, 20 faces, closed, top at 30;
+      chamfering one corner, and two corners sharing faces, keeps it closed. By counts:
+      tessellating the top by edge 18 faces / 13 vertices, by centre 16 / 10; breaking a
+      corner adds one vertex per further face and opens the mesh; exploding at 1° gives the
+      6 sides, to elements 24 vertices; attaching a box gives 16 / 24
+- [x] Under Wine on `box.max`: Polygon, the top, Extrude amount 3, Extrude: the top rises
+      exactly 18 px (3 units at 6 px per unit) in the Front view; Ctrl+Z restores it. At
+      Vertex level the Edit Mesh panel still matches R3.1 pixel for pixel
+- [x] Found in review before testing: Chamfer scanned the faces as they were before the
+      operation, so a second selected vertex sharing faces with the first re-cut faces
+      already replaced; it now sees the mesh as left by the previous vertices (tested)
+- [ ] On Windows: each operation by its button; Attach of a mirrored object; Explode to
+      Objects' name dialog
+- [ ] Unverified / not built: Extrude by dragging in a viewport (here the spinner's amount),
+      Extrude and Chamfer at Edge level, Tessellate's Tension, R3's exact Chamfer and Break
+      results, the dialogs' and prompts' wording
 
 ## Step 10.7 verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)

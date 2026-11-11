@@ -322,6 +322,22 @@ std::vector<Spec> ModifierRollouts(const std::string& name, int level) {
             if (r.kind == Kind::Button)
                 for (const auto& [label, levels] : kAvailable)
                     if (r.label == label) r.enabled = (levels & bit) != 0;
+        // The spinners, options and labels that belong to those buttons (10.8).
+        const std::pair<int, int> kParams[] = {
+            {EditMeshModifier::kExtrudeAmount, E | F | P | L}, {EditMeshModifier::kNormalLocal, E | F | P | L},
+            {EditMeshModifier::kChamferAmount, V | E}, {EditMeshModifier::kTessTension, F | P | L},
+            {EditMeshModifier::kTessByFace, F | P | L}, {EditMeshModifier::kExplodeAngle, F | P | L},
+            {EditMeshModifier::kExplodeToElements, F | P | L}, {EditMeshModifier::kWeldThreshold, V},
+            {EditMeshModifier::kWeldTargetPixels, V}};
+        const std::pair<const wchar_t*, int> kLabels[] = {{L"Normal:", E | F | P | L}, {L"by:", F | P | L}, {L"to:", F | P | L}};
+        for (Row& r : geo.rows) {
+            if (r.kind != Kind::Button && r.kind != Kind::Label)
+                for (const auto& [index, levels] : kParams)
+                    if (r.paramIndex == index) r.enabled = (levels & bit) != 0;
+            if (r.kind == Kind::Label)
+                for (const auto& [text, levels] : kLabels)
+                    if (r.label == text) r.enabled = (levels & bit) != 0;
+        }
     }
     return {sel, soft, geo, surface};
 }

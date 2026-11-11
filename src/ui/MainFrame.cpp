@@ -714,6 +714,29 @@ bool MainFrame::CreateRegions() {
             viewports_.Redraw();
             return;
         }
+        if (attachMeshPick_) {
+            // Edit Mesh > Attach (10.8): the picked object's mesh joins this Edit Mesh (in
+            // this object's space; a mirroring transform reverses its winding) and the
+            // object is removed, as one undo step.
+            attachMeshPick_ = false;
+            const auto mod = VertexEditingMod();
+            scene::Node* self = nullptr;
+            SelectedStack(&self);
+            scene::Node* other = picked.empty() ? nullptr : scene_.FindById(picked.front());
+            if (!mod || !self || !other || other == self || !other->GetObject()) { statusArea_.SetPrompt(1, L"Attach: pick another object"); return; }
+            scene::Mesh m = other->GetObject()->Evaluate();
+            const math::Mat4 into = math::AffineInverse(self->ObjectMatrix()) * other->ObjectMatrix();
+            for (auto& v : m.verts) v = math::TransformPoint(into, v);
+            if (math::Mirrors(into))
+                for (auto& f : m.faces) { std::swap(f.v[1], f.v[2]); f.edgeVisible = (f.edgeVisible & 2u) | ((f.edgeVisible & 1u) << 2) | ((f.edgeVisible & 4u) >> 2); }
+            auto macro = std::make_unique<scene::MacroCommand>("Attach");
+            macro->Add(std::make_unique<scene::EditMeshStateCommand>("Attach", mod, mod->AfterAttaching(EditMeshInput(mod), m)));
+            macro->Add(std::make_unique<scene::DeleteNodeCommand>(other->GetId()));
+            undo_.Execute(std::move(macro), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
         if (alignPick_) {
             // Tools > Align (10.2): the clicked object (its group, if closed) is the target.
             alignPick_ = false;
@@ -877,6 +900,75 @@ bool MainFrame::CreateRegions() {
             std::string name;
             for (wchar_t c : label) name += static_cast<char>(c);
             undo_.Execute(std::make_unique<scene::EditMeshStateCommand>(name, mod, after), scene_);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
+        // Edit Geometry, topology (10.8).
+        if (const auto mod = VertexEditingMod(); mod && (label == L"Break" || label == L"Turn" || label == L"Tessellate" ||
+                                                          label == L"Extrude" || label == L"Chamfer" || label == L"Explode" ||
+                                                          label == L"Attach")) {
+            const scene::Mesh input = EditMeshInput(mod);
+            const auto& prm = mod->Params();
+            if (label == L"Attach") {
+                attachMeshPick_ = true;
+                statusArea_.SetPrompt(1, L"Pick object to attach");                 // NOTE: R3's prompt unverified
+                return;
+            }
+            scene::EditMeshModifier::State after;
+            std::unique_ptr<scene::MacroCommand> macro;
+            if (label == L"Break") after = mod->AfterBreaking(input);
+            else if (label == L"Turn") after = mod->AfterTurning(input);
+            else if (label == L"Tessellate") after = mod->AfterTessellating(input, prm.Int(scene::EditMeshModifier::kTessByFace, 0) != 0);
+            else if (label == L"Extrude") {
+                // NOTE: R3 also extrudes by dragging in a viewport; here the spinner's amount.
+                const double amount = prm.Float(scene::EditMeshModifier::kExtrudeAmount, 0);
+                if (amount == 0) { statusArea_.SetPrompt(1, L"Set the Extrude amount, then click Extrude"); return; }
+                if (subLevel_ < 2) { statusArea_.SetPrompt(1, L"Extrude works on faces (edges: not implemented yet)"); return; }
+                after = mod->AfterExtruding(input, amount);
+            } else if (label == L"Chamfer") {
+                if (subLevel_ != 0) { statusArea_.SetPrompt(1, L"Chamfer works on vertices (edges: not implemented yet)"); return; }
+                after = mod->AfterChamfering(input, prm.Float(scene::EditMeshModifier::kChamferAmount, 0));
+            } else {                                                             // Explode
+                const double angle = prm.Float(scene::EditMeshModifier::kExplodeAngle, 24);
+                if (prm.Int(scene::EditMeshModifier::kExplodeToElements, 0) != 0) after = mod->AfterExplodingToElements(input, angle);
+                else {
+                    // To Objects: each group becomes an Editable Mesh in place, named after a base
+                    // name asked once; the faces leave this object.
+                    const auto groups = mod->ExplodeGroups(input, angle);
+                    if (groups.empty()) return;
+                    scene::Node* node = nullptr;
+                    SelectedStack(&node);
+                    if (!node) return;
+                    const std::wstring base = ui::AskName(Hwnd(), L"Explode to Objects", L"Object Name:", L"Object");
+                    if (base.empty()) return;
+                    std::string b8;
+                    for (wchar_t c : base) b8 += static_cast<char>(c < 0x80 ? c : '?');
+                    std::vector<scene::Node::Id> made;
+                    std::vector<uint32_t> allFaces;
+                    for (const auto& g : groups) {
+                        scene::Node* part = scene_.CreateNode(scene_.UniqueName(b8));
+                        part->SetObject(std::make_shared<scene::MeshObject>(mod->Extract(input, g)));
+                        part->SetWireColor(node->WireColor());
+                        scene::Scene::SetWorldMatrix(part, node->WorldMatrix());
+                        part->ObjectOffset() = node->ObjectOffset();
+                        made.push_back(part->GetId());
+                        allFaces.insert(allFaces.end(), g.begin(), g.end());
+                    }
+                    scene::EditMeshModifier tmp = *mod;
+                    tmp.SetSelectedFaces(allFaces);
+                    macro = std::make_unique<scene::MacroCommand>("Explode");
+                    macro->Add(std::make_unique<scene::AddedNodesCommand>("Explode", made));
+                    macro->Add(std::make_unique<scene::EditMeshStateCommand>("Explode", mod, tmp.AfterDeletingFaces(input, true)));
+                }
+            }
+            if (!macro) {
+                std::string name;
+                for (wchar_t c : label) name += static_cast<char>(c);
+                macro = std::make_unique<scene::MacroCommand>(name);
+                macro->Add(std::make_unique<scene::EditMeshStateCommand>(name, mod, after));
+            }
+            undo_.Execute(std::move(macro), scene_);
             UpdateModifyPanel();
             viewports_.Redraw();
             return;

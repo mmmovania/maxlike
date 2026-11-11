@@ -175,6 +175,29 @@ public:
     State AfterMakingPlanar(const Mesh& input, const std::vector<uint32_t>& vertices) const;
     State AfterAligning(const Mesh& input, const std::vector<uint32_t>& vertices, const math::Vec3& normal,
                         const math::Vec3* point) const;
+
+    // Edit Geometry, topology (10.8). Faces that change are deleted and added again, so
+    // face indices of changed faces are new (selections follow where it makes sense).
+    // Break: each selected vertex gets its own copy for every face but the first using it.
+    State AfterBreaking(const Mesh& input) const;
+    // Turn: each selected edge shared by two triangles becomes their other diagonal.
+    State AfterTurning(const Mesh& input) const;
+    // Tessellate the selected faces: by edge (4 each, through shared midpoints) or by face
+    // centre (3 each).
+    State AfterTessellating(const Mesh& input, bool byCenter) const;
+    // Extrude the selected faces by `amount` along their averaged normal; side walls on the
+    // selection's boundary. The extruded faces stay selected.
+    State AfterExtruding(const Mesh& input, double amount) const;
+    // Chamfer the selected vertices: new vertices `amount` along each of their edges, the
+    // faces re-cut, the vertex moved to the new vertices' centre as the cap.
+    State AfterChamfering(const Mesh& input, double amount) const;
+    // Explode the selected faces into groups whose neighbouring normals differ by at most
+    // `angle` degrees (as faces of the input). To Elements: the groups are separated by
+    // duplicated vertices. To Objects, the caller detaches each group (see ExplodeGroups).
+    std::vector<std::vector<uint32_t>> ExplodeGroups(const Mesh& input, double angle) const;
+    State AfterExplodingToElements(const Mesh& input, double angle) const;
+    // Attach: `other` (already in this object's space) appended as added geometry.
+    State AfterAttaching(const Mesh& input, const Mesh& other) const;
     void SetState(const State& s);
 
     // The input with the moves applied, then the deleted faces and vertices removed (a

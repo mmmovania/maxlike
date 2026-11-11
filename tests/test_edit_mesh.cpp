@@ -7,9 +7,30 @@
 #include "view/Picking.h"
 #include <cmath>
 #include <cstdio>
+#include <set>
+#include <map>
 
 static int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { ++failures; std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); } } while (0)
+
+// A closed, consistently wound mesh: every directed edge a -> b exactly once, its reverse
+// present; and its Euler characteristic V - E + F.
+static bool ClosedConsistent(const scene::Mesh& m) {
+    std::map<std::pair<uint32_t, uint32_t>, int> directed;
+    for (const auto& f : m.faces) for (int k = 0; k < 3; ++k) ++directed[{f.v[k], f.v[(k + 1) % 3]}];
+    for (const auto& [e, n] : directed) if (n != 1 || !directed.count({e.second, e.first})) return false;
+    return true;
+}
+static long Euler(const scene::Mesh& m) {
+    std::set<std::pair<uint32_t, uint32_t>> edges;
+    std::set<uint32_t> used;
+    for (const auto& f : m.faces) for (int k = 0; k < 3; ++k) {
+        const uint32_t a = f.v[k], b = f.v[(k + 1) % 3];
+        edges.insert(a < b ? std::make_pair(a, b) : std::make_pair(b, a));
+        used.insert(a);
+    }
+    return static_cast<long>(used.size()) - static_cast<long>(edges.size()) + static_cast<long>(m.faces.size());
+}
 
 int main() {
     scene::BoxObject boxObject(20, 20, 20);
@@ -251,6 +272,86 @@ int main() {
         ga.SetState(ga.AfterAligning(box, top, {0, 0, 1}, &origin));
         out = ga.Edited(box);
         for (uint32_t v : top) CHECK(std::fabs(out.verts[v].z) < 1e-9);
+    }
+    // Topology tools (10.8), checked by structure: closed, consistently wound, Euler 2.
+    {
+        CHECK(ClosedConsistent(box) && Euler(box) == 2);
+        // Turn the top's hidden diagonal (shared by faces 2 and 3).
+        uint32_t diag = UINT32_MAX;
+        for (int k = 0; k < 3; ++k)
+            if (!(box.faces[2].edgeVisible & (1u << k))) diag = scene::EdgeId(2, k);
+        CHECK(diag != UINT32_MAX);
+        scene::EditMeshModifier tu(8, {});
+        tu.SetSelectedEdges({diag});
+        tu.SetState(tu.AfterTurning(box));
+        scene::Mesh out = tu.Edited(box);
+        CHECK(out.FaceCount() == 12 && ClosedConsistent(out) && Euler(out) == 2);
+        uint32_t a0, b0;
+        scene::EdgeVertices(box, diag, a0, b0);
+        bool oldDiagonal = false;
+        for (const auto& f : out.faces) {
+            int has = 0;
+            for (uint32_t v : f.v) has += (v == a0 || v == b0);
+            oldDiagonal = oldDiagonal || has == 2;
+            if (has == 2) for (uint32_t v : f.v) if (v != a0 && v != b0) oldDiagonal = oldDiagonal && box.verts[v].z != 20;
+        }
+        CHECK(!oldDiagonal);                                  // no top face holds the old diagonal any more
+        // Extrude the top by 10: closed, Euler 2, the top now at 30.
+        scene::EditMeshModifier ex(8, {});
+        ex.SetSelectedFaces({2, 3});
+        ex.SetState(ex.AfterExtruding(box, 10));
+        out = ex.Edited(box);
+        CHECK(out.verts.size() == 12 && out.FaceCount() == 20 && ClosedConsistent(out) && Euler(out) == 2);
+        double topZ = 0;
+        for (const auto& v : out.verts) topZ = std::max(topZ, v.z);
+        CHECK(std::fabs(topZ - 30) < 1e-9 && ex.SelectedFaces().size() == 2);
+        // Chamfer a top corner: still closed and consistent, Euler 2.
+        scene::EditMeshModifier ch(8, {});
+        ch.SetSelectedVertices({4});
+        ch.SetState(ch.AfterChamfering(box, 3));
+        out = ch.Edited(box);
+        CHECK(out.verts.size() > 8 && ClosedConsistent(out) && Euler(out) == 2);
+        // Chamfering two corners sharing faces: still closed (each sees the other's faces).
+        scene::EditMeshModifier ch2(8, {});
+        ch2.SetSelectedVertices({4, 5});
+        ch2.SetState(ch2.AfterChamfering(box, 3));
+        out = ch2.Edited(box);
+        CHECK(ClosedConsistent(out) && Euler(out) == 2);
+        // Tessellate the top: by edge 4 faces each (shared midpoints), by centre 3 each.
+        scene::EditMeshModifier te(8, {});
+        te.SetSelectedFaces({2, 3});
+        te.SetState(te.AfterTessellating(box, false));
+        out = te.Edited(box);
+        CHECK(out.FaceCount() == 18 && out.verts.size() == 13 && te.SelectedFaces().size() == 8);
+        scene::EditMeshModifier tc(8, {});
+        tc.SetSelectedFaces({2, 3});
+        tc.SetState(tc.AfterTessellating(box, true));
+        out = tc.Edited(box);
+        CHECK(out.FaceCount() == 16 && out.verts.size() == 10);
+        // Break a corner: one copy for each face but the first using it.
+        size_t using4 = 0;
+        for (const auto& f : box.faces) for (uint32_t v : f.v) using4 += v == 4;
+        scene::EditMeshModifier br(8, {});
+        br.SetSelectedVertices({4});
+        br.SetState(br.AfterBreaking(box));
+        out = br.Edited(box);
+        CHECK(out.verts.size() == 8 + using4 - 1 && out.FaceCount() == 12 && !ClosedConsistent(out));
+        // Explode at 1 degree: the box's six sides; to elements, nothing shared: 24 vertices.
+        scene::EditMeshModifier xp(8, {});
+        std::vector<uint32_t> all;
+        for (uint32_t f = 0; f < 12; ++f) all.push_back(f);
+        xp.SetSelectedFaces(all);
+        CHECK(xp.ExplodeGroups(box, 1).size() == 6);
+        xp.SetState(xp.AfterExplodingToElements(box, 1));
+        out = xp.Edited(box);
+        CHECK(out.verts.size() == 24 && out.FaceCount() == 12);
+        // Attach a second box: appended.
+        scene::Mesh other = box;
+        for (auto& v : other.verts) v.x += 50;
+        scene::EditMeshModifier at(8, {});
+        at.SetState(at.AfterAttaching(box, other));
+        out = at.Edited(box);
+        CHECK(out.verts.size() == 16 && out.FaceCount() == 24 && out.verts[8].x == box.verts[0].x + 50);
     }
     // Picking edges: the nearest segment within the tolerance; rectangles take segments
     // with an end inside.

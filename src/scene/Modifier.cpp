@@ -517,6 +517,307 @@ EditMeshModifier::State EditMeshModifier::AfterAligning(const Mesh& input, const
     return s;
 }
 
+// ---- Edit Geometry, topology (10.8) ----------------------------------------------------------
+
+namespace {
+// Live faces of the extended mesh: not deleted, not hidden, none of their vertices deleted
+// or welded away.
+std::vector<char> LiveFaces(const Mesh& ext, const EditMeshModifier::State& s) {
+    std::vector<char> gone(ext.verts.size(), 0);
+    for (uint32_t v : s.deletedVertices) if (v < gone.size()) gone[v] = 1;
+    for (const auto& w : s.welds) if (w.first < gone.size()) gone[w.first] = 1;
+    std::vector<char> live(ext.faces.size(), 1);
+    for (uint32_t f = 0; f < ext.faces.size(); ++f) {
+        if (std::binary_search(s.deletedFaces.begin(), s.deletedFaces.end(), f) ||
+            std::binary_search(s.hiddenFaces.begin(), s.hiddenFaces.end(), f)) { live[f] = 0; continue; }
+        for (uint32_t v : ext.faces[f].v) if (v >= gone.size() || gone[v]) live[f] = 0;
+    }
+    return live;
+}
+// Appends a vertex (its final position: added vertices carry no move) and returns its index.
+uint32_t AddVertex(EditMeshModifier::State& s, size_t inputCount, const math::Vec3& p) {
+    s.addedVertices.push_back(p);
+    return static_cast<uint32_t>(inputCount + s.addedVertices.size() - 1);
+}
+// Replaces face f by `faces` (deleted, then added); returns the new faces' indices.
+std::vector<uint32_t> ReplaceFace(EditMeshModifier::State& s, size_t inputFaces, uint32_t f, const std::vector<Face>& faces) {
+    s.deletedFaces.push_back(f);
+    std::vector<uint32_t> out;
+    for (const Face& nf : faces) {
+        s.addedFaces.push_back(nf);
+        out.push_back(static_cast<uint32_t>(inputFaces + s.addedFaces.size() - 1));
+    }
+    return out;
+}
+Face MakeFace(const Face& like, uint32_t a, uint32_t b, uint32_t c, uint32_t visible) {
+    Face f = like;
+    f.v[0] = a; f.v[1] = b; f.v[2] = c;
+    f.edgeVisible = visible;
+    return f;
+}
+math::Vec3 FaceNormal(const Mesh& p, const Face& f) {
+    return math::Cross(p.verts[f.v[1]] - p.verts[f.v[0]], p.verts[f.v[2]] - p.verts[f.v[0]]);
+}
+using EdgeKey = std::pair<uint32_t, uint32_t>;
+EdgeKey Key(uint32_t a, uint32_t b) { return a < b ? EdgeKey{a, b} : EdgeKey{b, a}; }
+} // namespace
+
+EditMeshModifier::State EditMeshModifier::AfterBreaking(const Mesh& input) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    const size_t inV = input.verts.size(), inF = input.faces.size();
+    std::vector<uint32_t> newSelection = s.selectedVertices;
+    std::map<uint32_t, Face> replaced;                         // face -> its new corners
+    for (uint32_t v : selected_) {
+        bool first = true;
+        for (uint32_t f = 0; f < ext.faces.size(); ++f) {
+            if (!live[f]) continue;
+            Face face = replaced.count(f) ? replaced[f] : ext.faces[f];
+            for (uint32_t& c : face.v) {
+                if (c != v) continue;
+                if (first) { first = false; continue; }
+                c = AddVertex(s, inV, p.verts[v]);
+                newSelection.push_back(c);
+                replaced[f] = face;
+            }
+        }
+    }
+    for (const auto& [f, face] : replaced) ReplaceFace(s, inF, f, {face});
+    s.deletedFaces = SortedUnique(s.deletedFaces);
+    s.selectedVertices = SortedUnique(newSelection);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterTurning(const Mesh& input) const {
+    State s = GetState();
+    const Mesh ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    const size_t inF = input.faces.size();
+    std::vector<char> used(ext.faces.size(), 0);
+    for (uint32_t e : selectedEdges_) {
+        const uint32_t f1 = e / 3;
+        if (f1 >= ext.faces.size() || !live[f1] || used[f1]) continue;
+        const int k1 = static_cast<int>(e % 3);
+        const Face& A = ext.faces[f1];
+        const uint32_t a = A.v[k1], b = A.v[(k1 + 1) % 3], c = A.v[(k1 + 2) % 3];
+        // The other face with the edge b -> a.
+        for (uint32_t f2 = 0; f2 < ext.faces.size(); ++f2) {
+            if (f2 == f1 || !live[f2] || used[f2]) continue;
+            const Face& B = ext.faces[f2];
+            for (int k2 = 0; k2 < 3; ++k2) {
+                if (B.v[k2] != b || B.v[(k2 + 1) % 3] != a) continue;
+                const uint32_t d = B.v[(k2 + 2) % 3];
+                // The quad a, d, b, c (counter-clockwise); new diagonal c - d. Outer edges keep
+                // their visibility: a-d and d-b from B, b-c and c-a from A.
+                auto vis = [](const Face& f, int side) { return (f.edgeVisible >> side) & 1u; };
+                const uint32_t ad = vis(B, (k2 + 1) % 3), db = vis(B, (k2 + 2) % 3);
+                const uint32_t bc = vis(A, (k1 + 1) % 3), ca = vis(A, (k1 + 2) % 3);
+                ReplaceFace(s, inF, f1, {MakeFace(A, a, d, c, ad | (0u << 1) | (ca << 2))});
+                ReplaceFace(s, inF, f2, {MakeFace(A, d, b, c, db | (bc << 1) | (0u << 2))});
+                used[f1] = used[f2] = 1;
+                break;
+            }
+            if (used[f1]) break;
+        }
+    }
+    s.deletedFaces = SortedUnique(s.deletedFaces);
+    s.selectedEdges.clear();
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterTessellating(const Mesh& input, bool byCenter) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    const size_t inV = input.verts.size(), inF = input.faces.size();
+    std::map<EdgeKey, uint32_t> mid;
+    std::vector<uint32_t> newFaces;
+    for (uint32_t f : selectedFaces_) {
+        if (f >= ext.faces.size() || !live[f]) continue;
+        const Face& F = ext.faces[f];
+        std::vector<uint32_t> made;
+        if (byCenter) {
+            const uint32_t c = AddVertex(s, inV, (p.verts[F.v[0]] + p.verts[F.v[1]] + p.verts[F.v[2]]) * (1.0 / 3.0));
+            std::vector<Face> parts;
+            for (int k = 0; k < 3; ++k)
+                parts.push_back(MakeFace(F, F.v[k], F.v[(k + 1) % 3], c, ((F.edgeVisible >> k) & 1u) | 2u | 4u));
+            made = ReplaceFace(s, inF, f, parts);
+        } else {
+            uint32_t m[3];
+            for (int k = 0; k < 3; ++k) {
+                const EdgeKey key = Key(F.v[k], F.v[(k + 1) % 3]);
+                auto it = mid.find(key);
+                m[k] = it != mid.end() ? it->second : (mid[key] = AddVertex(s, inV, (p.verts[F.v[k]] + p.verts[F.v[(k + 1) % 3]]) * 0.5));
+            }
+            auto ev = [&](int k) { return (F.edgeVisible >> k) & 1u; };
+            made = ReplaceFace(s, inF, f, {MakeFace(F, F.v[0], m[0], m[2], ev(0) | 2u | (ev(2) << 2)),
+                                           MakeFace(F, m[0], F.v[1], m[1], ev(0) | (ev(1) << 1) | 4u),
+                                           MakeFace(F, m[2], m[1], F.v[2], 1u | (ev(1) << 1) | (ev(2) << 2)),
+                                           MakeFace(F, m[0], m[1], m[2], 7u)});
+        }
+        newFaces.insert(newFaces.end(), made.begin(), made.end());
+    }
+    s.deletedFaces = SortedUnique(s.deletedFaces);
+    s.selectedFaces = SortedUnique(newFaces);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterExtruding(const Mesh& input, double amount) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    const size_t inV = input.verts.size(), inF = input.faces.size();
+    std::vector<uint32_t> faces;
+    for (uint32_t f : selectedFaces_) if (f < ext.faces.size() && live[f]) faces.push_back(f);
+    if (faces.empty()) return s;
+    // The direction: the selection's averaged (area-weighted) normal, as R3's Group normal.
+    math::Vec3 n{0, 0, 0};
+    for (uint32_t f : faces) n = n + FaceNormal(p, ext.faces[f]);
+    if (math::Length(n) < 1e-12) return s;
+    n = math::Normalize(n);
+    // Each vertex of the selection gets a copy moved by the amount.
+    std::map<uint32_t, uint32_t> copy;
+    for (uint32_t f : faces)
+        for (uint32_t v : ext.faces[f].v)
+            if (!copy.count(v)) copy[v] = AddVertex(s, inV, p.verts[v] + n * amount);
+    // Boundary edges (directed as in their selected face): sides only one selected face has.
+    std::map<EdgeKey, int> count;
+    for (uint32_t f : faces) for (int k = 0; k < 3; ++k) ++count[Key(ext.faces[f].v[k], ext.faces[f].v[(k + 1) % 3])];
+    std::vector<uint32_t> moved;
+    for (uint32_t f : faces) {
+        const Face& F = ext.faces[f];
+        for (int k = 0; k < 3; ++k) {
+            const uint32_t a = F.v[k], b = F.v[(k + 1) % 3];
+            if (count[Key(a, b)] != 1) continue;
+            // The wall a, b, b', a' faces outwards (normal (b - a) x n).
+            s.addedFaces.push_back(MakeFace(F, a, b, copy[b], 1u | 2u));
+            s.addedFaces.push_back(MakeFace(F, a, copy[b], copy[a], 2u | 4u));
+        }
+        const auto made = ReplaceFace(s, inF, f, {MakeFace(F, copy[F.v[0]], copy[F.v[1]], copy[F.v[2]], F.edgeVisible)});
+        moved.insert(moved.end(), made.begin(), made.end());
+    }
+    s.deletedFaces = SortedUnique(s.deletedFaces);
+    s.selectedFaces = SortedUnique(moved);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterChamfering(const Mesh& input, double amount) const {
+    State s = GetState();
+    const size_t inV = input.verts.size(), inF = input.faces.size();
+    if (amount <= 0) return s;
+    for (uint32_t v : selected_) {
+        // The mesh as it is now, after the vertices chamfered before this one.
+        EditMeshModifier now = *this;
+        now.SetState(s);
+        const Mesh p = now.Positions(input), ext = now.Extended(input);
+        const std::vector<char> live = LiveFaces(ext, s);
+        if (v >= p.verts.size()) continue;
+        std::map<uint32_t, uint32_t> along;                    // neighbour -> the new vertex on that edge
+        auto onEdge = [&](uint32_t q) {
+            auto it = along.find(q);
+            if (it != along.end()) return it->second;
+            const math::Vec3 d = p.verts[q] - p.verts[v];
+            const double len = math::Length(d);
+            const double t = len > 0 ? std::min(amount, len * 0.5) / len : 0;
+            return along[q] = AddVertex(s, inV, p.verts[v] + d * t);
+        };
+        for (uint32_t f = 0; f < ext.faces.size(); ++f) {
+            if (!live[f]) continue;
+            const Face& F = ext.faces[f];
+            int k = -1;
+            for (int i = 0; i < 3; ++i) if (F.v[i] == v) k = i;
+            if (k < 0) continue;
+            const uint32_t a = F.v[(k + 1) % 3], b = F.v[(k + 2) % 3];
+            const uint32_t na = onEdge(a), nb = onEdge(b);
+            auto ev = [&](int side) { return (F.edgeVisible >> side) & 1u; };
+            // (v, a, b) becomes the cap piece (v, na, nb) and the quad na, a, b, nb.
+            ReplaceFace(s, inF, f, {MakeFace(F, v, na, nb, 2u), MakeFace(F, na, a, b, ev(k) | (ev((k + 1) % 3) << 1)),
+                                    MakeFace(F, na, b, nb, 2u | 4u)});
+        }
+        s.deletedFaces = SortedUnique(s.deletedFaces);
+        // The vertex moves to the new vertices' centre: the cap.
+        math::Vec3 c{0, 0, 0};
+        for (const auto& [q, nv] : along) c = c + s.addedVertices[nv - inV];
+        if (!along.empty()) s.moves = AddToMoves(s.moves, {v}, c * (1.0 / static_cast<double>(along.size())) - p.verts[v]);
+    }
+    return s;
+}
+
+std::vector<std::vector<uint32_t>> EditMeshModifier::ExplodeGroups(const Mesh& input, double angle) const {
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, GetState());
+    std::vector<uint32_t> faces;
+    for (uint32_t f : selectedFaces_) if (f < ext.faces.size() && live[f]) faces.push_back(f);
+    std::map<EdgeKey, std::vector<uint32_t>> byEdge;
+    for (uint32_t f : faces) for (int k = 0; k < 3; ++k) byEdge[Key(ext.faces[f].v[k], ext.faces[f].v[(k + 1) % 3])].push_back(f);
+    const double cosLimit = std::cos(angle * 3.14159265358979323846 / 180.0);
+    std::map<uint32_t, int> group;
+    std::vector<std::vector<uint32_t>> out;
+    for (uint32_t start : faces) {
+        if (group.count(start)) continue;
+        out.push_back({});
+        std::vector<uint32_t> todo{start};
+        group[start] = static_cast<int>(out.size()) - 1;
+        while (!todo.empty()) {
+            const uint32_t f = todo.back();
+            todo.pop_back();
+            out.back().push_back(f);
+            const math::Vec3 nf = math::Normalize(FaceNormal(p, ext.faces[f]));
+            for (int k = 0; k < 3; ++k)
+                for (uint32_t g : byEdge[Key(ext.faces[f].v[k], ext.faces[f].v[(k + 1) % 3])]) {
+                    if (group.count(g)) continue;
+                    if (math::Dot(nf, math::Normalize(FaceNormal(p, ext.faces[g]))) + 1e-12 < cosLimit) continue;
+                    group[g] = static_cast<int>(out.size()) - 1;
+                    todo.push_back(g);
+                }
+        }
+        std::sort(out.back().begin(), out.back().end());
+    }
+    return out;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterExplodingToElements(const Mesh& input, double angle) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const size_t inV = input.verts.size(), inF = input.faces.size();
+    const auto groups = ExplodeGroups(input, angle);
+    // Every group after the first gets its own copies of the vertices it shares with others.
+    std::map<uint32_t, int> firstGroup;
+    std::vector<uint32_t> made;
+    for (size_t gi = 0; gi < groups.size(); ++gi) {
+        std::map<uint32_t, uint32_t> copy;
+        for (uint32_t f : groups[gi]) {
+            Face F = ext.faces[f];
+            bool changed = false;
+            for (uint32_t& v : F.v) {
+                auto it = firstGroup.find(v);
+                if (it == firstGroup.end()) { firstGroup[v] = static_cast<int>(gi); continue; }
+                if (it->second == static_cast<int>(gi)) continue;
+                if (!copy.count(v)) copy[v] = AddVertex(s, inV, p.verts[v]);
+                v = copy[v];
+                changed = true;
+            }
+            if (changed) { const auto m = ReplaceFace(s, inF, f, {F}); made.insert(made.end(), m.begin(), m.end()); }
+            else made.push_back(f);
+        }
+    }
+    s.deletedFaces = SortedUnique(s.deletedFaces);
+    s.selectedFaces = SortedUnique(made);
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterAttaching(const Mesh& input, const Mesh& other) const {
+    State s = GetState();
+    const uint32_t base = static_cast<uint32_t>(input.verts.size() + s.addedVertices.size());
+    s.addedVertices.insert(s.addedVertices.end(), other.verts.begin(), other.verts.end());
+    for (Face f : other.faces) {
+        for (uint32_t& v : f.v) v += base;
+        s.addedFaces.push_back(f);
+    }
+    return s;
+}
+
 // ---- the gizmo (Phase 10.3) ---------------------------------------------------------------
 
 namespace {
