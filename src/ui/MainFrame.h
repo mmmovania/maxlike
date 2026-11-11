@@ -134,6 +134,16 @@ private:
     bool attachPick_ = false;                          // Group > Attach: the next click picks the group
     bool alignPick_ = false;                           // Tools > Align: the next click picks the target
     bool attachMeshPick_ = false;                      // Edit Mesh > Attach: the next click picks the object
+    // Edit Mesh's interactive tools (10.9): 0 none, 1 Create, 2 Cut, 3 Slice Plane; the
+    // vertices clicked so far for a face, the first edge of a cut, and the slice plane
+    // (object space). `lastEditing_` is what the views were last given.
+    int editTool_ = 0;
+    std::vector<uint32_t> pendingFace_;
+    long long cutEdge_ = -1;
+    double cutT_ = 0;
+    math::Vec3 slicePoint_{0, 0, 0}, sliceNormal_{0, 0, 1};
+    struct PlaneMove { bool active = false; math::Vec3 point, normal; math::Mat4 objectWorld; math::Quat objectRotation; } planeMove_;
+    ui::Viewport::VertexEditing lastEditing_;
     // A deformer's gizmo being dragged (10.3): the modifier, its gizmo at the start, and the
     // object's world matrix and rotation (movements become object space).
     struct GizmoMove {

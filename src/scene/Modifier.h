@@ -198,6 +198,18 @@ public:
     State AfterExplodingToElements(const Mesh& input, double angle) const;
     // Attach: `other` (already in this object's space) appended as added geometry.
     State AfterAttaching(const Mesh& input, const Mesh& other) const;
+
+    // Interactive tools (10.9). Create: a vertex at `point` (selected), or a face from three
+    // vertices, wound so its normal points along `towards` (the viewer).
+    State AfterCreatingVertex(const Mesh& input, const math::Vec3& point) const;
+    State AfterCreatingFace(const Mesh& input, uint32_t a, uint32_t b, uint32_t c, const math::Vec3& towards) const;
+    // Slice: the faces (the selected ones, or all with `onlySelected` false) cut by the plane
+    // through `point` with `normal`; neighbours share the new vertices, so a closed mesh
+    // stays closed. `split`: the positive side gets its own copies of them.
+    State AfterSlicing(const Mesh& input, const math::Vec3& point, const math::Vec3& normal, bool split, bool onlySelected) const;
+    // Cut: a face split along the line from a point on one of its edges (edge id, 0..1 along
+    // it) to a point on another; the faces across those edges are split there too.
+    State AfterCutting(const Mesh& input, uint32_t edgeA, double tA, uint32_t edgeB, double tB) const;
     void SetState(const State& s);
 
     // The input with the moves applied, then the deleted faces and vertices removed (a

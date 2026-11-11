@@ -198,7 +198,7 @@ Spec ModifierParametersFor(const std::string& name) {
     return {};
 }
 
-std::vector<Spec> ModifierRollouts(const std::string& name, int level) {
+std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool sliceMode) {
     if (name != "Edit Mesh") {
         Spec s = ModifierParametersFor(name);
         if (s.rows.empty()) return {};
@@ -321,7 +321,7 @@ std::vector<Spec> ModifierRollouts(const std::string& name, int level) {
         for (Row& r : geo.rows)
             if (r.kind == Kind::Button)
                 for (const auto& [label, levels] : kAvailable)
-                    if (r.label == label) r.enabled = (levels & bit) != 0;
+                    if (r.label == label) r.enabled = (levels & bit) != 0 || (sliceMode && r.label == L"Slice");
         // The spinners, options and labels that belong to those buttons (10.8).
         const std::pair<int, int> kParams[] = {
             {EditMeshModifier::kExtrudeAmount, E | F | P | L}, {EditMeshModifier::kNormalLocal, E | F | P | L},

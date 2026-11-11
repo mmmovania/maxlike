@@ -818,6 +818,134 @@ EditMeshModifier::State EditMeshModifier::AfterAttaching(const Mesh& input, cons
     return s;
 }
 
+// ---- Interactive tools (10.9) -----------------------------------------------------------------
+
+EditMeshModifier::State EditMeshModifier::AfterCreatingVertex(const Mesh& input, const math::Vec3& point) const {
+    State s = GetState();
+    s.selectedVertices = {AddVertex(s, input.verts.size(), point)};
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterCreatingFace(const Mesh& input, uint32_t a, uint32_t b, uint32_t c,
+                                                            const math::Vec3& towards) const {
+    State s = GetState();
+    const Mesh p = Positions(input);
+    if (a >= p.verts.size() || b >= p.verts.size() || c >= p.verts.size() || a == b || b == c || a == c) return s;
+    if (math::Dot(math::Cross(p.verts[b] - p.verts[a], p.verts[c] - p.verts[a]), towards) < 0) std::swap(b, c);
+    Face f{};
+    f.v[0] = a; f.v[1] = b; f.v[2] = c;
+    f.edgeVisible = 7;
+    f.smoothing = 1;
+    s.addedFaces.push_back(f);
+    s.selectedFaces = {static_cast<uint32_t>(input.faces.size() + s.addedFaces.size() - 1)};
+    return s;
+}
+
+namespace {
+// Splits the live faces by new points on their edges (edge key -> new vertex): a face with
+// points on two edges becomes three triangles along the line between them (`lineVisible`),
+// a face with one point two triangles to the opposite corner (`fanVisible`).
+void SplitByEdgePoints(EditMeshModifier::State& s, const Mesh& ext, const std::vector<char>& live, size_t inF,
+                       const std::map<EdgeKey, uint32_t>& points, bool lineVisible, bool fanVisible,
+                       std::vector<uint32_t>* made) {
+    for (uint32_t f = 0; f < ext.faces.size(); ++f) {
+        if (!live[f]) continue;
+        const Face& F = ext.faces[f];
+        int on[3], count = 0;
+        uint32_t m[3] = {0, 0, 0};
+        for (int k = 0; k < 3; ++k) {
+            auto it = points.find(Key(F.v[k], F.v[(k + 1) % 3]));
+            on[k] = it != points.end();
+            if (on[k]) { m[k] = it->second; ++count; }
+        }
+        if (count == 0 || count == 3) continue;
+        auto ev = [&](int k) { return (F.edgeVisible >> k) & 1u; };
+        std::vector<Face> parts;
+        if (count == 1) {
+            const int k = on[0] ? 0 : on[1] ? 1 : 2;                 // the edge v_k -> v_k+1
+            const uint32_t a = F.v[k], b = F.v[(k + 1) % 3], c = F.v[(k + 2) % 3];
+            const uint32_t fan = fanVisible ? 1u : 0u;
+            parts = {MakeFace(F, a, m[k], c, ev(k) | (fan << 1) | (ev((k + 2) % 3) << 2)),
+                     MakeFace(F, m[k], b, c, ev(k) | (ev((k + 1) % 3) << 1) | (fan << 2))};
+        } else {
+            // The apex: the corner between the two edges with points.
+            const int apex = !on[1] ? 0 : !on[2] ? 1 : 2;               // edges apex-1 and apex
+            const int ka = apex, kb = (apex + 2) % 3;                    // apex -> next, prev -> apex
+            const uint32_t v0 = F.v[apex], v1 = F.v[(apex + 1) % 3], v2 = F.v[(apex + 2) % 3];
+            const uint32_t ma = m[ka], mb = m[kb];
+            const uint32_t line = lineVisible ? 1u : 0u;
+            parts = {MakeFace(F, v0, ma, mb, ev(ka) | (line << 1) | (ev(kb) << 2)),
+                     MakeFace(F, ma, v1, v2, ev(ka) | (ev((apex + 1) % 3) << 1)),
+                     MakeFace(F, ma, v2, mb, 0u | (ev(kb) << 1) | (line << 2))};
+        }
+        const auto ids = ReplaceFace(s, inF, f, parts);
+        if (made) made->insert(made->end(), ids.begin(), ids.end());
+    }
+    s.deletedFaces = SortedUnique(s.deletedFaces);
+}
+} // namespace
+
+EditMeshModifier::State EditMeshModifier::AfterSlicing(const Mesh& input, const math::Vec3& q, const math::Vec3& normal,
+                                                       bool split, bool onlySelected) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    const size_t inV = input.verts.size(), inF = input.faces.size();
+    const math::Vec3 n = math::Normalize(normal);
+    auto d = [&](uint32_t v) { return math::Dot(p.verts[v] - q, n); };
+    // New vertices where the plane crosses an edge of a sliced face.
+    std::map<EdgeKey, uint32_t> points;
+    for (uint32_t f = 0; f < ext.faces.size(); ++f) {
+        if (!live[f] || (onlySelected && !std::binary_search(selectedFaces_.begin(), selectedFaces_.end(), f))) continue;
+        for (int k = 0; k < 3; ++k) {
+            const uint32_t a = ext.faces[f].v[k], b = ext.faces[f].v[(k + 1) % 3];
+            const double da = d(a), db = d(b);
+            if (!(da * db < 0) || points.count(Key(a, b))) continue;
+            points[Key(a, b)] = AddVertex(s, inV, p.verts[a] + (p.verts[b] - p.verts[a]) * (da / (da - db)));
+        }
+    }
+    std::vector<uint32_t> made;
+    SplitByEdgePoints(s, ext, live, inF, points, true, true, &made);
+    if (split && !points.empty()) {
+        // The positive side's faces get their own copies of the new vertices.
+        std::map<uint32_t, uint32_t> copy;
+        std::vector<uint32_t> newVerts;
+        for (const auto& [key, v] : points) newVerts.push_back(v);
+        std::sort(newVerts.begin(), newVerts.end());
+        EditMeshModifier now = *this;
+        now.SetState(s);
+        const Mesh p2 = now.Positions(input);
+        for (uint32_t id : made) {
+            Face& F = s.addedFaces[id - inF];
+            const math::Vec3 centre = (p2.verts[F.v[0]] + p2.verts[F.v[1]] + p2.verts[F.v[2]]) * (1.0 / 3.0);
+            if (math::Dot(centre - q, n) <= 0) continue;
+            for (uint32_t& v : F.v)
+                if (std::binary_search(newVerts.begin(), newVerts.end(), v)) {
+                    if (!copy.count(v)) copy[v] = AddVertex(s, inV, p2.verts[v]);
+                    v = copy[v];
+                }
+        }
+    }
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterCutting(const Mesh& input, uint32_t edgeA, double tA, uint32_t edgeB, double tB) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    if (edgeA / 3 != edgeB / 3 || edgeA == edgeB || edgeA / 3 >= ext.faces.size() || !live[edgeA / 3]) return s;
+    const size_t inV = input.verts.size(), inF = input.faces.size();
+    std::map<EdgeKey, uint32_t> points;
+    for (const auto& [e, t] : {std::make_pair(edgeA, tA), std::make_pair(edgeB, tB)}) {
+        uint32_t a, b;
+        EdgeVertices(ext, e, a, b);
+        const double u = std::min(0.999, std::max(0.001, t));
+        points[Key(a, b)] = AddVertex(s, inV, p.verts[a] + (p.verts[b] - p.verts[a]) * u);
+    }
+    SplitByEdgePoints(s, ext, live, inF, points, true, false, nullptr);
+    return s;
+}
+
 // ---- the gizmo (Phase 10.3) ---------------------------------------------------------------
 
 namespace {

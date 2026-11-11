@@ -76,7 +76,8 @@ struct Spec {
 // Parameters; Edit Mesh: Selection, Soft Selection, Edit Geometry).
 // `level`: Edit Mesh's sub-object level (0 Vertex .. 4 Element; 0 also with Sub-Object
 // off), which decides the Edit Geometry buttons that are available (Phase 10.7).
-std::vector<Spec> ModifierRollouts(const std::string& className, int level = 0);
+// `sliceMode`: Slice Plane is on, which makes Slice available (10.9).
+std::vector<Spec> ModifierRollouts(const std::string& className, int level = 0, bool sliceMode = false);
 
 // A modifier's Parameters rollout, by class name ("Bend", "Taper", "Twist"); empty for
 // others. Bend's is measured (r3.1-modify-bend.png); Taper's and Twist's follow the same

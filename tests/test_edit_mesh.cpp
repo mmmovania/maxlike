@@ -353,6 +353,44 @@ int main() {
         out = at.Edited(box);
         CHECK(out.verts.size() == 16 && out.FaceCount() == 24 && out.verts[8].x == box.verts[0].x + 50);
     }
+    // Interactive tools (10.9).
+    {
+        // Slice the closed box at z = 10: still closed, Euler 2, 8 new vertices (4 vertical
+        // edges, 4 side diagonals), 28 faces; nothing straddles the plane.
+        scene::EditMeshModifier sl(8, {});
+        sl.SetState(sl.AfterSlicing(box, {0, 0, 10}, {0, 0, 1}, false, false));
+        scene::Mesh out = sl.Edited(box);
+        CHECK(out.verts.size() == 16 && out.FaceCount() == 28 && ClosedConsistent(out) && Euler(out) == 2);
+        for (const auto& f : out.faces) {
+            bool above = false, below = false;
+            for (uint32_t v : f.v) { above = above || out.verts[v].z > 10 + 1e-9; below = below || out.verts[v].z < 10 - 1e-9; }
+            CHECK(!(above && below));
+        }
+        // Split: the upper side gets its own copies; the halves come apart.
+        scene::EditMeshModifier sp(8, {});
+        sp.SetState(sp.AfterSlicing(box, {0, 0, 10}, {0, 0, 1}, true, false));
+        out = sp.Edited(box);
+        CHECK(out.verts.size() == 24 && out.FaceCount() == 28 && !ClosedConsistent(out));
+        // Cut across face 0 from its edge 0 to its edge 1: the face becomes 3, its two
+        // neighbours across those edges 2 each; still closed.
+        scene::EditMeshModifier cu(8, {});
+        cu.SetState(cu.AfterCutting(box, scene::EdgeId(0, 0), 0.5, scene::EdgeId(0, 1), 0.5));
+        out = cu.Edited(box);
+        CHECK(out.verts.size() == 10 && out.FaceCount() == 16 && ClosedConsistent(out) && Euler(out) == 2);
+        CHECK(cu.AfterCutting(box, scene::EdgeId(0, 0), 0.5, scene::EdgeId(1, 0), 0.5).addedVertices.size() == cu.AddedVertices().size());   // different faces: refused, nothing new
+        // Create: a vertex (selected), and a face wound towards the viewer whatever the order.
+        scene::EditMeshModifier cr(8, {});
+        cr.SetState(cr.AfterCreatingVertex(box, {0, 0, 40}));
+        CHECK(cr.Edited(box).verts.size() == 9 && cr.SelectedVertices() == std::vector<uint32_t>{8});
+        for (const auto& order : {std::vector<uint32_t>{4, 5, 8}, std::vector<uint32_t>{5, 4, 8}}) {
+            scene::EditMeshModifier c2 = cr;
+            c2.SetState(c2.AfterCreatingFace(box, order[0], order[1], order[2], {0, -1, 0}));
+            const scene::Mesh m2 = c2.Edited(box);
+            const auto& f = m2.faces.back();
+            const math::Vec3 nrm = math::Cross(m2.verts[f.v[1]] - m2.verts[f.v[0]], m2.verts[f.v[2]] - m2.verts[f.v[0]]);
+            CHECK(m2.FaceCount() == 13 && math::Dot(nrm, {0, -1, 0}) >= 0);
+        }
+    }
     // Picking edges: the nearest segment within the tolerance; rectangles take segments
     // with an end inside.
     {

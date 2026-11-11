@@ -268,7 +268,8 @@ void MainFrame::UpdateModifyPanel() {
             info.subObjectLevels = {L"Vertex", L"Edge", L"Face", L"Polygon", L"Element"};
         if (std::dynamic_pointer_cast<scene::DeformModifier>(mod)) info.subObjectLevels = {L"Gizmo", L"Center"};
         if (info.subObjectLevels.empty()) subObject_ = false;
-        info.subObjectOn = subObject_;
+        info.sliceMode = editTool_ == 3 && VertexEditingMod() != nullptr;
+    info.subObjectOn = subObject_;
         info.subObjectLevel = subLevel_;
         if (const auto em = std::dynamic_pointer_cast<scene::EditMeshModifier>(mod)) {
             // NOTE: R3's wording for one vertex or none is unverified.
@@ -307,10 +308,16 @@ void MainFrame::UpdateModifyPanel() {
         editing.mod = em;
         editing.level = subLevel_;
         editing.weldTarget = weldTargetMode_ && subLevel_ == 0;
+        editing.tool = editTool_;
+        editing.slicePlane = editTool_ == 3;
+        editing.planePoint = slicePoint_;
+        editing.planeNormal = sliceNormal_;
         const auto& mods = stack->Modifiers();
         for (size_t i = 0; i < mods.size(); ++i)
             if (mods[i] == em) editing.upTo = i + 1;
     }
+    if (!VertexEditingMod()) editTool_ = 0;          // the tools end with sub-object editing
+    lastEditing_ = editing;
     viewports_.SetVertexEditing(editing);
 }
 
@@ -904,6 +911,41 @@ bool MainFrame::CreateRegions() {
             viewports_.Redraw();
             return;
         }
+        // Interactive tools (10.9): Create, Cut and Slice Plane are modes (the button again
+        // ends them); Slice cuts along the plane.
+        if (const auto mod = VertexEditingMod(); mod && (label == L"Create" || label == L"Cut" || label == L"Slice Plane" || label == L"Slice")) {
+            if (label == L"Slice") {
+                if (editTool_ != 3) return;
+                const auto after = mod->AfterSlicing(EditMeshInput(mod), slicePoint_, sliceNormal_,
+                                                     mod->Params().Int(scene::EditMeshModifier::kSplit, 0) != 0, subLevel_ >= 2);
+                undo_.Execute(std::make_unique<scene::EditMeshStateCommand>("Slice", mod, after), scene_);
+                UpdateModifyPanel();
+                viewports_.Redraw();
+                return;
+            }
+            const int tool = label == L"Create" ? 1 : label == L"Cut" ? 2 : 3;
+            editTool_ = editTool_ == tool ? 0 : tool;
+            pendingFace_.clear();
+            cutEdge_ = -1;
+            if (editTool_ == 3) {
+                // The plane starts through the selection's centre (else the mesh's), facing +Z.
+                const scene::Mesh p = mod->Positions(EditMeshInput(mod));
+                const auto verts = SubObjectVertices(mod);
+                math::Vec3 c{0, 0, 0};
+                if (!verts.empty()) { for (uint32_t v : verts) c = c + p.verts[v]; c = c * (1.0 / static_cast<double>(verts.size())); }
+                else if (!p.verts.empty()) { const scene::Bounds b = p.GetBounds(); c = (b.min + b.max) * 0.5; }
+                slicePoint_ = c;
+                sliceNormal_ = {0, 0, 1};
+            }
+            // NOTE: R3's prompts unverified.
+            const wchar_t* prompt = editTool_ == 0 ? L"" : editTool_ == 1 ? (subLevel_ == 0 ? L"Click to create vertices" : L"Click three vertices to create a face")
+                                  : editTool_ == 2 ? L"Click on an edge, then on another edge of the same face"
+                                                   : L"Move or rotate the slice plane, then click Slice";
+            statusArea_.SetPrompt(1, prompt);
+            UpdateModifyPanel();
+            viewports_.Redraw();
+            return;
+        }
         // Edit Geometry, topology (10.8).
         if (const auto mod = VertexEditingMod(); mod && (label == L"Break" || label == L"Turn" || label == L"Tessellate" ||
                                                           label == L"Extrude" || label == L"Chamfer" || label == L"Explode" ||
@@ -1008,6 +1050,41 @@ bool MainFrame::CreateRegions() {
         viewports_.Redraw();
     };
     // Vertex selection: a click replaces it (Ctrl adds, Alt removes); one "Select" step.
+    viewports_.onToolClick = [this](const ui::Viewport::ToolClick& c) {
+        const auto mod = VertexEditingMod();
+        scene::Node* node = nullptr;
+        SelectedStack(&node);
+        if (!mod || !node) return;
+        const math::Mat4 toObject = math::AffineInverse(node->ObjectMatrix());
+        const scene::Mesh input = EditMeshInput(mod);
+        scene::EditMeshModifier::State after;
+        std::string name;
+        if (editTool_ == 1 && subLevel_ == 0) {
+            if (!c.onPlane) return;
+            after = mod->AfterCreatingVertex(input, math::TransformPoint(toObject, c.point));
+            name = "Create";
+        } else if (editTool_ == 1 && subLevel_ >= 2) {
+            if (c.vertex < 0) return;
+            pendingFace_.push_back(static_cast<uint32_t>(c.vertex));
+            if (pendingFace_.size() < 3) { statusArea_.SetPrompt(1, std::to_wstring(3 - pendingFace_.size()) + L" more vertices"); return; }
+            const math::Vec3 towards = math::TransformPoint(toObject, c.towards) - math::TransformPoint(toObject, {0, 0, 0});
+            after = mod->AfterCreatingFace(input, pendingFace_[0], pendingFace_[1], pendingFace_[2], towards);
+            pendingFace_.clear();
+            name = "Create";
+        } else if (editTool_ == 2) {
+            if (c.edge < 0) return;
+            if (cutEdge_ < 0) { cutEdge_ = c.edge; cutT_ = c.t; statusArea_.SetPrompt(1, L"Click on another edge of the same face"); return; }
+            after = mod->AfterCutting(input, static_cast<uint32_t>(cutEdge_), cutT_, static_cast<uint32_t>(c.edge), c.t);
+            cutEdge_ = -1;
+            if (after.addedVertices.size() == mod->AddedVertices().size()) { statusArea_.SetPrompt(1, L"Cut: both edges must belong to one face"); return; }   // NOTE: R3 cuts across faces
+            name = "Cut";
+        } else {
+            return;
+        }
+        undo_.Execute(std::make_unique<scene::EditMeshStateCommand>(name, mod, after), scene_);
+        UpdateModifyPanel();
+        viewports_.Redraw();
+    };
     viewports_.onWeldTarget = [this](uint32_t from, uint32_t to) {
         const auto mod = VertexEditingMod();
         if (!mod) return;
@@ -1061,6 +1138,14 @@ bool MainFrame::CreateRegions() {
     // Moving: a live preview from the starting positions, then one "Move" undo step.
     viewports_.onMoveBegin = [this] {
         moving_.clear();
+        if (editTool_ == 3 && VertexEditingMod()) {
+            scene::Node* node = nullptr;
+            SelectedStack(&node);
+            if (!node) return;
+            planeMove_ = {true, slicePoint_, sliceNormal_, node->ObjectMatrix(), scene::typein::WorldRotation(*node) * node->ObjectOffset().rotation};
+            dragFrame_ = viewports_.ActiveView().CurrentFrame();
+            return;
+        }
         if (const auto dm = GizmoEditingMod()) {
             scene::Node* node = nullptr;
             SelectedStack(&node);
@@ -1126,6 +1211,25 @@ bool MainFrame::CreateRegions() {
     // Move follows the mouse in the world; Rotate and Scale follow its vertical movement,
     // each object about its own pivot (NOTE: R3's pivot options are not implemented yet).
     viewports_.onMoveDrag = [this](const math::Vec3& delta, int up) {
+        if (planeMove_.active) {
+            // The slice plane (UI state, not an undo step): Move shifts it, Rotate turns it.
+            const math::Mat4 inv = math::AffineInverse(planeMove_.objectWorld);
+            if (tool_ == Tool::Move) {
+                slicePoint_ = planeMove_.point + (math::TransformPoint(inv, delta) - math::TransformPoint(inv, {0, 0, 0}));
+                ShowCoordinates(delta);
+            } else if (tool_ == Tool::Rotate) {
+                const int axis = scene::move::RotationAxis(constraint_);
+                const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);
+                const math::Quat& o = planeMove_.objectRotation;
+                sliceNormal_ = math::Normalize((math::Quat{-o.x, -o.y, -o.z, o.w} * turn * o).Rotate(planeMove_.normal));
+                ShowCoordinates(scene::move::RotationDegrees(axis, up));
+            }
+            lastEditing_.planePoint = slicePoint_;
+            lastEditing_.planeNormal = sliceNormal_;
+            viewports_.SetVertexEditing(lastEditing_);
+            viewports_.Redraw();
+            return;
+        }
         if (gizmoMove_.active) {
             // In the object's space: Move shifts the gizmo (Gizmo) or its centre (Center);
             // Rotate turns the gizmo about its centre; Scale scales it (Gizmo level only).
@@ -1248,6 +1352,12 @@ bool MainFrame::CreateRegions() {
         UpdateTypeIn();                                 // Absolute shows the result; Offset returns to neutral
     };
     viewports_.onMoveEnd = [this](bool commit) {
+        if (planeMove_.active) {
+            planeMove_.active = false;
+            if (!commit) { slicePoint_ = planeMove_.point; sliceNormal_ = planeMove_.normal; UpdateModifyPanel(); }
+            viewports_.Redraw();
+            return;
+        }
         if (gizmoMove_.active) {
             gizmoMove_.active = false;
             const auto after = gizmoMove_.mod->GetGizmo();

@@ -145,7 +145,9 @@ From Phase 9's inventory, still buildable without new evidence:
 - [x] Viewports and the selection in `.mlk` files (10.4).
 - [x] Rotate and Scale at Edit Mesh's sub-object levels (10.5).
 - [x] Soft Selection (10.6).
-- [ ] Edit Mesh: Create, Chamfer and the other Edit Geometry buttons.
+- [x] Edit Mesh's Edit Geometry buttons (10.7–10.9), except Create Shape from Edges (no
+      shapes yet); edge-level Extrude and Chamfer, Extrude by dragging and multi-face Cut
+      strokes are simplified or not built (see the Phase 10 checklist).
 - Waiting for R3.1 evidence (list B of the inventory): dialogs built from memory (New,
   Clone, Detach, Mirror, Array, Transform Type-In), Edit Mesh's look at sub-object levels,
   the Select By / Region / Grids submenus, the perspective grid's extent, Bend / Taper /

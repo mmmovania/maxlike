@@ -60,6 +60,7 @@ bool ViewPanel::Create(HWND parent) {
             if (onVertexSelect) onVertexSelect(vs, region, ctrl, alt);
         };
         v.onWeldTarget = [this](uint32_t from, uint32_t to) { if (onWeldTarget) onWeldTarget(from, to); };
+        v.onToolClick = [this](const Viewport::ToolClick& c) { if (onToolClick) onToolClick(c); };
         v.navMode = [this] { return mode_; };
         v.onExitMode = [this] { SetNavMode(NavMode::None); };
         v.onZoomAll = [this, i](double factor) {

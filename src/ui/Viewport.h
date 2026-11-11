@@ -96,10 +96,26 @@ public:
         std::shared_ptr<scene::EditMeshModifier> mod;
         int level = 0;                            // 0 Vertex, 1 Edge, 2 Face, 3 Polygon, 4 Element
         bool weldTarget = false;                  // Weld > Target (9.7): drag a vertex onto another
+        // 10.9: the Edit Geometry tool taking clicks (1 Create, 2 Cut, 3 Slice Plane) and the
+        // slice plane (object space) to draw.
+        int tool = 0;
+        bool slicePlane = false;
+        math::Vec3 planePoint{0, 0, 0}, planeNormal{0, 0, 1};
     };
     void SetVertexEditing(const VertexEditing& v) { vertexEditing_ = v; InvalidateRect(Hwnd(), nullptr, FALSE); }
     std::function<void(const std::vector<uint32_t>& vertices, bool region, bool ctrl, bool alt)> onVertexSelect;
     std::function<void(uint32_t from, uint32_t to)> onWeldTarget;   // input vertex indices
+    // A click for Create or Cut (10.9): the point on the construction plane (world), the
+    // vertex and the edge under the cursor (Edit Mesh's indices; -1 none) with the position
+    // along the edge, and the direction towards the viewer.
+    struct ToolClick {
+        bool onPlane = false;
+        math::Vec3 point{0, 0, 0}, towards{0, 0, 1};
+        int vertex = -1;
+        long long edge = -1;
+        double t = 0;
+    };
+    std::function<void(const ToolClick&)> onToolClick;
 
     // A transform tool (Move, Rotate, Scale) is active: pressing on an object drags it.
     // Phase 9.9: the reference coordinate system and the transform centre (0 each pivot,

@@ -32,9 +32,27 @@ items still buildable without new R3.1 evidence.
 - [x] **10.8** Edit Mesh: Break, Turn, Tessellate (by edge / face centre), Extrude (faces,
       by the spinner's amount), Chamfer (vertices), Explode (to objects / elements, by
       angle), Attach (pick); their spinners and options follow the level; one undo step each
-- [ ] Edit Mesh: Create, Slice Plane / Slice, Cut (10.9); Create Shape from Edges stays
-      greyed (maxlike has no shapes)
+- [x] **10.9** Edit Mesh: Create (vertices by clicking on the construction plane, faces
+      from three vertices wound towards the viewer), Slice Plane (a plane Move and Rotate
+      adjust) with Slice and Split, Cut (between two edges of a face, neighbours split too).
+      Create Shape from Edges stays greyed: maxlike has no shapes
 - [ ] Wrap-up
+
+## Step 10.9 verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_edit_mesh`: slicing the closed box at z = 10 keeps it closed and consistent
+      (Euler 2) with 8 new vertices and 28 faces, no face straddling the plane; Split
+      separates the halves (24 vertices, open); a cut across a face gives 16 faces, still
+      closed; a cut between different faces is refused; Create adds a selected vertex, and a
+      face wound towards the viewer whichever order its corners are given
+- [x] Under Wine on `box.max`, Vertex level: Slice Plane shows the yellow plane; Slice adds
+      the side vertices, and the cut appears in the Front view at y 322, exactly half-way
+      down the box (142..502); Create, a click on the grid: a selected vertex's marker
+      centred exactly on the click; Ctrl+Z twice restores the box
+- [ ] On Windows: moving and rotating the slice plane; Slice of selected faces; Split; Cut
+      between edges by clicking; Create of faces
+- [ ] Unverified / simplified: R3's plane gizmo look and its moves being undoable (here UI
+      state), Cut across several faces in one stroke (here within one face), the prompts
 
 ## Step 10.8 verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)

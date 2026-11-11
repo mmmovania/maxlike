@@ -38,6 +38,7 @@ public:
     void SetVertexEditing(const Viewport::VertexEditing& e) { for (auto& v : views_) v.SetVertexEditing(e); }
     std::function<void(const std::vector<uint32_t>&, bool, bool, bool)> onVertexSelect;
     std::function<void(uint32_t, uint32_t)> onWeldTarget;
+    std::function<void(const Viewport::ToolClick&)> onToolClick;
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     // File > Reset: the startup types and views (Top, Front, Left, Perspective).

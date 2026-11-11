@@ -585,6 +585,28 @@ void Viewport::DrawVertices(int w, int h) {
     const auto& pts = v.pixels;
     if (pts.empty()) return;
     const math::Mat4 toClip = math::PixelToClip(w, h);
+    if (vertexEditing_.slicePlane && scene_) {
+        // The slice plane (10.9): a yellow square through its point, sized to the object
+        // (NOTE: R3's plane gizmo look from memory).
+        const scene::Node* node = scene_->FindById(vertexEditing_.node);
+        const scene::Bounds b = v.mesh.GetBounds();
+        if (node && !b.Empty()) {
+            const math::Vec3 n = math::Normalize(vertexEditing_.planeNormal);
+            const math::Vec3 a = math::Normalize(std::fabs(n.z) < 0.9 ? math::Cross(n, {0, 0, 1}) : math::Cross(n, {1, 0, 0}));
+            const math::Vec3 c = math::Cross(n, a);
+            const double r = 0.6 * math::Length(b.max - b.min);
+            const math::Mat4 m = node->ObjectMatrix();
+            math::Vec3 corner[4] = {vertexEditing_.planePoint + (a + c) * r, vertexEditing_.planePoint + (c - a) * r,
+                                    vertexEditing_.planePoint - (a + c) * r, vertexEditing_.planePoint + (a - c) * r};
+            std::vector<gl::LineRenderer::Line> lines;
+            for (int i = 0; i < 4; ++i) {
+                double x0, y0, x1, y1, d;
+                if (!WorldToWindow(math::TransformPoint(m, corner[i]), x0, y0, d) || !WorldToWindow(math::TransformPoint(m, corner[(i + 1) % 4]), x1, y1, d)) continue;
+                lines.push_back({static_cast<float>(x0), static_cast<float>(y0), 0.0f, static_cast<float>(x1), static_cast<float>(y1), 0.0f});
+            }
+            if (!lines.empty()) lines_->Draw(lines, toClip, 1.0f, 1.0f, 0.0f);
+        }
+    }
     if (vertexEditing_.level > 0) {
         // Edge level: the selected edges in red. Face level: the selected faces' three
         // edges; Polygon and Element: the selected faces' visible edges (their outlines).
@@ -1114,6 +1136,33 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             moving_ = true;
             moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
             movePivot_ = node ? math::TransformPoint(node->ObjectMatrix(), gizmoEditing_.mod->CenterPoint()) : math::Vec3{0, 0, 0};
+            SetCapture(Hwnd());
+            onMoveBegin();
+        } else if (vertexEditing_.on && (vertexEditing_.tool == 1 || vertexEditing_.tool == 2) && onToolClick) {
+            // Create / Cut (10.9): the click goes to the tool, not to selection.
+            const EditedMeshView v = EditedView();
+            const double px = GET_X_LPARAM(lp) + 0.5, py = GET_Y_LPARAM(lp) + 0.5;
+            ToolClick c;
+            c.towards = OutOfScreen();
+            scene::ConstructionPlane plane;
+            double u = 0, w = 0, upp = 0;
+            if (PointOnPlane(GET_X_LPARAM(lp), GET_Y_LPARAM(lp), plane, u, w, upp)) { c.onPlane = true; c.point = plane.ToWorld(u, w); }
+            const int hv = view::PickNearestPoint(v.pixels, px, py, 4.0);
+            if (hv >= 0) c.vertex = static_cast<int>(v.vertexMap[static_cast<size_t>(hv)]);
+            const int he = view::PickNearestSegment(v.pixels, v.segs, px, py, 4.0);
+            if (he >= 0) {
+                const view::Point2 &a = v.pixels[v.segs[static_cast<size_t>(he)].a], &b = v.pixels[v.segs[static_cast<size_t>(he)].b];
+                const double dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+                c.edge = v.segEdge[static_cast<size_t>(he)];
+                c.t = len2 > 0 ? std::min(1.0, std::max(0.0, ((px - a.x) * dx + (py - a.y) * dy) / len2)) : 0.5;
+            }
+            onToolClick(c);
+        } else if (vertexEditing_.on && vertexEditing_.tool == 3 && transformTool_ && onMoveBegin && scene_) {
+            // Slice Plane (10.9): a transform tool drags the plane, from anywhere.
+            const scene::Node* node = scene_->FindById(vertexEditing_.node);
+            moving_ = true;
+            moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            movePivot_ = node ? math::TransformPoint(node->ObjectMatrix(), vertexEditing_.planePoint) : math::Vec3{0, 0, 0};
             SetCapture(Hwnd());
             onMoveBegin();
         } else if (vertexEditing_.on && vertexEditing_.weldTarget && vertexEditing_.level == 0 && onWeldTarget) {
