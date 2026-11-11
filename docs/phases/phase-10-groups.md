@@ -1,6 +1,7 @@
 # Phase 10 — Groups and the rest of list A
 
-Branch: `phase/10-groups` (from `main` after Phase 9).
+Branch: `phase/10-groups` (from `main` after Phase 9). ✔ Done: v0.10.0.
+Technical documentation: `docs/tech/phase10-tech-docs.md`.
 
 Phase 10 continues Phase 9's inventory (`docs/phases/phase-9-deferred.md`, list A) with the
 items still buildable without new R3.1 evidence.
@@ -36,7 +37,7 @@ items still buildable without new R3.1 evidence.
       from three vertices wound towards the viewer), Slice Plane (a plane Move and Rotate
       adjust) with Slice and Split, Cut (between two edges of a face, neighbours split too).
       Create Shape from Edges stays greyed: maxlike has no shapes
-- [ ] Wrap-up
+- [x] **10.10** Wrap-up: technical documentation, documentation sweep, v0.10.0
 
 ## Step 10.9 verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)

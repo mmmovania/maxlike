@@ -136,7 +136,7 @@ buildable now, needing R3.1 evidence, or separate subsystems; worked through in 
       (9.9); Tools > Mirror and Array, with mirrored objects drawn correctly (9.10).
 - [x] Wrap-up: `docs/tech/phase9-tech-docs.md`, documentation sweep, v0.9.0 (9.11).
 
-## Phase 10 — Groups and the rest of list A (`phase/10-groups`)
+## Phase 10 — Groups and the rest of list A (`phase/10-groups`) ✔ v0.10.0
 From Phase 9's inventory, still buildable without new evidence:
 - [x] The Group menu (Group, Ungroup, Open, Close, Explode, Detach, Attach): a hidden
       group helper its members are linked to; selection and picking through groups (10.1).
@@ -152,3 +152,4 @@ From Phase 9's inventory, still buildable without new evidence:
   Clone, Detach, Mirror, Array, Transform Type-In), Edit Mesh's look at sub-object levels,
   the Select By / Region / Grids submenus, the perspective grid's extent, Bend / Taper /
   Twist and Backface Cull in files, materials.
+- [x] Wrap-up: `docs/tech/phase10-tech-docs.md`, documentation sweep, v0.10.0 (10.10).
