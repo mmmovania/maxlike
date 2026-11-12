@@ -17,6 +17,12 @@ struct MaxTransform {
     math::Quat scaleAxis{};          // Max's scale axis; only identity is applied (see notes)
 };
 
+// A Position/Rotation/Scale controller's value (Bezier Position, TCB Rotation, Bezier
+// Scale; Max's quaternion convention converted), and a Bezier Position's (11.4: also a
+// modifier gizmo's and centre's). False if the controller is not of that kind.
+bool ReadPRSController(const MaxScene& s, int controller, MaxTransform& t, std::vector<std::string>& notes);
+bool ReadPositionController(const MaxScene& s, int controller, math::Vec3& p, std::vector<std::string>& notes);
+
 struct MaxNode {
     size_t index = 0;                // in the scene list
     std::string name;

@@ -333,6 +333,14 @@ BendModifier::BendModifier() {
 void BendModifier::Deform(Mesh& mesh) const {
     const double angle = params_.Float(kAngle) * kPi / 180;
     const Frame f = FrameFor(params_.Int(kAxis, 2));
+    // The bend plane's axes, with signs (11.4). Axis Z: a = X, b = Y (Phase 7, verified).
+    // Axis X: a = -Z, b = Y, measured: R3.1's bend.max (Angle 45, Direction 30, axis X)
+    // matches to 0.53 px on average in the Front view, where a = Y, b = Z was 86 px off.
+    // Axis Y: a = X, b = -Z, by the same rule (the bend frame turned onto the axis);
+    // NOTE: unverified, no sample bends about Y.
+    const int axis = params_.Int(kAxis, 2);
+    const int ia = axis == 0 ? 2 : axis == 1 ? 0 : f.a, ib = axis == 0 ? 1 : axis == 1 ? 2 : f.b;
+    const double sa = axis == 0 ? -1.0 : 1.0, sb = axis == 1 ? -1.0 : 1.0;
     const double L = Extent(mesh, f.h);
     if (std::fabs(angle) < 1e-12 || L <= 0) return;
     const double r = L / angle;
@@ -342,7 +350,7 @@ void BendModifier::Deform(Mesh& mesh) const {
     const double c = std::cos(dir), s = std::sin(dir);
     for (auto& v : mesh.verts) {
         // Turn the bend plane by Direction: work in (a', b') rotated about the axis.
-        const double a0 = Get(v, f.a), b0 = Get(v, f.b), h0 = Get(v, f.h);
+        const double a0 = sa * Get(v, ia), b0 = sb * Get(v, ib), h0 = Get(v, f.h);
         const double a = c * a0 + s * b0, b = -s * a0 + c * b0;
         double h = h0, extra = 0;
         if (limit) {
@@ -354,8 +362,8 @@ void BendModifier::Deform(Mesh& mesh) const {
         double nh = (r - a) * std::sin(phi);
         na += extra * std::sin(phi);      // straight on along the tangent
         nh += extra * std::cos(phi);
-        At(v, f.a) = c * na - s * b;
-        At(v, f.b) = s * na + c * b;
+        At(v, ia) = sa * (c * na - s * b);
+        At(v, ib) = sb * (s * na + c * b);
         At(v, f.h) = nh;
     }
     return;

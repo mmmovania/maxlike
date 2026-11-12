@@ -34,8 +34,9 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
       rectangle selection follows; Views > Grids: Show Home Grid ticked (the active view's
       grid), "Align To View", three items greyed; the open group's outline #FF7FB2
       (measured); the gizmo's yellow at Gizmo level confirmed
-- [ ] 11.4 Reading the new `.max` samples: Bend / Taper / Twist, gizmos, groups, Backface
-      Cull, materials
+- [x] **11.4a** Bend, Taper and Twist read from `.max` files (parameters, gizmo, centre);
+      Bend about X corrected (it bent the wrong way: found by comparing with R3.1)
+- [ ] 11.4b Groups, Backface Cull and materials from `.max` files
 - [ ] Wrap-up
 
 ## Still wanted from R3.1
@@ -43,6 +44,28 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
 - `bend.max` with the box selected in Modify, Sub-Object off (the object-level gizmo).
 - Menus opened with Alt+letter (underlines); a far Perspective view; each primitive's
   Creation Method and Keyboard Entry rollouts.
+
+## Step 11.4a verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_max_import`: each sample's whole stack (taper.max is Bend under Taper,
+      twist.max Bend and Taper under Twist: the samples were built on one another, only the
+      top modifier carrying the values entered) has the right types and parameters, and
+      evaluates exactly as the same stack built in maxlike. bend-gizmo.max's gizmo is read
+      at (9.768, 0.232, 0.5), turned 30 degrees about Y (as stored; it was dragged, so not
+      the +10 / Z planned), its centre at the origin
+- [x] Against R3.1 (r3.1-bend-gizmo-object.png): bend.max opened in maxlike matches R3's
+      Front view on all 345 rows of the bent box's outline, to 0 px. Before the correction
+      it was 86 px off on average: maxlike bent about X towards +Y, R3 towards -Z. The right
+      mapping was chosen by fitting all eight candidates to R3's outline (0.53 px for
+      a = -Z, b = Y; the next best 20.6 px), after calibrating the view on maxlike's render
+- [x] `test_modifiers`: Phase 7's axis-X expectation came from maxlike's own formula, not
+      from R3; it now expects the measured direction (-Z)
+- [x] Found: a passing test run used a stale binary (a link error stopped the build); the
+      binaries' times are now checked. Two expectations of mine were wrong (the stacked
+      samples; the axis left out of one expectation), not the importer
+- [ ] Unverified: Bend about Y (derived by the same rule, no sample); Taper and Twist about
+      X or Y (their samples use Z); a gizmo scale axis or a modifier context transform
+      other than identity (reported, not applied)
 
 ## Step 11.3 verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)
