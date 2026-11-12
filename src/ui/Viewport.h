@@ -69,6 +69,8 @@ public:
     }
     bool ShowGrid() const { return showGrid_; }
     void SetShowGrid(bool show);
+    // Edit > Region (11.3): Window picks only objects entirely inside the rectangle.
+    void SetRegionWindow(bool window) { regionWindow_ = window; }
 
     // Navigation (pure maths in view/Navigation.h).
     void Pan(int dx, int dy);
@@ -194,6 +196,7 @@ private:
     ViewType type_ = ViewType::Top;
     Shading shading_ = Shading::Wireframe;  // stored and shown; used once objects exist
     bool showGrid_ = true;
+    bool regionWindow_ = false;               // Crossing by default (r3.1-menu-region.png)
     view::OrthoView ortho_;              // what an ortho view shows (pan/zoom in step 2.5)
     view::PerspectiveView perspective_;  // the perspective camera (orbit in step 2.5)
     TextPixels label_;                   // the view's name, as pixels

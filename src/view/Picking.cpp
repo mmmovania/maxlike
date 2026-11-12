@@ -147,4 +147,17 @@ std::vector<int> PickSegmentsInRect(const std::vector<Point2>& p, const std::vec
     return out;
 }
 
+std::vector<int> PickRegionWindow(const std::vector<std::vector<Segment2>>& outlines, double x0, double y0, double x1, double y1) {
+    const double l = std::min(x0, x1), r = std::max(x0, x1), t = std::min(y0, y1), b = std::max(y0, y1);
+    auto inside = [&](double x, double y) { return x >= l && x <= r && y >= t && y <= b; };
+    std::vector<int> out;
+    for (size_t i = 0; i < outlines.size(); ++i) {
+        if (outlines[i].empty()) continue;
+        bool all = true;
+        for (const auto& s : outlines[i]) all = all && inside(s.x0, s.y0) && inside(s.x1, s.y1);
+        if (all) out.push_back(static_cast<int>(i));
+    }
+    return out;
+}
+
 } // namespace view

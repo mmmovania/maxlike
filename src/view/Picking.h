@@ -20,9 +20,11 @@ int PickNearest(const std::vector<std::vector<Segment2>>& outlines, double x, do
 int PickSurface(const std::vector<std::vector<Triangle2>>& surfaces, double x, double y);
 
 // Region selection, "crossing": every object with an edge inside or crossing the
-// rectangle. NOTE: R3's default (window or crossing) is unverified.
+// rectangle (R3.1's default: Edit > Region > Crossing is ticked, r3.1-menu-region.png).
 std::vector<int> PickRegion(const std::vector<std::vector<Segment2>>& outlines,
                             double x0, double y0, double x1, double y1);
+// "Window" (11.3): only objects lying entirely inside the rectangle (every outline point).
+std::vector<int> PickRegionWindow(const std::vector<std::vector<Segment2>>& outlines, double x0, double y0, double x1, double y1);
 
 // Points (sub-object vertices): the nearest within `tolerance` pixels, or -1; and all
 // points inside a rectangle (any drag direction). NOTE: R3's vertex pick tolerance is

@@ -39,6 +39,13 @@ int main() {
     CHECK(r.size() == 1 && r[0] == 0);
     r = PickRegion(objects, 80, 60, 40, 15);              // dragged up-left, crosses both
     CHECK(r.size() == 2);
+    // Window (11.3): only objects entirely inside; ones the rectangle merely crosses are not.
+    {
+        const auto w = PickRegionWindow(objects, -1000, -1000, 1000, 1000);
+        CHECK(w.size() == objects.size());
+        const auto c = PickRegion(objects, 80, 60, 40, 15), cw = PickRegionWindow(objects, 80, 60, 40, 15);
+        CHECK(c.size() == 2 && cw.size() == 1 && cw[0] == 1);   // object 1 lies inside; object 0 is only crossed
+    }
     r = PickRegion(objects, 20, 20, 30, 30);              // inside object 0's square, no edge
     CHECK(r.empty());
     r = PickRegion(objects, 0, 0, 200, 200);              // everything inside

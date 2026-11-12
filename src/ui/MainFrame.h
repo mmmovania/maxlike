@@ -141,6 +141,7 @@ private:
     // vertices clicked so far for a face, the first edge of a cut, and the slice plane
     // (object space). `lastEditing_` is what the views were last given.
     int editTool_ = 0;
+    bool regionWindow_ = false;                        // Edit > Region (11.3): Crossing by default
     std::vector<uint32_t> pendingFace_;
     long long cutEdge_ = -1;
     double cutT_ = 0;

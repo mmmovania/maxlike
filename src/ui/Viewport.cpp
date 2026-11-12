@@ -379,7 +379,7 @@ void Viewport::DrawGizmo(int w, int h) {
 }
 
 // An open group shows its members' bounding box (NOTE: pink in R3, from memory; drawn
-// here as the box's twelve edges in #FF80FF).
+// here as the box's twelve edges in #FF7FB2, measured in 11.3 from r3.1-group-open.png).
 void Viewport::DrawOpenGroups(int w, int h) {
     std::vector<gl::LineRenderer::Line> lines;
     for (const auto& node : scene_->Nodes()) {
@@ -401,7 +401,7 @@ void Viewport::DrawOpenGroups(int w, int h) {
                     lines.push_back({static_cast<float>(px[c].x), static_cast<float>(px[c].y), 0.0f,
                                      static_cast<float>(px[c | k].x), static_cast<float>(px[c | k].y), 0.0f});
     }
-    if (!lines.empty()) lines_->Draw(lines, math::PixelToClip(w, h), 1.0f, 0.5f, 1.0f);
+    if (!lines.empty()) lines_->Draw(lines, math::PixelToClip(w, h), 1.0f, 127.0f / 255.0f, 178.0f / 255.0f);   // #FF7FB2, measured (r3.1-group-open.png)
 }
 
 // The axes at the selection's pivot (one object: its pivot; several: the average of
@@ -848,7 +848,9 @@ std::vector<scene::Node::Id> Viewport::PickRect(int x0, int y0, int x1, int y1) 
     std::vector<std::vector<view::Segment2>> outlines;
     CollectPickData(ids, outlines, nullptr);
     std::vector<scene::Node::Id> out;
-    for (int i : view::PickRegion(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5)) out.push_back(ids[static_cast<size_t>(i)]);
+    const auto picked = regionWindow_ ? view::PickRegionWindow(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5)
+                                      : view::PickRegion(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5);
+    for (int i : picked) out.push_back(ids[static_cast<size_t>(i)]);
     return out;
 }
 

@@ -1879,6 +1879,16 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "views.update_during_spinner_drag") { updateDuringSpinnerDrag_ = !updateDuringSpinnerDrag_; return; }
+    if (command == "edit.region_window" || command == "edit.region_crossing") {      // 11.3
+        regionWindow_ = command == "edit.region_window";
+        viewports_.SetRegionWindow(regionWindow_);
+        return;
+    }
+    if (command == "views.grid_show_home") {                                           // the active view's grid
+        viewports_.ActiveView().SetShowGrid(!viewports_.ActiveView().ShowGrid());
+        viewports_.Redraw();
+        return;
+    }
     if (command == "views.save_active" || command == "views.restore_active") {
         ui::Viewport& v = viewports_.ActiveView();
         SavedView& saved = savedViews_[static_cast<int>(v.Type())];
@@ -1981,6 +1991,9 @@ void MainFrame::UpdateMenu(HMENU menu) {
             ModifyMenuW(menu, id, MF_BYCOMMAND | MF_STRING | (ui::MenuItemEnabled(c, state) ? MF_ENABLED : MF_GRAYED), id, text.c_str());
         }
         if (c == "views.show_gizmo") CheckMenuItem(menu, id, MF_BYCOMMAND | (showGizmo_ ? MF_CHECKED : MF_UNCHECKED));
+        if (c == "edit.region_window") CheckMenuItem(menu, id, MF_BYCOMMAND | (regionWindow_ ? MF_CHECKED : MF_UNCHECKED));
+        if (c == "edit.region_crossing") CheckMenuItem(menu, id, MF_BYCOMMAND | (regionWindow_ ? MF_UNCHECKED : MF_CHECKED));
+        if (c == "views.grid_show_home") CheckMenuItem(menu, id, MF_BYCOMMAND | (viewports_.ActiveView().ShowGrid() ? MF_CHECKED : MF_UNCHECKED));
         if (c == "views.update_during_spinner_drag") CheckMenuItem(menu, id, MF_BYCOMMAND | (updateDuringSpinnerDrag_ ? MF_CHECKED : MF_UNCHECKED));
     }
 }

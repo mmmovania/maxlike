@@ -30,8 +30,10 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
       layout, Mirror IK Limits), Align (positions along the reference system, Apply), Array
       (R3's layout: Totals, Re-Orient, Uniform, Total in Array, Reset All Parameters); the
       system's name as R3 shows it (View: Screen in orthographic views)
-- [ ] 11.3 Menus and displays: Region's check marks, the Grids items, the open group's
-      colour, the gizmo's colours
+- [x] **11.3** Edit > Region: Window and Crossing as check items (Crossing by default) that
+      rectangle selection follows; Views > Grids: Show Home Grid ticked (the active view's
+      grid), "Align To View", three items greyed; the open group's outline #FF7FB2
+      (measured); the gizmo's yellow at Gizmo level confirmed
 - [ ] 11.4 Reading the new `.max` samples: Bend / Taper / Twist, gizmos, groups, Backface
       Cull, materials
 - [ ] Wrap-up
@@ -41,6 +43,23 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
 - `bend.max` with the box selected in Modify, Sub-Object off (the object-level gizmo).
 - Menus opened with Alt+letter (underlines); a far Perspective view; each primitive's
   Creation Method and Keyboard Entry rollouts.
+
+## Step 11.3 verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_picking`: Window picks only objects entirely inside (the rectangle that crosses
+      two squares picks the one it contains, not the one it cuts). `test_menu_spec`: the
+      greyed set gains the three Grids items (r3.1-menu-grids.png; that submenu was closed
+      in 9.2's screenshots)
+- [x] Under Wine on `instances.max`: a rectangle enclosing two boxes and cutting a third
+      selects 3 in Crossing, 2 after Edit > Region > Window. Group, Group > Open: the
+      outline is drawn in #FF7FB2 (1,678 px across the seven boxes), none in the old colour
+- [x] Measured: open group outline (255, 127, 178), a full box around the members (was
+      #FF80FF from memory); the gizmo lattice at Gizmo level (255, 255, 0), as built
+- [x] Found: my first Window test expected nothing picked, but one square lies entirely
+      inside that rectangle; the corrected test distinguishes contained from crossed
+- [ ] On Windows: the Region ticks; Show Home Grid per view
+- [ ] Unverified: the gizmo's colour at object level (the screenshot shows the box
+      unselected); Select By matched already
 
 ## Step 11.2b verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)
