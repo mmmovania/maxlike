@@ -19,6 +19,7 @@ public:
     std::function<bool()> creationActive;
     std::function<bool(scene::Creator::Event, int, const scene::ConstructionPlane&, double, double, int, double)> onCreateEvent;
     std::function<bool()> onCreateCancel;
+    std::function<void()> onCreateExit;
     std::function<void(const std::vector<scene::Node::Id>&, bool, bool, bool)> onSelect;
     std::function<void()> onDeleteKey;
     std::function<void()> onMoveBegin;
@@ -33,6 +34,7 @@ public:
     void SetScene(const scene::Scene* scene) { for (auto& v : views_) v.SetScene(scene); }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) { for (auto& v : views_) v.SetAxesDisplay(style, active); }
     void SetTransformTool(bool on) { for (auto& v : views_) v.SetTransformTool(on); }
+    void SetToolKind(int kind) { for (auto& v : views_) v.SetToolKind(kind); }
     void SetReferenceSystem(scene::move::RefCoord s, int centre) { for (auto& v : views_) v.SetReferenceSystem(s, centre); }
     void SetGizmoEditing(const Viewport::GizmoEditing& g) { for (auto& v : views_) v.SetGizmoEditing(g); }
     void SetVertexEditing(const Viewport::VertexEditing& e) { for (auto& v : views_) v.SetVertexEditing(e); }

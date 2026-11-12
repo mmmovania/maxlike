@@ -1,3 +1,4 @@
+#include "win/PaintBuffer.h"
 #include "ui/MainFrame.h"
 #include "scene/SoftSelection.h"
 #include "scene/Groups.h"
@@ -107,6 +108,7 @@ void MainFrame::UpdateTransformDisplay() {
     UpdateTypeIn();
     viewports_.SetAxesDisplay(tool_ != Tool::Select && showGizmo_ ? view::AxesStyle::MoveGizmo : view::AxesStyle::Tripod, constraint_);
     viewports_.SetTransformTool(tool_ != Tool::Select);
+    viewports_.SetToolKind(tool_ == Tool::Move ? 1 : tool_ == Tool::Rotate ? 2 : tool_ == Tool::Scale ? 3 : 0);
     if (commandPanel_.CreateType() >= 0) return;   // creation keeps its own prompt
     const wchar_t* prompt = L"Click or click-and-drag to select objects";
     if (tool_ == Tool::Move) prompt = L"Click and drag to select and move objects";
@@ -720,6 +722,11 @@ bool MainFrame::CreateRegions() {
         viewports_.Redraw();
         return true;
     };
+    viewports_.onCreateExit = [this] {                // right-click: creation mode ends (12.2)
+        commandPanel_.SetCreateType(-1);
+        if (commandPanel_.onCreateTypeChanged) commandPanel_.onCreateTypeChanged(-1);
+        UpdateTransformDisplay();
+    };
     viewports_.onCreateCancel = [this] {
         if (!creation_.Cancel()) return false;
         UpdateCreatePanel();
@@ -1174,6 +1181,7 @@ bool MainFrame::CreateRegions() {
     };
     // Moving: a live preview from the starting positions, then one "Move" undo step.
     viewports_.onMoveBegin = [this] {
+        viewports_.ActiveView().EffectiveConstraint(dragConstraint_);   // the gizmo part pressed, or the toolbar's (12.2)
         moving_.clear();
         if (editTool_ == 3 && VertexEditingMod()) {
             scene::Node* node = nullptr;
@@ -1255,7 +1263,7 @@ bool MainFrame::CreateRegions() {
                 slicePoint_ = planeMove_.point + (math::TransformPoint(inv, delta) - math::TransformPoint(inv, {0, 0, 0}));
                 ShowCoordinates(delta);
             } else if (tool_ == Tool::Rotate) {
-                const int axis = scene::move::RotationAxis(constraint_);
+                const int axis = scene::move::RotationAxis(dragConstraint_);
                 const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);
                 const math::Quat& o = planeMove_.objectRotation;
                 sliceNormal_ = math::Normalize((math::Quat{-o.x, -o.y, -o.z, o.w} * turn * o).Rotate(planeMove_.normal));
@@ -1281,7 +1289,7 @@ bool MainFrame::CreateRegions() {
                 }
                 ShowCoordinates(delta);
             } else if (subLevel_ == 0 && tool_ == Tool::Rotate) {
-                const int axis = scene::move::RotationAxis(constraint_);
+                const int axis = scene::move::RotationAxis(dragConstraint_);
                 const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);
                 const math::Quat& o = gizmoMove_.objectRotation;
                 const math::Quat q = math::Quat{-o.x, -o.y, -o.z, o.w} * turn * o;        // the turn in object space
@@ -1290,7 +1298,7 @@ bool MainFrame::CreateRegions() {
                 g.transform.rotation = (q * g.transform.rotation).Normalized();
                 ShowCoordinates(scene::move::RotationDegrees(axis, up));
             } else if (subLevel_ == 0 && tool_ == Tool::Scale) {
-                const math::Vec3 f = scene::move::DragScale(scaleMode_, constraint_, up);
+                const math::Vec3 f = scene::move::DragScale(scaleMode_, dragConstraint_, up);
                 g.transform.scale = {g.transform.scale.x * f.x, g.transform.scale.y * f.y, g.transform.scale.z * f.z};
                 ShowCoordinates(scene::move::ScalePercent(f));
             }
@@ -1318,11 +1326,11 @@ bool MainFrame::CreateRegions() {
                 const math::Vec3& c = vertexMove_.centre;
                 math::Mat4 change;
                 if (tool_ == Tool::Rotate) {
-                    const int axis = scene::move::RotationAxis(constraint_);
+                    const int axis = scene::move::RotationAxis(dragConstraint_);
                     change = math::Translation(c) * scene::move::DragRotationInFrame(axis, up, dragFrame_).ToMat4() * math::Translation(c * -1.0);
                     ShowCoordinates(scene::move::RotationDegrees(axis, up));
                 } else {
-                    const math::Vec3 f = scene::move::DragScale(scaleMode_, constraint_, up);
+                    const math::Vec3 f = scene::move::DragScale(scaleMode_, dragConstraint_, up);
                     const double s[3] = {f.x, f.y, f.z};
                     change = math::Translation(c) * scene::tools::FrameScale(dragFrame_, s) * math::Translation(c * -1.0);
                     ShowCoordinates(scene::move::ScalePercent(f));
@@ -1334,9 +1342,9 @@ bool MainFrame::CreateRegions() {
             viewports_.Redraw();
             return;
         }
-        const int axis = scene::move::RotationAxis(constraint_);
+        const int axis = scene::move::RotationAxis(dragConstraint_);
         const math::Quat turn = scene::move::DragRotationInFrame(axis, up, dragFrame_);   // about the frame's axis (9.9)
-        const math::Vec3 factors = scene::move::DragScale(scaleMode_, constraint_, up);
+        const math::Vec3 factors = scene::move::DragScale(scaleMode_, dragConstraint_, up);
         if (tool_ == Tool::Move) ShowCoordinates(delta);
         if (tool_ == Tool::Rotate) ShowCoordinates(scene::move::RotationDegrees(axis, up));
         if (tool_ == Tool::Scale) ShowCoordinates(scene::move::ScalePercent(factors));
@@ -2043,9 +2051,9 @@ void MainFrame::UpdateEditMenu(HMENU menu) {
 void MainFrame::OnPaint() {
     // Only the gaps between regions are visible here; WS_CLIPCHILDREN keeps
     // this fill from painting over the child windows.
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(Hwnd(), &ps);
-    FillRect(dc, &ps.rcPaint, theme::FaceBrush());
+    win::PaintBuffer paint(Hwnd());                       // flicker-free (12.1)
+    HDC dc = paint.Dc();
+    FillRect(dc, &paint.Ps().rcPaint, theme::FaceBrush());
 
     // The frame around the tab panel and toolbar starts in the gap above the tab
     // panel (measured, rows 1..3): a white top-left corner and the two edge columns.
@@ -2058,7 +2066,6 @@ void MainFrame::OnPaint() {
         FillSolid(dc, {0, 1, 1, gap}, hi);
         FillSolid(dc, {rc.right - 2, 1, rc.right - 1, gap}, theme::kButtonShadow.Ref());
     }
-    EndPaint(Hwnd(), &ps);
 }
 
 LRESULT MainFrame::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {

@@ -1,3 +1,4 @@
+#include "win/PaintBuffer.h"
 #include "ui/ViewPanel.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
@@ -48,6 +49,7 @@ bool ViewPanel::Create(HWND parent) {
             return onCreateEvent && onCreateEvent(e, owner, p, u, vv, y, upp);
         };
         v.onCreateCancel = [this] { return onCreateCancel && onCreateCancel(); };
+        v.onCreateExit = [this] { if (onCreateExit) onCreateExit(); };
         v.onSelect = [this](const std::vector<scene::Node::Id>& ids, bool region, bool ctrl, bool alt) {
             if (onSelect) onSelect(ids, region, ctrl, alt);
         };
@@ -130,8 +132,8 @@ int ViewPanel::DividerAt(int x, int y) const {
 // others, then a 1-px #C0C0C0 ring. Inactive frames first, the active one last, so
 // its colour wins on the shared line.
 void ViewPanel::OnPaint() {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(Hwnd(), &ps);
+    win::PaintBuffer paint(Hwnd());                       // flicker-free (12.1)
+    HDC dc = paint.Dc();
     RECT rc;
     GetClientRect(Hwnd(), &rc);
 
@@ -152,7 +154,6 @@ void ViewPanel::OnPaint() {
     for (int i = 0; i < viewports::kCount; ++i)
         if (i != active_ && layout_.view[i].outer.Width() > 0) frame(i);
     frame(HasMaximizedView() ? arrangement_.maximized : active_);
-    EndPaint(Hwnd(), &ps);
 }
 
 LRESULT ViewPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {

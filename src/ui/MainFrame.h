@@ -63,6 +63,7 @@ private:
     Tool tool_ = Tool::Select;
     scene::move::ScaleMode scaleMode_ = scene::move::ScaleMode::Uniform;
     bool constraint_[3] = {true, true, false};
+    bool dragConstraint_[3] = {true, true, false};    // 12.2: this drag's (the gizmo part pressed, or the toolbar's)
     void UpdateTransformDisplay();
     void ShowCoordinates(const math::Vec3& v);       // the status bar's X/Y/Z, three decimals
     // A move in progress: each moved node's starting transform, world position and

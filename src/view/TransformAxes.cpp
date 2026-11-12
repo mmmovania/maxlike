@@ -115,4 +115,30 @@ std::vector<ColoredPixel> TransformAxesPixels(AxesStyle style, const double s[3]
     return out;
 }
 
+int GizmoPartAt(const double s[3][2], int ox, int oy, double mx, double my) {
+    double dx[3], dy[3], len[3];
+    for (int a = 0; a < 3; ++a) { dx[a] = s[a][0]; dy[a] = -s[a][1]; len[a] = std::hypot(dx[a], dy[a]); }
+    const double px = mx - ox, py = my - oy;
+    // Planes first: their squares do not overlap the axes, and they are the smaller target.
+    for (int a = 0; a < 3; ++a)
+        for (int b = a + 1; b < 3; ++b) {
+            if (len[a] < 0.1 || len[b] < 0.1) continue;
+            const double det = dx[a] * dy[b] - dx[b] * dy[a];
+            if (std::fabs(det) < 1e-6) continue;                       // the two axes overlap on screen
+            const double sa = (px * dy[b] - py * dx[b]) / det, sb = (dx[a] * py - dy[a] * px) / det;
+            if (sa >= 84 - 17 / len[a] && sa <= 84 && sb >= 84 - 17 / len[b] && sb <= 84) return (1 << a) | (1 << b);
+        }
+    int best = 0;
+    double bestD = 4.0;
+    for (int a = 0; a < 3; ++a) {
+        if (len[a] < 0.1) continue;
+        const double x0 = 17 * dx[a], y0 = 17 * dy[a], x1 = 84.5 * dx[a], y1 = 84.5 * dy[a];
+        const double vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy;
+        const double t = l2 > 0 ? std::max(0.0, std::min(1.0, ((px - x0) * vx + (py - y0) * vy) / l2)) : 0;
+        const double d = std::hypot(px - (x0 + t * vx), py - (y0 + t * vy));
+        if (d <= bestD) { bestD = d; best = 1 << a; }
+    }
+    return best;
+}
+
 } // namespace view

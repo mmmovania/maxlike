@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "ui/Viewport.h"
+#include "ui/Cursors.h"
 #include "scene/SoftSelection.h"
 #include "scene/Groups.h"
 #include "scene/TypeIn.h"
@@ -405,6 +406,29 @@ void Viewport::DrawOpenGroups(int w, int h) {
     if (!lines.empty()) lines_->Draw(lines, math::PixelToClip(w, h), 1.0f, 127.0f / 255.0f, 178.0f / 255.0f);   // #FF7FB2, measured (r3.1-group-open.png)
 }
 
+// ---- The Move gizmo under the mouse (Phase 12.2) -----------------------------------------
+
+void Viewport::EffectiveConstraint(bool out[3]) const {
+    const int mask = moving_ ? dragMask_ : hoverMask_;
+    for (int a = 0; a < 3; ++a) out[a] = mask ? (mask & (1 << a)) != 0 : axesActive_[a];
+}
+
+bool Viewport::GizmoScreen(double axes[3][2], int& ox, int& oy) const {
+    if (!scene_ || scene_->Selection().empty() || axesStyle_ != view::AxesStyle::MoveGizmo) return false;
+    double px = 0, py = 0, depth = 0;
+    if (!WorldToWindow(TransformCenter(), px, py, depth)) return false;
+    const scene::move::Frame frame = CurrentFrame();       // as DrawTransformAxes
+    math::Vec3 right, up;
+    OrthoBasis(right, up);
+    for (int a = 0; a < 3; ++a) {
+        axes[a][0] = math::Dot(frame.axis[a], right);
+        axes[a][1] = math::Dot(frame.axis[a], up);
+    }
+    ox = static_cast<int>(std::floor(px));
+    oy = static_cast<int>(std::floor(py));
+    return true;
+}
+
 // The axes at the selection's pivot (one object: its pivot; several: the average of
 // their pivots; NOTE: R3's choice for several objects is unverified). The Move gizmo
 // shows the world axes, the tripod the object's own axes (measured, step 6.4a).
@@ -443,8 +467,10 @@ void Viewport::DrawTransformAxes(int w, int h) {
             axes[a][1] = d.x * world[0][1] + d.y * world[1][1] + d.z * world[2][1];
         }
     }
+    bool active[3];
+    EffectiveConstraint(active);                           // a hovered gizmo part shows yellow (12.2)
     const auto pixels = view::TransformAxesPixels(axesStyle_, axes, static_cast<int>(std::floor(px)),
-                                                  static_cast<int>(std::floor(py)), axesActive_);
+                                                  static_cast<int>(std::floor(py)), active);
     // Group by colour, in order, so later pixels still cover earlier ones.
     std::vector<float> run;
     uint32_t colour = pixels.empty() ? 0 : pixels.front().rgb;
@@ -729,10 +755,12 @@ math::Vec3 Viewport::MoveDelta(int x, int y) const {
     const scene::move::Frame frame = CurrentFrame();
     math::Vec3 o0, d0, o1, d1;
     if (!MouseRay(moveStart_.x, moveStart_.y, o0, d0) || !MouseRay(x, y, o1, d1)) return {0, 0, 0};
-    if (type_ != ViewType::Perspective) return scene::move::ConstrainInFrame(o1 - o0, axesActive_, frame);
+    bool active[3];
+    EffectiveConstraint(active);
+    if (type_ != ViewType::Perspective) return scene::move::ConstrainInFrame(o1 - o0, active, frame);
     math::Vec3 n, h0, h1;
     const math::Vec3 forward = math::Normalize(perspective_.target - perspective_.Eye());
-    if (!scene::move::DragPlaneNormalInFrame(axesActive_, forward, frame, n)) n = forward;   // all axes: the view plane
+    if (!scene::move::DragPlaneNormalInFrame(active, forward, frame, n)) n = forward;   // all axes: the view plane
     if (!scene::move::RayPlane(o0, d0, movePivot_, n, h0) || !scene::move::RayPlane(o1, d1, movePivot_, n, h1))
         return {0, 0, 0};
     return scene::move::ConstrainInFrame(h1 - h0, axesActive_, frame);
@@ -1214,11 +1242,20 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
                 regionVisible_ = false;
                 SetCapture(Hwnd());
             }
+        } else if (onSelect && transformTool_ && hoverMask_ != 0 && !scene_->Selection().empty()) {
+            // On the Move gizmo (12.2): drag the selection, constrained to the part pressed.
+            dragMask_ = hoverMask_;
+            moving_ = true;
+            moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            movePivot_ = TransformCenter();
+            SetCapture(Hwnd());
+            if (onMoveBegin) onMoveBegin();
         } else if (onSelect && transformTool_ && PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) != 0) {
             // Select and Move / Rotate / Scale on an object: select it if needed, then drag
             // the selection.
             const scene::Node::Id id = PickAt(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
             if (!scene_->IsSelected(id)) onSelect({id}, false, (wp & MK_CONTROL) != 0, false);
+            dragMask_ = 0;                       // the toolbar constraint
             moving_ = true;
             moveStart_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
             movePivot_ = TransformCenter();      // the drag plane through the transform centre (9.9)
@@ -1253,6 +1290,18 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             const bool moved = std::abs(dragLast_.x - dragStart_.x) > 2 || std::abs(dragLast_.y - dragStart_.y) > 2;
             if (moved || regionVisible_) { regionVisible_ = true; InvalidateRect(Hwnd(), nullptr, FALSE); }
             return 0;
+        }
+        // The Move gizmo's part under the mouse (12.2): highlighted, and taken by a drag.
+        if (drag_ == NavMode::None && !creatingDrag_ && !(creationActive && creationActive())) {
+            int part = 0;
+            double ax[3][2];
+            int ox = 0, oy = 0;
+            if (transformTool_ && GizmoScreen(ax, ox, oy)) part = view::GizmoPartAt(ax, ox, oy, GET_X_LPARAM(lp) + 0.5, GET_Y_LPARAM(lp) + 0.5);
+            if (part != hoverMask_) { hoverMask_ = part; InvalidateRect(Hwnd(), nullptr, FALSE); }
+            if (!trackingLeave_) {
+                TRACKMOUSEEVENT t{sizeof(t), TME_LEAVE, Hwnd(), 0};
+                trackingLeave_ = TrackMouseEvent(&t) != FALSE;
+            }
         }
         // The status bar's X/Y/Z follow the cursor when nothing is being dragged.
         if (onCursorWorld && drag_ == NavMode::None && !selecting_ && !creatingDrag_) {
@@ -1357,6 +1406,10 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
     case WM_KEYDOWN:
         if (wp == VK_DELETE && onDeleteKey) { onDeleteKey(); return 0; }
         break;
+    case WM_MOUSELEAVE:
+        trackingLeave_ = false;
+        if (hoverMask_ && !moving_) { hoverMask_ = 0; InvalidateRect(Hwnd(), nullptr, FALSE); }
+        return 0;
     case WM_MOUSEWHEEL:
         // One notch = 120 units of wheel delta.
         Zoom(view::ZoomFactorForWheel(GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA));
@@ -1367,6 +1420,14 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             if (mode != NavMode::None) { SetCursor(CursorFor(mode)); return TRUE; }
             // Creating: a cross-hair (NOTE: R3's creation cursor is unverified).
             if (creationActive && creationActive()) { SetCursor(LoadCursorW(nullptr, IDC_CROSS)); return TRUE; }
+            // Over the gizmo or an object (12.2): the tool's cursor (NOTE: R3's cursors drawn
+            // from memory; Move is the four-way arrow).
+            if (scene_ && onSelect) {
+                POINT pt;
+                GetCursorPos(&pt);
+                ScreenToClient(Hwnd(), &pt);
+                if (moving_ || hoverMask_ || PickAt(pt.x, pt.y) != 0) { SetCursor(cursors::ForTool(toolKind_)); return TRUE; }
+            }
         }
         break;
     case WM_RBUTTONDOWN:
@@ -1382,6 +1443,8 @@ LRESULT Viewport::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         }
         // While building an object, right-click cancels it.
         if (onCreateCancel && onCreateCancel()) return 0;
+        // Otherwise, in creation mode, right-click ends it (12.2; as in R3).
+        if (creationActive && creationActive() && onCreateExit) { onCreateExit(); return 0; }
         // In a navigation mode, right-click leaves the mode (as in R3).
         if (navMode && navMode() != NavMode::None) {
             if (onExitMode) onExitMode();

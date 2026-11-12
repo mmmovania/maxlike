@@ -1,3 +1,4 @@
+#include "win/PaintBuffer.h"
 #include "ui/CommandPanel.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
@@ -1096,8 +1097,8 @@ void CommandPanel::PaintTabs(HDC dc) {
 }
 
 void CommandPanel::OnPaint() {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(Hwnd(), &ps);
+    win::PaintBuffer paint(Hwnd());                       // flicker-free (12.1)
+    HDC dc = paint.Dc();
     RECT rc;
     GetClientRect(Hwnd(), &rc);
     FillSolid(dc, rc, theme::Face());
@@ -1110,7 +1111,6 @@ void CommandPanel::OnPaint() {
         NameColorBoxes(f, w);
         PaintNameColorBoxes(dc, f, w);
     }
-    EndPaint(Hwnd(), &ps);
 }
 
 LRESULT CommandPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {

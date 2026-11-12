@@ -30,6 +30,12 @@ enum class AxesStyle { Tripod, MoveGizmo };
 std::vector<ColoredPixel> TransformAxesPixels(AxesStyle style, const double screenAxes[3][2],
                                               int originX, int originY, const bool active[3]);
 
+// The Move gizmo's part under the mouse (Phase 12.2), as an axis mask (1 X, 2 Y, 4 Z): an
+// axis within 4 px of its shaft or arrowhead (17 to 84.5 along it), or a plane (two bits)
+// inside its corner square (84 px along both axes, 17-px arms). 0: none. Uses exactly the
+// geometry TransformAxesPixels draws; axes pointing at the viewer are never hit.
+int GizmoPartAt(const double screenAxes[3][2], int originX, int originY, double mouseX, double mouseY);
+
 inline constexpr uint32_t kTripodActive = 0xC82323, kTripodInactive = 0x666666;
 inline constexpr uint32_t kGizmoActive = 0xFFFF00;
 inline constexpr uint32_t kAxisColor[3] = {0xFF0000, 0x00FF00, 0x0000FF};

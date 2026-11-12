@@ -1,3 +1,4 @@
+#include "win/PaintBuffer.h"
 #include "ui/StatusBar.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
@@ -182,8 +183,8 @@ void StatusBar::PaintLock(HDC dc, const Rect& r) {
 }
 
 void StatusBar::OnPaint() {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(Hwnd(), &ps);
+    win::PaintBuffer paint(Hwnd());                       // flicker-free (12.1)
+    HDC dc = paint.Dc();
     RECT rc;
     GetClientRect(Hwnd(), &rc);
     FillSolid(dc, rc, theme::Face());
@@ -208,7 +209,6 @@ void StatusBar::OnPaint() {
     PaintField(dc, layout_.timeTag, L"");   // Time Tag (empty until tags exist)
     PaintLock(dc, layout_.lock);
     SelectObject(dc, oldFont);
-    EndPaint(Hwnd(), &ps);
 }
 
 // ---- messages --------------------------------------------------------------

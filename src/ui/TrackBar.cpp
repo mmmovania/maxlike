@@ -1,3 +1,4 @@
+#include "win/PaintBuffer.h"
 #include "ui/TrackBar.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
@@ -30,8 +31,8 @@ void TrackBar::SetFrame(int frame) {
 // 14 white, 15 shadow. The last column stays #E1E1E1, like the time slider trough.
 // Marker (measured at frame 0, unverified meaning): a "[" in #1E1E1E spanning the band.
 void TrackBar::OnPaint() {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(Hwnd(), &ps);
+    win::PaintBuffer paint(Hwnd());                       // flicker-free (12.1)
+    HDC dc = paint.Dc();
     RECT rc;
     GetClientRect(Hwnd(), &rc);
     const int w = rc.right, h = rc.bottom;
@@ -52,7 +53,6 @@ void TrackBar::OnPaint() {
         FillSolid(dc, {x + 1, 3, x + 2, 4}, ink);         // top serif
         FillSolid(dc, {x + 1, h - 3, x + 2, h - 2}, ink); // bottom serif
     }
-    EndPaint(Hwnd(), &ps);
 }
 
 LRESULT TrackBar::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {

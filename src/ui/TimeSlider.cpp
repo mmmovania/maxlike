@@ -1,3 +1,4 @@
+#include "win/PaintBuffer.h"
 #include "ui/TimeSlider.h"
 #include "ui/Bevel.h"
 #include "ui/Theme.h"
@@ -107,8 +108,8 @@ void TimeSlider::PaintThumb(HDC dc, const Rect& r) {
 }
 
 void TimeSlider::OnPaint() {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(Hwnd(), &ps);
+    win::PaintBuffer paint(Hwnd());                       // flicker-free (12.1)
+    HDC dc = paint.Dc();
     RECT rc;
     GetClientRect(Hwnd(), &rc);
     FillSolid(dc, rc, theme::kSliderTrough.Ref());
@@ -120,7 +121,6 @@ void TimeSlider::OnPaint() {
     PaintThumb(dc, p.thumb);
     PaintArrow(dc, p.next, false, pressed_ == Part::Next);
     SelectObject(dc, oldFont);
-    EndPaint(Hwnd(), &ps);
 }
 
 // ---- input -----------------------------------------------------------------

@@ -74,6 +74,7 @@ add_executable(maxlike WIN32
     src/ui/ViewportLayout.cpp
     src/ui/ViewportLayout.h
     src/ui/Viewport.cpp
+    src/ui/Cursors.cpp
     src/ui/Viewport.h
     src/ui/ViewPanel.cpp
     src/ui/ViewPanel.h

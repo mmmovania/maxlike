@@ -37,6 +37,7 @@ public:
     std::function<bool()> creationActive;
     std::function<bool(scene::Creator::Event, int owner, const scene::ConstructionPlane&,
                        double u, double v, int screenY, double unitsPerPixel)> onCreateEvent;
+    std::function<void()> onCreateExit;          // 12.2: right-click with nothing being built ends creation
     std::function<bool()> onCreateCancel;        // right-click while building
     // Selection (Phase 6): a click (one id or none) or a region (any number), with the
     // Ctrl / Alt keys; and the Delete key.
@@ -150,6 +151,11 @@ public:
     }
     math::Vec3 TransformCenter() const;
     void SetTransformTool(bool on) { transformTool_ = on; }
+    // 12.2: which tool (0 Select, 1 Move, 2 Rotate, 3 Scale), for the cursor.
+    void SetToolKind(int kind) { toolKind_ = kind; }
+    // The constraint in effect: the gizmo part under the mouse (or, while dragging, the one
+    // the drag began on), else the toolbar's.
+    void EffectiveConstraint(bool out[3]) const;
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
         axesStyle_ = style;
         for (int i = 0; i < 3; ++i) axesActive_[i] = active[i];
@@ -252,6 +258,11 @@ private:
     void DrawTransformAxes(int width, int height);
     view::AxesStyle axesStyle_ = view::AxesStyle::Tripod;
     bool axesActive_[3] = {true, true, false};   // R3's default constraint: XY
+    int hoverMask_ = 0, dragMask_ = 0;            // 12.2: the gizmo part hovered / dragged (1 X, 2 Y, 4 Z)
+    int toolKind_ = 0;
+    bool trackingLeave_ = false;
+    // The Move gizmo on screen: each axis's (right, up) direction and the pivot's pixel.
+    bool GizmoScreen(double axes[3][2], int& ox, int& oy) const;
     int index_ = 0;                      // which viewport this is (creation owner)
     bool CreateEvent(scene::Creator::Event e, LPARAM lp);
     UINT labelDpi_ = 0;                  // DPI the label was rendered for

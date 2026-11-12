@@ -1,3 +1,4 @@
+#include "win/PaintBuffer.h"
 #include "ui/TabPanel.h"
 #include "ui/Bevel.h"
 #include "ui/TabStrip.h"
@@ -64,8 +65,8 @@ void TabPanel::PaintTab(HDC dc, int index, int h) {
 }
 
 void TabPanel::OnPaint() {
-    PAINTSTRUCT ps;
-    HDC dc = BeginPaint(Hwnd(), &ps);
+    win::PaintBuffer paint(Hwnd());                       // flicker-free (12.1)
+    HDC dc = paint.Dc();
 
     RECT rc;
     GetClientRect(Hwnd(), &rc);
@@ -87,7 +88,6 @@ void TabPanel::OnPaint() {
         FillSolid(dc, {tabsEnd, rc.bottom - 1, rc.right - 4, rc.bottom}, theme::kTabHighlight.Ref());
     SelectObject(dc, oldFont);
 
-    EndPaint(Hwnd(), &ps);
 }
 
 LRESULT TabPanel::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
