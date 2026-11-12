@@ -1,4 +1,5 @@
 #pragma once
+#include "scene/MoveMath.h"
 #include "scene/Scene.h"
 
 // Tools > Transform Type-In (Phase 9.8): exact values for Move, Rotate and Scale.
@@ -18,5 +19,8 @@ math::Quat WorldRotation(const Node& node);
 math::Vec3 Absolute(Tool tool, const Node& node);
 PRS WithAbsolute(Tool tool, Node& node, const math::Vec3& value);
 PRS WithOffset(Tool tool, Node& node, const math::Vec3& offset, const math::Vec3& pivot);
+// 11.2b: offsets in a frame's axes (R3's "Offset:Screen": the view's screen axes). Move
+// along the frame's axes; Rotate by the same Euler angles about the frame's axes.
+PRS WithOffset(Tool tool, Node& node, const math::Vec3& offset, const math::Vec3& pivot, const move::Frame& frame);
 
 } // namespace scene::typein

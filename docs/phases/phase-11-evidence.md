@@ -26,7 +26,10 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
       Objects / New All), Merge's object list (only the chosen objects merged), Clone laid
       out from measurements with its (greyed) Controller group, the save prompt's wording,
       Detach's "Mesh01" and Explode's "Mesh"
-- [ ] 11.2b Transform Type-In, Mirror, Array, Align
+- [x] **11.2b** Transform Type-In (offsets in the view's screen axes, arrows), Mirror (R3's
+      layout, Mirror IK Limits), Align (positions along the reference system, Apply), Array
+      (R3's layout: Totals, Re-Orient, Uniform, Total in Array, Reset All Parameters); the
+      system's name as R3 shows it (View: Screen in orthographic views)
 - [ ] 11.3 Menus and displays: Region's check marks, the Grids items, the open group's
       colour, the gizmo's colours
 - [ ] 11.4 Reading the new `.max` samples: Bend / Taper / Twist, gizmos, groups, Backface
@@ -38,6 +41,22 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
 - `bend.max` with the box selected in Modify, Sub-Object off (the object-level gizmo).
 - Menus opened with Alt+letter (underlines); a far Perspective view; each primitive's
   Creation Method and Keyboard Entry rollouts.
+
+## Step 11.2b verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_arrange`: aligning X pivots in a frame turned 90 degrees moves along world Y
+      only; Totals of 100 units over 5 copies is 25 a step, 160 % over 3 its square root;
+      Re-Orient off places the copy as with it on but keeps its orientation.
+      `test_typein`: a 10-unit Move offset in that frame goes along world Y; 90 degrees
+      about its X turns world X to -Z
+- [x] Under Wine on `box.max`, the box selected in the Front view: Type-In Offset Y = 10
+      raises it exactly 60 px (10 units) in the Front view, the Top view unchanged; Ctrl+Z
+      restores it. The floater measures 288 x 101, R3.1's client area within a pixel
+- [ ] On Windows: each dialog next to its screenshot; Array's arrows and Totals; Align's
+      Apply; the Type-In arrows
+- [ ] Unverified / not built: R3's spinners dragging (here a click steps by 1); Mirror IK
+      Limits has no effect (no IK); Reference cloning (no references); Array's Re-Orient
+      off keeps scale too; Array Totals for Scale as a root per step; Align's live preview
 
 ## Step 11.2a verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)

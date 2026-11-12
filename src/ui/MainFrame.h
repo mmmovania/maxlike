@@ -104,6 +104,9 @@ private:
     scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it
     // The vertices of the current sub-object selection (edges' and faces' too), by index.
     std::vector<uint32_t> SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const;
+    // The reference system's name as R3 shows it in dialog titles (11.2b): View is "Screen"
+    // in orthographic views and "World" in Perspective (the 9.9 rule).
+    std::wstring SystemName();
     void UpdateModifyPanel();
     // The selected object's stack: its Derived Object (or null) and the entry shown.
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;

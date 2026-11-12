@@ -211,6 +211,13 @@ std::shared_ptr<scene::DeformModifier> MainFrame::GizmoEditingMod() const {
     return std::dynamic_pointer_cast<scene::DeformModifier>(CurrentModifier());
 }
 
+std::wstring MainFrame::SystemName() {
+    static const wchar_t* kNames[] = {L"View", L"Screen", L"World", L"Parent", L"Local", L"Grid", L"Pick"};
+    if (refCoord_ == scene::move::RefCoord::View)
+        return viewports_.ActiveView().Type() == ui::ViewType::Perspective ? L"World" : L"Screen";
+    return kNames[static_cast<int>(refCoord_)];
+}
+
 std::vector<uint32_t> MainFrame::SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
     std::vector<uint32_t> verts = mod->SelectedVertices();
     if (subLevel_ >= 1) {
@@ -766,23 +773,31 @@ bool MainFrame::CreateRegions() {
             scene::Node* target = picked.empty() ? nullptr : scene::groups::SelectableFor(scene_.FindById(picked.front()));
             if (!target || scene_.IsSelected(target->GetId())) { statusArea_.SetPrompt(1, L"Align: pick an object that is not selected"); return; }
             const std::wstring name(target->Name().begin(), target->Name().end());
-            const ui::AlignChoice c = ui::ShowAlignDialog(Hwnd(), name);
-            if (!c.ok) return;
-            scene::tools::AlignOptions o;
-            for (int i = 0; i < 3; ++i) { o.position[i] = c.position[i]; o.orientation[i] = c.orientation[i]; o.scale[i] = c.scale[i]; }
-            o.current = static_cast<scene::tools::AlignPoint>(c.current);
-            o.target = static_cast<scene::tools::AlignPoint>(c.target);
-            auto macro = std::make_unique<scene::MacroCommand>("Align");
-            const auto& sel = scene_.Selection();
-            for (scene::Node::Id id : sel) {
-                scene::Node* n = scene_.FindById(id);
-                bool under = false;                   // a selected child moves with its parent
-                for (const scene::Node* p = n ? n->Parent() : nullptr; p && !under; p = p->Parent()) under = scene_.IsSelected(p->GetId());
-                if (!n || under) continue;
-                macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), scene::tools::Aligned(*n, *target, o), "Align"));
-            }
-            undo_.Execute(std::move(macro), scene_);
-            viewports_.Redraw();
+            // Positions along the reference system's axes ("Align Position (Screen)", 11.2b);
+            // Apply aligns as its own step and keeps the dialog open.
+            const scene::move::Frame frame = viewports_.ActiveView().CurrentFrame();
+            const scene::Node::Id targetId = target->GetId();
+            auto align = [this, frame, targetId](const ui::AlignChoice& c) {
+                scene::Node* t = scene_.FindById(targetId);
+                if (!t) return;
+                scene::tools::AlignOptions o;
+                for (int i = 0; i < 3; ++i) { o.position[i] = c.position[i]; o.orientation[i] = c.orientation[i]; o.scale[i] = c.scale[i]; }
+                o.current = static_cast<scene::tools::AlignPoint>(c.current);
+                o.target = static_cast<scene::tools::AlignPoint>(c.target);
+                o.frame = frame;
+                auto macro = std::make_unique<scene::MacroCommand>("Align");
+                for (scene::Node::Id id : scene_.Selection()) {
+                    scene::Node* n = scene_.FindById(id);
+                    bool under = false;               // a selected child moves with its parent
+                    for (const scene::Node* p = n ? n->Parent() : nullptr; p && !under; p = p->Parent()) under = scene_.IsSelected(p->GetId());
+                    if (!n || under) continue;
+                    macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), scene::tools::Aligned(*n, *t, o), "Align"));
+                }
+                undo_.Execute(std::move(macro), scene_);
+                viewports_.Redraw();
+            };
+            const ui::AlignChoice c = ui::ShowAlignDialog(Hwnd(), name, SystemName(), align);
+            if (c.ok) align(c);
             return;
         }
         // Clicking a member of a closed group selects the group (Phase 10).
@@ -1363,10 +1378,13 @@ bool MainFrame::CreateRegions() {
             if (const scene::Node* n = scene_.FindById(id)) pivot = pivot + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
         pivot = pivot * (1.0 / static_cast<double>(scene_.Selection().size()));
         auto macro = std::make_unique<scene::MacroCommand>(name);
+        const scene::move::Frame screen = viewports_.ActiveView().ScreenFrame();
         for (scene::Node::Id id : scene_.Selection()) {
             scene::Node* n = scene_.FindById(id);
             if (!n || (absolute && scene_.Selection().size() != 1)) continue;
-            const scene::PRS after = absolute ? scene::typein::WithAbsolute(tool, *n, value) : scene::typein::WithOffset(tool, *n, value, pivot);
+            // Offsets in the view's screen axes ("Offset:Screen", r3.1-dlg-typein.png).
+            const scene::PRS after = absolute ? scene::typein::WithAbsolute(tool, *n, value)
+                                              : scene::typein::WithOffset(tool, *n, value, pivot, screen);
             macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), after, name));
         }
         undo_.Execute(std::move(macro), scene_);
@@ -1742,8 +1760,7 @@ void MainFrame::OnCommand(const std::string& command) {
         const math::Vec3 centre = viewports_.ActiveView().TransformCenter();
         const std::vector<scene::Node::Id> selection = scene::groups::WithMembers(scene_, scene_.Selection());
         if (command == "tools.mirror") {
-            static const wchar_t* kNames[] = {L"View", L"Screen", L"World", L"Parent", L"Local", L"Grid", L"Pick"};
-            const ui::MirrorChoice c = ui::ShowMirrorDialog(Hwnd(), kNames[static_cast<int>(refCoord_)]);
+            const ui::MirrorChoice c = ui::ShowMirrorDialog(Hwnd(), SystemName());
             if (!c.ok) return;
             const math::Mat4 m = scene::tools::MirrorMatrix(frame, static_cast<scene::tools::MirrorAxis>(c.axis), centre, c.offset);
             auto macro = std::make_unique<scene::MacroCommand>("Mirror");
@@ -1758,24 +1775,35 @@ void MainFrame::OnCommand(const std::string& command) {
             }
             undo_.Execute(std::move(macro), scene_);
         } else {
-            const ui::ArrayChoice c = ui::ShowArrayDialog(Hwnd());
+            static const wchar_t* kCentres[] = {L"Use Pivot Point Center", L"Use Selection Center", L"Use Transform Coordinate Center"};
+            const ui::ArrayChoice c = ui::ShowArrayDialog(Hwnd(), SystemName(), kCentres[std::max(0, std::min(2, centre_))]);
             if (!c.ok) return;
-            scene::tools::ArrayStep step;
-            step.move = c.move;
-            step.rotateDegrees = c.rotate;
-            step.scalePercent = c.scale;
-            const math::Mat4 stepM = scene::tools::ArrayStepMatrix(step, frame, centre);
             const int n1 = std::max(1, c.count1), n2 = c.dimensions >= 2 ? std::max(1, c.count2) : 1, n3 = c.dimensions >= 3 ? std::max(1, c.count3) : 1;
+            // Each row from its Incremental or its Totals side (11.2b); Uniform: X's scale.
+            scene::tools::ArrayStep total;
+            total.move = c.totalMove;
+            total.rotateDegrees = c.totalRotate;
+            total.scalePercent = c.totalScale;
+            const scene::tools::ArrayStep fromTotals = scene::tools::StepFromTotals(total, n1);
+            scene::tools::ArrayStep step;
+            step.move = c.totals[0] ? fromTotals.move : c.move;
+            step.rotateDegrees = c.totals[1] ? fromTotals.rotateDegrees : c.rotate;
+            step.scalePercent = c.totals[2] ? fromTotals.scalePercent : c.scale;
+            if (c.uniform) step.scalePercent = {step.scalePercent.x, step.scalePercent.x, step.scalePercent.x};
+            auto inFrame = [&](const math::Vec3& v) { return frame.axis[0] * v.x + frame.axis[1] * v.y + frame.axis[2] * v.z; };
             if (static_cast<long long>(n1) * n2 * n3 > 10000) { statusArea_.SetPrompt(1, L"Array: too many copies (10,000 at most)"); return; }
             std::vector<scene::Node::Id> all;
             for (int k = 0; k < n3; ++k)
                 for (int j = 0; j < n2; ++j) {
-                    math::Mat4 along = math::Translation(c.offset2 * static_cast<double>(j) + c.offset3 * static_cast<double>(k));
+                    const math::Mat4 rows = math::Translation(inFrame(c.offset2 * static_cast<double>(j) + c.offset3 * static_cast<double>(k)));
                     for (int i = 0; i < n1; ++i) {
-                        if (i > 0) along = along * stepM;          // step^i, then the row and layer offsets
                         if (i == 0 && j == 0 && k == 0) continue;  // the original
                         const auto ids = scene::CloneNodes(scene_, selection, c.instance);
-                        for (scene::Node* n : topmost(ids)) n->Transform() = scene::tools::Changed(*n, along);
+                        for (scene::Node* n : topmost(ids)) {
+                            // step^i (Re-Orient off: only the pivot moves), then the row and layer offsets
+                            const math::Vec3 pivot = math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
+                            n->Transform() = scene::tools::Changed(*n, rows * scene::tools::ArrayCopyChange(step, frame, centre, i, c.reorient, pivot));
+                        }
                         all.insert(all.end(), ids.begin(), ids.end());
                     }
                 }

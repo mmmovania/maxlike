@@ -21,6 +21,15 @@ struct ArrayStep {
 };
 math::Mat4 ArrayStepMatrix(const ArrayStep& step, const move::Frame& frame, const math::Vec3& centre);
 
+// R3.1's Array dialog (11.2b, r3.1-dlg-array.png). Totals: the step that reaches `total`
+// over `count` copies (moves and angles divided by count - 1; scale percentages by its
+// root). Uniform: X's scale for all three. The move is along the frame's axes.
+ArrayStep StepFromTotals(const ArrayStep& total, int count);
+// Copy i's world change. Re-Orient off: copies are placed as with it on, but keep the
+// original's orientation (and scale): only their pivots move.
+math::Mat4 ArrayCopyChange(const ArrayStep& step, const move::Frame& frame, const math::Vec3& centre, int i,
+                           bool reorient, const math::Vec3& pivot);
+
 // Tools > Align (Phase 10.2): the current object's chosen point (its world bounding box's
 // minimum, centre or maximum, or its pivot) moved onto the target's on each chosen world
 // axis; optionally its orientation matched to the target's on chosen local axes (all
@@ -33,6 +42,9 @@ struct AlignOptions {
     AlignPoint current = AlignPoint::Center, target = AlignPoint::Center;
     bool orientation[3] = {false, false, false};
     bool scale[3] = {false, false, false};
+    // 11.2b: positions are aligned along this frame's axes (R3's "Align Position (Screen)"
+    // follows the reference system); the world by default.
+    move::Frame frame;
 };
 // The world bounding box of a node (its own mesh, or a group's members); false if none.
 bool WorldBounds(const Node& node, math::Vec3& lo, math::Vec3& hi);

@@ -139,6 +139,13 @@ public:
     scene::move::Frame CurrentFrame() const;
     // The direction out of the screen, in world space (towards the viewer).
     math::Vec3 OutOfScreen() const { math::Vec3 r, u; OrthoBasis(r, u); return math::Normalize(math::Cross(r, u)); }
+    // The screen's axes in world space: X right, Y up, Z towards the viewer (11.2b).
+    scene::move::Frame ScreenFrame() const {
+        math::Vec3 r, u; OrthoBasis(r, u);
+        scene::move::Frame f;
+        f.axis[0] = math::Normalize(r); f.axis[1] = math::Normalize(u); f.axis[2] = math::Normalize(math::Cross(r, u));
+        return f;
+    }
     math::Vec3 TransformCenter() const;
     void SetTransformTool(bool on) { transformTool_ = on; }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
