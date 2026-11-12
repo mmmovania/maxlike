@@ -24,7 +24,7 @@ This is how it looks so far
 | 8 `.max` import (open R3-era files, saved viewports; maxlike's own `.mlk` files) | ✔ samples verified against R3.1 | 0.8.0 |
 | 9 Deferred items (menus and shortcuts as R3.1, File / Edit commands, all Edit Mesh levels, Transform Type-In, coordinate systems, Mirror, Array) | ✔ menus verified against R3.1 | 0.9.0 |
 | 10 Groups, Align, modifier gizmos, views in files, Soft Selection, Edit Mesh's Edit Geometry tools | ✔ Edit Mesh panel verified against R3.1 | 0.10.0 |
-| 11 List B: R3.1 evidence (`docs/phases/phase-11-evidence.md`) | in progress | |
+| 11 List B: R3.1 evidence (Edit Mesh by level, dialogs, menus, Bend / Taper / Twist, groups, Backface Cull and materials from `.max` files) | ✔ measured against R3.1 | 0.11.0 |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 

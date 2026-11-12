@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(maxlike VERSION 0.10.0 LANGUAGES C CXX RC)
+project(maxlike VERSION 0.11.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

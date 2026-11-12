@@ -154,7 +154,8 @@ From Phase 9's inventory, still buildable without new evidence:
   Twist and Backface Cull in files, materials.
 - [x] Wrap-up: `docs/tech/phase10-tech-docs.md`, documentation sweep, v0.10.0 (10.10).
 
-## Phase 11 — List B: R3.1 evidence (`phase/11-evidence`)
+## Phase 11 — List B: R3.1 evidence (`phase/11-evidence`) ✔ v0.11.0
 Screenshots and samples from R3.1 settle list B's items (`docs/phases/phase-11-evidence.md`).
 - [x] Edit Mesh by level, Divide / Bevel, Soft Selection's layout and graph (11.1).
-- [ ] Dialogs (11.2); menus and displays (11.3); the new `.max` samples (11.4); wrap-up.
+- [x] Dialogs (11.2); menus and displays (11.3); the new `.max` samples (11.4).
+- [x] Wrap-up: `docs/tech/phase11-tech-docs.md`, documentation sweep, v0.11.0 (11.5).

@@ -1,6 +1,7 @@
 # Phase 11 — List B: R3.1 evidence
 
-Branch: `phase/11-evidence` (from `main` after Phase 10).
+Branch: `phase/11-evidence` (from `main` after Phase 10). ✔ Done: v0.11.0.
+Technical documentation: `docs/tech/phase11-tech-docs.md`.
 
 Phase 11 works through list B of Phase 9's inventory with screenshots and sample files
 supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
@@ -39,7 +40,7 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
 - [x] **11.4b** Groups, Backface Cull and a material's diffuse colour from `.max` files;
       Backface Cull and the material colour as node properties (shaded views use the
       colour; `.mlk` files keep both)
-- [ ] Wrap-up
+- [x] **11.5** Wrap-up: technical documentation, documentation sweep, v0.11.0
 
 ## Still wanted from R3.1
 - Edit Mesh with the panel scrolled to the bottom, at Edge and Face level.
