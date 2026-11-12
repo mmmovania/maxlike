@@ -73,6 +73,31 @@ int main() {
         CHECK(io::ImportMax(Load("box"), scene, report, error));
         CHECK(!io::MergeScene({1, 2, 3}, scene, report, added, error) && scene.Nodes().size() == 1 && added.empty());
     }
+    // Phase 11.2: R3's Merge dialog lists the objects; only the chosen ones come in.
+    {
+        std::vector<io::MergeCandidate> list;
+        std::string error;
+        CHECK(io::ListMergeCandidates(Load("instances"), list, error) && list.size() == 7 && list[0].name == "Box01");
+        scene::Scene scene;
+        io::ImportReport report;
+        std::vector<scene::Node::Id> added;
+        CHECK(io::MergeChosen(Load("instances"), {0, 2}, scene, report, added, error));
+        CHECK(scene.Nodes().size() == 2 && added.size() == 2 && scene.Find("Box01") && scene.Find("Box03") && !scene.Find("Box02"));
+        // The child alone: at the top, exactly where it was in the file.
+        CHECK(io::ListMergeCandidates(Load("parent_child_link"), list, error) && list.size() == 2);
+        int child = -1;
+        for (size_t i = 0; i < list.size(); ++i) if (list[i].depth == 1) child = static_cast<int>(i);
+        CHECK(child >= 0 && list[static_cast<size_t>(child)].parent >= 0);
+        scene::Scene alone, merged;
+        CHECK(io::ImportMax(Load("parent_child_link"), alone, report, error));
+        CHECK(io::MergeChosen(Load("parent_child_link"), {child}, merged, report, added, error));
+        const std::string name = list[static_cast<size_t>(child)].name;
+        CHECK(merged.Nodes().size() == 1 && merged.Find(name) && !merged.Find(name)->Parent());
+        CHECK(merged.Find(name) && Near(Origin(merged.Find(name)), Origin(alone.Find(name))));
+        // Everything chosen: the same as a plain Merge.
+        scene::Scene all;
+        CHECK(io::MergeChosen(Load("instances"), {0, 1, 2, 3, 4, 5, 6}, all, report, added, error) && all.Nodes().size() == 7);
+    }
     if (failures == 0) std::printf("merge: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

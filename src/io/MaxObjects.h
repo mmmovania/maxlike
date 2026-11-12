@@ -1,4 +1,5 @@
 #pragma once
+#include "math/Mat4.h"
 #include "io/MaxScene.h"
 #include "scene/Modifier.h"
 #include "scene/Object.h"
@@ -14,11 +15,16 @@
 namespace io {
 
 struct MaxParam {
-    enum class Type { Float, Int, Bool };
+    enum class Type { Float, Int, Bool, Color };
     int index = -1;               // the parameter's index (old blocks) or id (ParamBlock2)
     Type type = Type::Float;
     double value = 0;
+    math::Vec3 color{0, 0, 0};    // Color (ParamBlock2 types 2 and 3: an RGB or a point, 11.4b)
 };
+
+// A Standard material's diffuse colour (11.4b, material.max): the material's shader
+// (reference 2, Blinn) holds it in its ParamBlock2 as colour parameter 1.
+bool ReadStandardDiffuse(const MaxScene& scene, size_t material, math::Vec3& diffuse, std::vector<std::string>& notes);
 
 // The parameters of the block at scene-list index `block` (ParamBlock or ParamBlock2).
 // Values it cannot decode are skipped and reported in `notes`.

@@ -77,4 +77,13 @@ PRS WithOffset(Tool tool, Node& node, const math::Vec3& o, const math::Vec3& piv
     return node.Transform();
 }
 
+PRS WithOffset(Tool tool, Node& node, const math::Vec3& o, const math::Vec3& pivot, const move::Frame& f) {
+    if (tool == Tool::Move)
+        return WithOffset(tool, node, f.axis[0] * o.x + f.axis[1] * o.y + f.axis[2] * o.z, pivot);
+    if (tool == Tool::Rotate)
+        return RotatedAbout(node, math::Quat::FromAxisAngle(f.axis[2], o.z * kRad) * math::Quat::FromAxisAngle(f.axis[1], o.y * kRad) *
+                                      math::Quat::FromAxisAngle(f.axis[0], o.x * kRad), pivot);
+    return WithOffset(tool, node, o, pivot);
+}
+
 } // namespace scene::typein

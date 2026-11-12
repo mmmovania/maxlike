@@ -1,4 +1,5 @@
 #include "io/MaxObjects.h"
+#include "io/MaxNodes.h"
 #include "scene/CreationTool.h"
 #include <cmath>
 #include <cstring>
@@ -37,6 +38,11 @@ bool Pb2Entry(const std::vector<uint8_t>& d, const Chunk& k, MaxParam& p, std::v
     case 0: case 5: case 6: case 7: p.type = MaxParam::Type::Float; p.value = LE<float>(d, k.begin + 11); return true;   // float, angle, percent, world
     case 1: p.type = MaxParam::Type::Int; p.value = LE<int32_t>(d, k.begin + 11); return true;
     case 4: p.type = MaxParam::Type::Bool; p.value = LE<int32_t>(d, k.begin + 11) != 0; return true;
+    case 2: case 3:                                         // RGB colour or point: three floats (11.4b)
+        if (k.end - k.begin < 23) { notes.push_back("ParamBlock2: a short colour entry"); return false; }
+        p.type = MaxParam::Type::Color;
+        p.color = {LE<float>(d, k.begin + 11), LE<float>(d, k.begin + 15), LE<float>(d, k.begin + 19)};
+        return true;
     default: notes.push_back("ParamBlock2: parameter " + std::to_string(p.index) + " of type " + std::to_string(type) + " not read"); return false;
     }
 }
@@ -199,6 +205,46 @@ std::shared_ptr<scene::Object> ObjectReader::Build(size_t object, int depth) {
 // are reported and skipped.
 std::shared_ptr<scene::Modifier> ObjectReader::ReadModifier(size_t object, const std::vector<Chunk>& context) {
     const ClassEntry* c = scene_.ClassOf(object);
+    // Bend, Taper and Twist (11.4, bend / taper / twist / bend-gizmo.max): references are
+    // the gizmo (a Position/Rotation/Scale controller), the centre (a Bezier Position, in
+    // the gizmo's space) and an old ParamBlock whose indices are maxlike's (Phase 7 used
+    // Max's order).
+    if (c && c->classIdB == 0 && c->superClassId == 0x810 && (c->classIdA == 0x10 || c->classIdA == 0x20 || c->classIdA == 0x90)) {
+        std::shared_ptr<scene::DeformModifier> mod;
+        if (c->classIdA == 0x10) mod = std::make_shared<scene::BendModifier>();
+        else if (c->classIdA == 0x20) mod = std::make_shared<scene::TaperModifier>();
+        else mod = std::make_shared<scene::TwistModifier>();
+        const auto& refs = scene_.Refs(object);
+        if (refs.size() >= 3 && refs[2] >= 0) {
+            std::vector<MaxParam> params;
+            if (ReadParamBlock(scene_, static_cast<size_t>(refs[2]), params, notes_))
+                for (const MaxParam& p : params)
+                    if (p.index >= 0 && mod->Params().Has(static_cast<size_t>(p.index))) mod->Params().Set(static_cast<size_t>(p.index), p.value);
+        } else {
+            notes_.push_back(c->name + ": no parameter block; defaults used");
+        }
+        scene::DeformModifier::Gizmo g;
+        MaxTransform t;
+        if (!refs.empty() && ReadPRSController(scene_, refs[0], t, notes_)) {
+            g.transform.position = t.position;
+            g.transform.rotation = t.rotation;
+            g.transform.scale = t.scale;
+            if (!(std::fabs(t.scaleAxis.x) < 1e-6 && std::fabs(t.scaleAxis.y) < 1e-6 && std::fabs(t.scaleAxis.z) < 1e-6))
+                notes_.push_back(c->name + ": a gizmo scale axis other than identity is not applied");
+        }
+        if (refs.size() >= 2) ReadPositionController(scene_, refs[1], g.center, notes_);
+        mod->SetGizmo(g);
+        // The modifier context transform: identity in every sample, so not applied.
+        if (!context.empty() && context.front().type == 0x2510 && context.front().end - context.front().begin >= 48) {
+            static const float kIdentity[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+            for (int i = 0; i < 12; ++i)
+                if (std::fabs(LE<float>(scene_.SceneBytes(), context.front().begin + 4 * static_cast<size_t>(i)) - kIdentity[i]) > 1e-5f) {
+                    notes_.push_back(c->name + ": a modifier context transform other than identity is not applied");
+                    break;
+                }
+        }
+        return mod;
+    }
     if (!c || c->classIdA != 0x50 || c->classIdB != 0 || c->superClassId != 0x810) {
         notes_.push_back("modifier \"" + (c ? c->name : std::string("?")) + "\" is not supported yet; skipped");
         return nullptr;
@@ -239,6 +285,27 @@ std::shared_ptr<scene::Modifier> ObjectReader::ReadModifier(size_t object, const
     }
     if (!haveCount) { notes_.push_back("Edit Mesh: no local data; imported without edits"); }
     return std::make_shared<scene::EditMeshModifier>(expected, moves);
+}
+
+bool ReadStandardDiffuse(const MaxScene& s, size_t material, math::Vec3& diffuse, std::vector<std::string>& notes) {
+    const ClassEntry* c = material < s.ObjectCount() ? s.ClassOf(material) : nullptr;
+    if (!c || c->classIdA != 0x2 || c->classIdB != 0 || c->superClassId != 0xC00) {
+        notes.push_back("material \"" + (c ? c->name : std::string("?")) + "\" is not a Standard material; not read");
+        return false;
+    }
+    const auto& refs = s.Refs(material);
+    const int shader = refs.size() > 2 ? refs[2] : -1;
+    const ClassEntry* sc = shader >= 0 && static_cast<size_t>(shader) < s.ObjectCount() ? s.ClassOf(static_cast<size_t>(shader)) : nullptr;
+    if (!sc || sc->superClassId != 0x10B0 || s.Refs(static_cast<size_t>(shader)).empty()) {
+        notes.push_back("Standard material: no shader parameters; colour not read");
+        return false;
+    }
+    std::vector<MaxParam> params;
+    if (!ReadParamBlock(s, static_cast<size_t>(s.Refs(static_cast<size_t>(shader))[0]), params, notes)) return false;
+    for (const MaxParam& p : params)
+        if (p.index == 1 && p.type == MaxParam::Type::Color) { diffuse = p.color; return true; }
+    notes.push_back("Standard material: no diffuse colour");
+    return false;
 }
 
 } // namespace io

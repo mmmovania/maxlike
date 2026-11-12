@@ -37,6 +37,15 @@ public:
     bool IsGroupHead() const { return groupHead_; }
     bool GroupOpen() const { return groupOpen_; }
     void SetGroup(bool head, bool open) { groupHead_ = head; groupOpen_ = open; }
+    // Object Properties' Backface Cull (11.4b): wireframe views leave out faces turned away;
+    // on by default, as for every object in the R3.1 samples but one.
+    bool BackfaceCull() const { return backfaceCull_; }
+    void SetBackfaceCull(bool on) { backfaceCull_ = on; }
+    // A material's diffuse colour (0xRRGGBB, 11.4b): shaded views use it instead of the wire
+    // colour, as R3 does. maxlike has no materials beyond this colour yet.
+    bool HasMaterialColor() const { return hasMaterial_; }
+    uint32_t MaterialColor() const { return materialColor_; }
+    void SetMaterialColor(bool has, uint32_t rgb = 0) { hasMaterial_ = has; materialColor_ = rgb; }
 
     // The transform relative to the parent (Max's PRS controller).
     PRS& Transform() { return transform_; }
@@ -62,6 +71,9 @@ private:
     Id id_;
     std::string name_;
     uint32_t wireColor_ = 0x808080;
+    bool backfaceCull_ = true;
+    bool hasMaterial_ = false;
+    uint32_t materialColor_ = 0;
     bool groupHead_ = false, groupOpen_ = false;
     PRS transform_;
     PRS objectOffset_;

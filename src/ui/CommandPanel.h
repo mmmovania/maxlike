@@ -127,6 +127,12 @@ private:
     mutable int radioOption_ = 0;               // the option ParamPartAt found (Part::Radio)
     Part ParamPartAt(int x, int y, int& row) const;
     double ParamValue(const params::Row& r) const;
+    // The row with `enabledBy` applied: unavailable while that parameter is off (11.1).
+    params::Row Effective(const params::Row& r) const {
+        params::Row e = r;
+        if (r.enabledBy >= 0) { params::Row p = r; p.paramIndex = r.enabledBy; if (ParamValue(p) == 0) e.enabled = false; }
+        return e;
+    }
     static constexpr int kKeyBase = 1000;     // Keyboard Entry row ids start here
     const params::Row& RowAt(int id) const;
     int RowTitleTop(int id) const;

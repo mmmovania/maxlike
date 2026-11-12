@@ -143,6 +143,42 @@ int main() {
         const double s2[3] = {2, 1, 1};
         CHECK(Near(math::TransformPoint(FrameScale(f, s2), {3, 4, 5}), {3, 8, 5}));
     }
+    // 11.2b: Align along a frame; Array totals, Re-Orient.
+    {
+        scene::Scene t;
+        scene::Node* a = t.CreateNode("A");
+        a->SetObject(std::make_shared<scene::BoxObject>(10, 10, 10));
+        scene::Node* b = t.CreateNode("B");
+        b->SetObject(std::make_shared<scene::BoxObject>(10, 10, 10));
+        b->Transform().position = {30, 40, 0};
+        // A frame turned 90 degrees about Z (its X is world Y): aligning "X" pivots moves A
+        // along world Y only.
+        AlignOptions o;
+        o.position[0] = true;
+        o.current = o.target = AlignPoint::Pivot;
+        o.frame.axis[0] = {0, 1, 0}; o.frame.axis[1] = {-1, 0, 0}; o.frame.axis[2] = {0, 0, 1};
+        a->Transform() = Aligned(*a, *b, o);
+        CHECK(Near(math::TransformPoint(a->WorldMatrix(), {0, 0, 0}), {0, 40, 0}));
+        // Totals: 100 units over 5 copies is 25 a step; 160 % scale over 3 is its square root.
+        ArrayStep total;
+        total.move = {100, 0, 0};
+        total.scalePercent = {160, 160, 160};
+        const ArrayStep st = StepFromTotals(total, 5);
+        CHECK(Near(st.move, {25, 0, 0}));
+        const ArrayStep sc = StepFromTotals(total, 3);
+        CHECK(std::fabs(sc.scalePercent.x - 100 * std::sqrt(1.6)) < 1e-9);
+        // Re-Orient off: a 90-degree step about Z around the origin moves the pivot as with it
+        // on, but the copy keeps its orientation.
+        ArrayStep turn;
+        turn.rotateDegrees = {0, 0, 90};
+        const scene::move::Frame world;
+        const math::Vec3 p{10, 0, 0};
+        const math::Mat4 on = ArrayCopyChange(turn, world, {0, 0, 0}, 1, true, p);
+        const math::Mat4 off = ArrayCopyChange(turn, world, {0, 0, 0}, 1, false, p);
+        CHECK(Near(math::TransformPoint(on, p), {0, 10, 0}) && Near(math::TransformPoint(off, p), {0, 10, 0}));
+        CHECK(Near(math::TransformPoint(off, p + math::Vec3{1, 0, 0}), {1, 10, 0}));   // not turned
+        CHECK(Near(math::TransformPoint(on, p + math::Vec3{1, 0, 0}), {0, 11, 0}));    // turned
+    }
     if (failures == 0) std::printf("arrange: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

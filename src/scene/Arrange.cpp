@@ -43,7 +43,8 @@ math::Mat4 ArrayStepMatrix(const ArrayStep& step, const move::Frame& f, const ma
     const math::Quat q = math::Quat::FromAxisAngle(f.axis[2], step.rotateDegrees.z * 3.14159265358979323846 / 180) *
                          math::Quat::FromAxisAngle(f.axis[1], step.rotateDegrees.y * 3.14159265358979323846 / 180) *
                          math::Quat::FromAxisAngle(f.axis[0], step.rotateDegrees.x * 3.14159265358979323846 / 180);
-    return math::Translation(step.move) * math::Translation(centre) * q.ToMat4() * FrameScale(f, s) * math::Translation(centre * -1.0);
+    const math::Vec3 move = f.axis[0] * step.move.x + f.axis[1] * step.move.y + f.axis[2] * step.move.z;   // along the frame (11.2b)
+    return math::Translation(move) * math::Translation(centre) * q.ToMat4() * FrameScale(f, s) * math::Translation(centre * -1.0);
 }
 
 bool WorldBounds(const Node& n, math::Vec3& lo, math::Vec3& hi) {
@@ -62,11 +63,27 @@ bool WorldBounds(const Node& n, math::Vec3& lo, math::Vec3& hi) {
 }
 
 namespace {
-// The chosen point of a node, on each world axis.
-math::Vec3 AlignPointOf(const Node& n, AlignPoint p) {
-    const math::Vec3 pivot = math::TransformPoint(n.WorldMatrix(), {0, 0, 0});
-    math::Vec3 lo, hi;
-    if (p == AlignPoint::Pivot || !WorldBounds(n, lo, hi)) return pivot;
+// A world point in the frame's coordinates.
+math::Vec3 InFrame(const move::Frame& f, const math::Vec3& w) { return {math::Dot(w, f.axis[0]), math::Dot(w, f.axis[1]), math::Dot(w, f.axis[2])}; }
+void Collect(const Node& n, std::vector<math::Vec3>& out) {
+    if (n.GetObject()) {
+        const math::Mat4 m = n.ObjectMatrix();
+        for (const auto& v : n.GetObject()->Evaluate().verts) out.push_back(math::TransformPoint(m, v));
+    }
+    if (n.IsGroupHead()) for (const Node* c : n.Children()) Collect(*c, out);
+}
+// The chosen point of a node, in the frame's coordinates (the bounds along its axes).
+math::Vec3 AlignPointOf(const Node& n, AlignPoint p, const move::Frame& f) {
+    const math::Vec3 pivot = InFrame(f, math::TransformPoint(n.WorldMatrix(), {0, 0, 0}));
+    std::vector<math::Vec3> pts;
+    Collect(n, pts);
+    if (p == AlignPoint::Pivot || pts.empty()) return pivot;
+    math::Vec3 lo{1e300, 1e300, 1e300}, hi{-1e300, -1e300, -1e300};
+    for (const auto& w : pts) {
+        const math::Vec3 q = InFrame(f, w);
+        lo = {std::min(lo.x, q.x), std::min(lo.y, q.y), std::min(lo.z, q.z)};
+        hi = {std::max(hi.x, q.x), std::max(hi.y, q.y), std::max(hi.z, q.z)};
+    }
     if (p == AlignPoint::Minimum) return lo;
     if (p == AlignPoint::Maximum) return hi;
     return (lo + hi) * 0.5;
@@ -104,11 +121,11 @@ PRS Aligned(Node& node, const Node& target, const AlignOptions& o) {
             double& mine = a == 0 ? node.Transform().scale.x : a == 1 ? node.Transform().scale.y : node.Transform().scale.z;
             mine = Get(target.Transform().scale, a);
         }
-    const math::Vec3 from = AlignPointOf(node, o.current), to = AlignPointOf(target, o.target);
-    math::Vec3 shift{0, 0, 0};
-    if (o.position[0]) shift.x = to.x - from.x;
-    if (o.position[1]) shift.y = to.y - from.y;
-    if (o.position[2]) shift.z = to.z - from.z;
+    const math::Vec3 from = AlignPointOf(node, o.current, o.frame), to = AlignPointOf(target, o.target, o.frame);
+    math::Vec3 shift{0, 0, 0};                                 // along the frame's axes
+    if (o.position[0]) shift = shift + o.frame.axis[0] * (to.x - from.x);
+    if (o.position[1]) shift = shift + o.frame.axis[1] * (to.y - from.y);
+    if (o.position[2]) shift = shift + o.frame.axis[2] * (to.z - from.z);
     const PRS after = Changed(node, math::Translation(shift));
     node.Transform() = before;
     return after;
@@ -121,6 +138,25 @@ std::vector<math::Vec3> SubObjectDeltas(const std::vector<math::Vec3>& points, c
     for (const math::Vec3& p : points)
         out.push_back(math::TransformPoint(inv, math::TransformPoint(worldChange, math::TransformPoint(m, p))) - p);
     return out;
+}
+
+ArrayStep StepFromTotals(const ArrayStep& total, int count) {
+    ArrayStep s;
+    const double n = count > 1 ? count - 1 : 1;
+    s.move = total.move * (1.0 / n);
+    s.rotateDegrees = total.rotateDegrees * (1.0 / n);
+    auto root = [&](double pct) { return pct > 0 ? std::pow(pct / 100.0, 1.0 / n) * 100.0 : 100.0; };
+    s.scalePercent = {root(total.scalePercent.x), root(total.scalePercent.y), root(total.scalePercent.z)};
+    return s;
+}
+
+math::Mat4 ArrayCopyChange(const ArrayStep& step, const move::Frame& frame, const math::Vec3& centre, int i,
+                           bool reorient, const math::Vec3& pivot) {
+    const math::Mat4 one = ArrayStepMatrix(step, frame, centre);
+    math::Mat4 m = math::Translation({0, 0, 0});
+    for (int k = 0; k < i; ++k) m = m * one;
+    if (reorient) return m;
+    return math::Translation(math::TransformPoint(m, pivot) - pivot);   // only the pivot moves
 }
 
 PRS Changed(Node& node, const math::Mat4& worldChange) {

@@ -220,6 +220,22 @@ int main() {
         io::NativeViews none;
         CHECK(io::LoadNative(io::SaveNative(g), back2, error, &none) && !none.present && back2.Selection().size() == 1);
     }
+    // 11.4b: Backface Cull off and a material colour survive a save and a load.
+    {
+        scene::Scene a;
+        scene::Node* n = a.CreateNode("B");
+        n->SetObject(std::make_shared<scene::BoxObject>(10, 10, 10));
+        n->SetBackfaceCull(false);
+        n->SetMaterialColor(true, 0xFD0000);
+        scene::Node* plain = a.CreateNode("P");
+        plain->SetObject(std::make_shared<scene::BoxObject>(10, 10, 10));
+        const std::vector<uint8_t> bytes = io::SaveNative(a);
+        scene::Scene b;
+        std::string error;
+        CHECK(io::LoadNative(bytes, b, error));
+        CHECK(b.Find("B") && !b.Find("B")->BackfaceCull() && b.Find("B")->HasMaterialColor() && b.Find("B")->MaterialColor() == 0xFD0000);
+        CHECK(b.Find("P") && b.Find("P")->BackfaceCull() && !b.Find("P")->HasMaterialColor());
+    }
     if (failures == 0) std::printf("native file: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

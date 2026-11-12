@@ -319,7 +319,8 @@ void Viewport::DrawScene(int w, int h) {
             shown[i] = math::Dot(n, toViewer) > 0;
         }
         std::vector<Line> lines;
-        for (const auto& [a, b] : mesh.VisibleEdges(shading_ == Shading::BoundingBox ? nullptr : &shown)) {
+        // Backface Cull off (11.4b): every visible edge, front or back.
+        for (const auto& [a, b] : mesh.VisibleEdges(shading_ == Shading::BoundingBox || !node->BackfaceCull() ? nullptr : &shown)) {
             if (persp) {
                 lines.push_back({static_cast<float>(p[a].x), static_cast<float>(p[a].y), static_cast<float>(p[a].z),
                                  static_cast<float>(p[b].x), static_cast<float>(p[b].y), static_cast<float>(p[b].z)});
@@ -379,7 +380,7 @@ void Viewport::DrawGizmo(int w, int h) {
 }
 
 // An open group shows its members' bounding box (NOTE: pink in R3, from memory; drawn
-// here as the box's twelve edges in #FF80FF).
+// here as the box's twelve edges in #FF7FB2, measured in 11.3 from r3.1-group-open.png).
 void Viewport::DrawOpenGroups(int w, int h) {
     std::vector<gl::LineRenderer::Line> lines;
     for (const auto& node : scene_->Nodes()) {
@@ -401,7 +402,7 @@ void Viewport::DrawOpenGroups(int w, int h) {
                     lines.push_back({static_cast<float>(px[c].x), static_cast<float>(px[c].y), 0.0f,
                                      static_cast<float>(px[c | k].x), static_cast<float>(px[c | k].y), 0.0f});
     }
-    if (!lines.empty()) lines_->Draw(lines, math::PixelToClip(w, h), 1.0f, 0.5f, 1.0f);
+    if (!lines.empty()) lines_->Draw(lines, math::PixelToClip(w, h), 1.0f, 127.0f / 255.0f, 178.0f / 255.0f);   // #FF7FB2, measured (r3.1-group-open.png)
 }
 
 // The axes at the selection's pivot (one object: its pivot; several: the average of
@@ -623,12 +624,25 @@ void Viewport::DrawVertices(int w, int h) {
                 if (std::binary_search(sel.begin(), sel.end(), v.segEdge[s])) add(v.segs[s].a, v.segs[s].b);
         } else {
             const auto& sel = vertexEditing_.mod->SelectedFaces();
+            std::vector<float> dots;
             for (size_t f = 0; f < v.tris.size(); ++f) {
                 if (!std::binary_search(sel.begin(), sel.end(), v.faceMap[f])) continue;
                 const uint32_t idx[3] = {v.tris[f].a, v.tris[f].b, v.tris[f].c};
-                for (int k = 0; k < 3; ++k)
-                    if (level == 2 || (v.mesh.faces[f].edgeVisible & (1u << k))) add(idx[k], idx[(k + 1) % 3]);
+                for (int k = 0; k < 3; ++k) {
+                    const bool visible = (v.mesh.faces[f].edgeVisible & (1u << k)) != 0;
+                    if (visible) { add(idx[k], idx[(k + 1) % 3]); continue; }
+                    if (level != 2) continue;
+                    // Face level: hidden edges dotted, a pixel every 4 along the line
+                    // (measured, r3.1-editmesh-face-a.png).
+                    const view::Point2 &a = pts[idx[k]], &b = pts[idx[(k + 1) % 3]];
+                    const double len = std::hypot(b.x - a.x, b.y - a.y);
+                    for (double t = 0; t <= len; t += 4) {
+                        const double x = a.x + (b.x - a.x) * t / len, y = a.y + (b.y - a.y) * t / len;
+                        dots.insert(dots.end(), {static_cast<float>(std::floor(x)) + 0.5f, static_cast<float>(std::floor(y)) + 0.5f, 0.0f});
+                    }
+                }
             }
+            if (!dots.empty()) lines_->DrawPoints(dots, toClip, 1.0f, 0.0f, 0.0f);
         }
         if (!lines.empty()) lines_->Draw(lines, toClip, 1.0f, 0.0f, 0.0f);
         return;
@@ -835,7 +849,9 @@ std::vector<scene::Node::Id> Viewport::PickRect(int x0, int y0, int x1, int y1) 
     std::vector<std::vector<view::Segment2>> outlines;
     CollectPickData(ids, outlines, nullptr);
     std::vector<scene::Node::Id> out;
-    for (int i : view::PickRegion(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5)) out.push_back(ids[static_cast<size_t>(i)]);
+    const auto picked = regionWindow_ ? view::PickRegionWindow(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5)
+                                      : view::PickRegion(outlines, x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5);
+    for (int i : picked) out.push_back(ids[static_cast<size_t>(i)]);
     return out;
 }
 
@@ -932,7 +948,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
                                    static_cast<float>(n.x), static_cast<float>(n.y), static_cast<float>(n.z)});
             }
         }
-        const uint32_t c = node->WireColor();
+        const uint32_t c = node->HasMaterialColor() ? node->MaterialColor() : node->WireColor();   // a material's diffuse (11.4b)
         meshes_->Draw(v, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, light);
     }
     glDisable(GL_DEPTH_TEST);

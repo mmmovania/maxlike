@@ -132,10 +132,16 @@ void MainFrame::DeleteSelection() {
         if (subLevel_ >= 1) {
             // Edges delete the faces on both sides; faces, polygons and elements themselves.
             if ((subLevel_ == 1 ? mod->SelectedEdges() : mod->SelectedFaces()).empty()) return;
-            // NOTE: R3's question and its wording are unverified.
-            const int answer = MessageBoxW(Hwnd(), L"Delete isolated vertices?", kAppName, MB_YESNOCANCEL | MB_ICONQUESTION);
-            if (answer == IDCANCEL) return;
+            // R3.1 asks only when deleting would leave isolated vertices (r3.1-editmesh-
+            // delete-face.png: deleting one teapot face asked nothing). NOTE: its wording.
             const scene::Mesh input = EditMeshInput(mod);
+            const auto keep = subLevel_ == 1 ? mod->AfterDeletingEdges(input, false) : mod->AfterDeletingFaces(input, false);
+            const auto drop = subLevel_ == 1 ? mod->AfterDeletingEdges(input, true) : mod->AfterDeletingFaces(input, true);
+            int answer = IDNO;
+            if (drop.deletedVertices.size() != keep.deletedVertices.size()) {
+                answer = MessageBoxW(Hwnd(), L"Delete isolated vertices?", kAppName, MB_YESNOCANCEL | MB_ICONQUESTION);
+                if (answer == IDCANCEL) return;
+            }
             after = subLevel_ == 1 ? mod->AfterDeletingEdges(input, answer == IDYES) : mod->AfterDeletingFaces(input, answer == IDYES);
         } else {
             if (mod->SelectedVertices().empty()) return;
@@ -203,6 +209,13 @@ std::shared_ptr<scene::EditMeshModifier> MainFrame::VertexEditingMod() const {
 std::shared_ptr<scene::DeformModifier> MainFrame::GizmoEditingMod() const {
     if (!subObject_ || !commandPanel_.InModify()) return nullptr;
     return std::dynamic_pointer_cast<scene::DeformModifier>(CurrentModifier());
+}
+
+std::wstring MainFrame::SystemName() {
+    static const wchar_t* kNames[] = {L"View", L"Screen", L"World", L"Parent", L"Local", L"Grid", L"Pick"};
+    if (refCoord_ == scene::move::RefCoord::View)
+        return viewports_.ActiveView().Type() == ui::ViewType::Perspective ? L"World" : L"Screen";
+    return kNames[static_cast<int>(refCoord_)];
 }
 
 std::vector<uint32_t> MainFrame::SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const {
@@ -275,9 +288,8 @@ void MainFrame::UpdateModifyPanel() {
             // NOTE: R3's wording for one vertex or none is unverified.
             // NOTE: R3's wording at Face level is unverified.
             // (Polygon and Element count faces here; NOTE: R3's wording at those levels too.)
-            info.selectionText = subLevel_ == 0 ? std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected"
-                               : subLevel_ == 1 ? std::to_wstring(em->SelectedEdges().size()) + L" Edges Selected"
-                                                : std::to_wstring(em->SelectedFaces().size()) + L" Faces Selected";
+            info.selectionText = ui::params::SubObjectCountText(subLevel_, subLevel_ == 0 ? em->SelectedVertices()
+                                                                       : subLevel_ == 1 ? em->SelectedEdges() : em->SelectedFaces());
         }
     }
     commandPanel_.SetModifyInfo(info);
@@ -498,7 +510,7 @@ bool MainFrame::SaveAs() {
 bool MainFrame::ConfirmDiscard() {
     if (undo_.IsClean()) return true;
     // NOTE: R3's wording for this question is unverified.
-    const std::wstring text = L"The scene " + docName_ + L" has been modified.\nDo you want to save your changes?";
+    const std::wstring text = L"The scene has been modified.\nDo you want to save your changes?";   // R3.1's words (r3.1-dlg-save-prompt.png)
     switch (MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_YESNOCANCEL | MB_ICONQUESTION)) {
     case IDYES: return docPath_.empty() ? SaveAs() : SaveFile(docPath_);
     case IDNO: return true;
@@ -556,7 +568,18 @@ bool MainFrame::MergeFile(const std::wstring& path) {
     io::ImportReport report;
     std::vector<scene::Node::Id> ids;
     std::string error;
-    if (!io::MergeScene(bytes, scene_, report, ids, error)) {
+    // R3.1's Merge dialog (r3.1-dlg-merge.png): the file's objects listed; the chosen ones merged.
+    std::vector<io::MergeCandidate> candidates;
+    if (!io::ListMergeCandidates(bytes, candidates, error)) {
+        const std::wstring text = L"Could not merge " + fileName + L":\n" + std::wstring(error.begin(), error.end());
+        MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    std::vector<ui::MergeItem> items;
+    for (const auto& c : candidates) items.push_back({std::wstring(c.name.begin(), c.name.end()), c.depth, c.groupHead, c.parent});
+    const std::vector<int> chosen = ui::ShowMergeDialog(Hwnd(), fileName, items);
+    if (chosen.empty()) return false;
+    if (!io::MergeChosen(bytes, chosen, scene_, report, ids, error)) {
         const std::wstring text = L"Could not merge " + fileName + L":\n" + std::wstring(error.begin(), error.end());
         MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
         return false;
@@ -750,23 +773,31 @@ bool MainFrame::CreateRegions() {
             scene::Node* target = picked.empty() ? nullptr : scene::groups::SelectableFor(scene_.FindById(picked.front()));
             if (!target || scene_.IsSelected(target->GetId())) { statusArea_.SetPrompt(1, L"Align: pick an object that is not selected"); return; }
             const std::wstring name(target->Name().begin(), target->Name().end());
-            const ui::AlignChoice c = ui::ShowAlignDialog(Hwnd(), name);
-            if (!c.ok) return;
-            scene::tools::AlignOptions o;
-            for (int i = 0; i < 3; ++i) { o.position[i] = c.position[i]; o.orientation[i] = c.orientation[i]; o.scale[i] = c.scale[i]; }
-            o.current = static_cast<scene::tools::AlignPoint>(c.current);
-            o.target = static_cast<scene::tools::AlignPoint>(c.target);
-            auto macro = std::make_unique<scene::MacroCommand>("Align");
-            const auto& sel = scene_.Selection();
-            for (scene::Node::Id id : sel) {
-                scene::Node* n = scene_.FindById(id);
-                bool under = false;                   // a selected child moves with its parent
-                for (const scene::Node* p = n ? n->Parent() : nullptr; p && !under; p = p->Parent()) under = scene_.IsSelected(p->GetId());
-                if (!n || under) continue;
-                macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), scene::tools::Aligned(*n, *target, o), "Align"));
-            }
-            undo_.Execute(std::move(macro), scene_);
-            viewports_.Redraw();
+            // Positions along the reference system's axes ("Align Position (Screen)", 11.2b);
+            // Apply aligns as its own step and keeps the dialog open.
+            const scene::move::Frame frame = viewports_.ActiveView().CurrentFrame();
+            const scene::Node::Id targetId = target->GetId();
+            auto align = [this, frame, targetId](const ui::AlignChoice& c) {
+                scene::Node* t = scene_.FindById(targetId);
+                if (!t) return;
+                scene::tools::AlignOptions o;
+                for (int i = 0; i < 3; ++i) { o.position[i] = c.position[i]; o.orientation[i] = c.orientation[i]; o.scale[i] = c.scale[i]; }
+                o.current = static_cast<scene::tools::AlignPoint>(c.current);
+                o.target = static_cast<scene::tools::AlignPoint>(c.target);
+                o.frame = frame;
+                auto macro = std::make_unique<scene::MacroCommand>("Align");
+                for (scene::Node::Id id : scene_.Selection()) {
+                    scene::Node* n = scene_.FindById(id);
+                    bool under = false;               // a selected child moves with its parent
+                    for (const scene::Node* p = n ? n->Parent() : nullptr; p && !under; p = p->Parent()) under = scene_.IsSelected(p->GetId());
+                    if (!n || under) continue;
+                    macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), scene::tools::Aligned(*n, *t, o), "Align"));
+                }
+                undo_.Execute(std::move(macro), scene_);
+                viewports_.Redraw();
+            };
+            const ui::AlignChoice c = ui::ShowAlignDialog(Hwnd(), name, SystemName(), align);
+            if (c.ok) align(c);
             return;
         }
         // Clicking a member of a closed group selects the group (Phase 10).
@@ -857,7 +888,7 @@ bool MainFrame::CreateRegions() {
             scene::Node* node = nullptr;
             SelectedStack(&node);
             if (!node) return;
-            const std::string suggested = scene_.UniqueName("Object");
+            const std::string suggested = scene_.UniqueName("Mesh");      // R3.1's "Mesh01" (r3.1-dlg-detach.png)
             const ui::DetachChoice choice = ui::ShowDetachDialog(Hwnd(), std::wstring(suggested.begin(), suggested.end()));
             if (!choice.ok) return;
             std::string name;
@@ -949,7 +980,7 @@ bool MainFrame::CreateRegions() {
         // Edit Geometry, topology (10.8).
         if (const auto mod = VertexEditingMod(); mod && (label == L"Break" || label == L"Turn" || label == L"Tessellate" ||
                                                           label == L"Extrude" || label == L"Chamfer" || label == L"Explode" ||
-                                                          label == L"Attach")) {
+                                                          label == L"Attach" || label == L"Divide" || label == L"Bevel")) {
             const scene::Mesh input = EditMeshInput(mod);
             const auto& prm = mod->Params();
             if (label == L"Attach") {
@@ -960,6 +991,12 @@ bool MainFrame::CreateRegions() {
             scene::EditMeshModifier::State after;
             std::unique_ptr<scene::MacroCommand> macro;
             if (label == L"Break") after = mod->AfterBreaking(input);
+            else if (label == L"Divide") after = subLevel_ == 1 ? mod->AfterDividingEdges(input) : mod->AfterTessellating(input, true);
+            else if (label == L"Bevel") {
+                // NOTE: R3 bevels by dragging; here Extrude's amount, then Bevel's as the outline.
+                after = mod->AfterBeveling(input, prm.Float(scene::EditMeshModifier::kExtrudeAmount, 0),
+                                           prm.Float(scene::EditMeshModifier::kChamferAmount, 0));
+            }
             else if (label == L"Turn") after = mod->AfterTurning(input);
             else if (label == L"Tessellate") after = mod->AfterTessellating(input, prm.Int(scene::EditMeshModifier::kTessByFace, 0) != 0);
             else if (label == L"Extrude") {
@@ -982,7 +1019,7 @@ bool MainFrame::CreateRegions() {
                     scene::Node* node = nullptr;
                     SelectedStack(&node);
                     if (!node) return;
-                    const std::wstring base = ui::AskName(Hwnd(), L"Explode to Objects", L"Object Name:", L"Object");
+                    const std::wstring base = ui::AskName(Hwnd(), L"Explode", L"Object Name:", L"Mesh");   // r3.1-dlg-explode.png
                     if (base.empty()) return;
                     std::string b8;
                     for (wchar_t c : base) b8 += static_cast<char>(c < 0x80 ? c : '?');
@@ -1341,10 +1378,13 @@ bool MainFrame::CreateRegions() {
             if (const scene::Node* n = scene_.FindById(id)) pivot = pivot + math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
         pivot = pivot * (1.0 / static_cast<double>(scene_.Selection().size()));
         auto macro = std::make_unique<scene::MacroCommand>(name);
+        const scene::move::Frame screen = viewports_.ActiveView().ScreenFrame();
         for (scene::Node::Id id : scene_.Selection()) {
             scene::Node* n = scene_.FindById(id);
             if (!n || (absolute && scene_.Selection().size() != 1)) continue;
-            const scene::PRS after = absolute ? scene::typein::WithAbsolute(tool, *n, value) : scene::typein::WithOffset(tool, *n, value, pivot);
+            // Offsets in the view's screen axes ("Offset:Screen", r3.1-dlg-typein.png).
+            const scene::PRS after = absolute ? scene::typein::WithAbsolute(tool, *n, value)
+                                              : scene::typein::WithOffset(tool, *n, value, pivot, screen);
             macro->Add(std::make_unique<scene::TransformCommand>(id, n->Transform(), after, name));
         }
         undo_.Execute(std::move(macro), scene_);
@@ -1585,9 +1625,31 @@ void MainFrame::OnCommand(const std::string& command) {
     }
     if (command == "file.save_as") { SaveAs(); return; }
     if (command == "file.new") {
-        // NOTE: R3 first asks Keep Objects and Hierarchy / Keep Objects / New All (dialog
-        // not built); this is New All, keeping the views.
-        if (ConfirmDiscard()) { ResetScene(); statusArea_.SetPrompt(1, L"New scene"); }
+        // R3.1's "New Scene" (r3.1-dlg-new.png). New All empties the scene (the views stay);
+        // Keep Objects and Hierarchy keeps everything as a new, untitled document; Keep
+        // Objects also removes every link (and so the groups).
+        if (!ConfirmDiscard()) return;
+        const int choice = ui::ShowNewSceneDialog(Hwnd());
+        if (choice == 0) return;
+        if (choice == 3) ResetScene();
+        else {
+            if (choice == 2) {
+                for (const auto& n : scene_.Nodes())
+                    if (n->Parent()) scene_.Link(n.get(), nullptr);
+                std::vector<scene::Node*> heads;
+                for (const auto& n : scene_.Nodes()) if (n->IsGroupHead()) heads.push_back(n.get());
+                for (scene::Node* h : heads) scene_.DeleteNode(h);
+            }
+            creation_.Cancel();
+            undo_.Clear();
+            undo_.MarkClean();
+            docPath_.clear();
+            SetDocumentName(L"Untitled");
+            UpdateSelectionStatus();
+            UpdateModifyPanel();
+            viewports_.Redraw();
+        }
+        statusArea_.SetPrompt(1, L"New scene");
         return;
     }
     if (command == "file.reset") {
@@ -1698,8 +1760,7 @@ void MainFrame::OnCommand(const std::string& command) {
         const math::Vec3 centre = viewports_.ActiveView().TransformCenter();
         const std::vector<scene::Node::Id> selection = scene::groups::WithMembers(scene_, scene_.Selection());
         if (command == "tools.mirror") {
-            static const wchar_t* kNames[] = {L"View", L"Screen", L"World", L"Parent", L"Local", L"Grid", L"Pick"};
-            const ui::MirrorChoice c = ui::ShowMirrorDialog(Hwnd(), kNames[static_cast<int>(refCoord_)]);
+            const ui::MirrorChoice c = ui::ShowMirrorDialog(Hwnd(), SystemName());
             if (!c.ok) return;
             const math::Mat4 m = scene::tools::MirrorMatrix(frame, static_cast<scene::tools::MirrorAxis>(c.axis), centre, c.offset);
             auto macro = std::make_unique<scene::MacroCommand>("Mirror");
@@ -1714,24 +1775,35 @@ void MainFrame::OnCommand(const std::string& command) {
             }
             undo_.Execute(std::move(macro), scene_);
         } else {
-            const ui::ArrayChoice c = ui::ShowArrayDialog(Hwnd());
+            static const wchar_t* kCentres[] = {L"Use Pivot Point Center", L"Use Selection Center", L"Use Transform Coordinate Center"};
+            const ui::ArrayChoice c = ui::ShowArrayDialog(Hwnd(), SystemName(), kCentres[std::max(0, std::min(2, centre_))]);
             if (!c.ok) return;
-            scene::tools::ArrayStep step;
-            step.move = c.move;
-            step.rotateDegrees = c.rotate;
-            step.scalePercent = c.scale;
-            const math::Mat4 stepM = scene::tools::ArrayStepMatrix(step, frame, centre);
             const int n1 = std::max(1, c.count1), n2 = c.dimensions >= 2 ? std::max(1, c.count2) : 1, n3 = c.dimensions >= 3 ? std::max(1, c.count3) : 1;
+            // Each row from its Incremental or its Totals side (11.2b); Uniform: X's scale.
+            scene::tools::ArrayStep total;
+            total.move = c.totalMove;
+            total.rotateDegrees = c.totalRotate;
+            total.scalePercent = c.totalScale;
+            const scene::tools::ArrayStep fromTotals = scene::tools::StepFromTotals(total, n1);
+            scene::tools::ArrayStep step;
+            step.move = c.totals[0] ? fromTotals.move : c.move;
+            step.rotateDegrees = c.totals[1] ? fromTotals.rotateDegrees : c.rotate;
+            step.scalePercent = c.totals[2] ? fromTotals.scalePercent : c.scale;
+            if (c.uniform) step.scalePercent = {step.scalePercent.x, step.scalePercent.x, step.scalePercent.x};
+            auto inFrame = [&](const math::Vec3& v) { return frame.axis[0] * v.x + frame.axis[1] * v.y + frame.axis[2] * v.z; };
             if (static_cast<long long>(n1) * n2 * n3 > 10000) { statusArea_.SetPrompt(1, L"Array: too many copies (10,000 at most)"); return; }
             std::vector<scene::Node::Id> all;
             for (int k = 0; k < n3; ++k)
                 for (int j = 0; j < n2; ++j) {
-                    math::Mat4 along = math::Translation(c.offset2 * static_cast<double>(j) + c.offset3 * static_cast<double>(k));
+                    const math::Mat4 rows = math::Translation(inFrame(c.offset2 * static_cast<double>(j) + c.offset3 * static_cast<double>(k)));
                     for (int i = 0; i < n1; ++i) {
-                        if (i > 0) along = along * stepM;          // step^i, then the row and layer offsets
                         if (i == 0 && j == 0 && k == 0) continue;  // the original
                         const auto ids = scene::CloneNodes(scene_, selection, c.instance);
-                        for (scene::Node* n : topmost(ids)) n->Transform() = scene::tools::Changed(*n, along);
+                        for (scene::Node* n : topmost(ids)) {
+                            // step^i (Re-Orient off: only the pivot moves), then the row and layer offsets
+                            const math::Vec3 pivot = math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
+                            n->Transform() = scene::tools::Changed(*n, rows * scene::tools::ArrayCopyChange(step, frame, centre, i, c.reorient, pivot));
+                        }
                         all.insert(all.end(), ids.begin(), ids.end());
                     }
                 }
@@ -1807,6 +1879,16 @@ void MainFrame::OnCommand(const std::string& command) {
         return;
     }
     if (command == "views.update_during_spinner_drag") { updateDuringSpinnerDrag_ = !updateDuringSpinnerDrag_; return; }
+    if (command == "edit.region_window" || command == "edit.region_crossing") {      // 11.3
+        regionWindow_ = command == "edit.region_window";
+        viewports_.SetRegionWindow(regionWindow_);
+        return;
+    }
+    if (command == "views.grid_show_home") {                                           // the active view's grid
+        viewports_.ActiveView().SetShowGrid(!viewports_.ActiveView().ShowGrid());
+        viewports_.Redraw();
+        return;
+    }
     if (command == "views.save_active" || command == "views.restore_active") {
         ui::Viewport& v = viewports_.ActiveView();
         SavedView& saved = savedViews_[static_cast<int>(v.Type())];
@@ -1909,6 +1991,9 @@ void MainFrame::UpdateMenu(HMENU menu) {
             ModifyMenuW(menu, id, MF_BYCOMMAND | MF_STRING | (ui::MenuItemEnabled(c, state) ? MF_ENABLED : MF_GRAYED), id, text.c_str());
         }
         if (c == "views.show_gizmo") CheckMenuItem(menu, id, MF_BYCOMMAND | (showGizmo_ ? MF_CHECKED : MF_UNCHECKED));
+        if (c == "edit.region_window") CheckMenuItem(menu, id, MF_BYCOMMAND | (regionWindow_ ? MF_CHECKED : MF_UNCHECKED));
+        if (c == "edit.region_crossing") CheckMenuItem(menu, id, MF_BYCOMMAND | (regionWindow_ ? MF_UNCHECKED : MF_CHECKED));
+        if (c == "views.grid_show_home") CheckMenuItem(menu, id, MF_BYCOMMAND | (viewports_.ActiveView().ShowGrid() ? MF_CHECKED : MF_UNCHECKED));
         if (c == "views.update_during_spinner_drag") CheckMenuItem(menu, id, MF_BYCOMMAND | (updateDuringSpinnerDrag_ ? MF_CHECKED : MF_UNCHECKED));
     }
 }

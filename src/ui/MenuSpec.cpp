@@ -64,8 +64,9 @@ const std::vector<MenuItem>& MainMenuSpec() {
                 Cmd(L"&Name...", "edit.select_by_name"),
             }),
             Sub(L"Re&gion", {
-                Cmd(L"&Window", "edit.region_window"),
-                Cmd(L"&Crossing", "edit.region_crossing"),
+                // Check items, Crossing by default (r3.1-menu-region.png).
+                Check(L"&Window", "edit.region_window"),
+                Check(L"&Crossing", "edit.region_crossing"),
             }),
             Sep(),
             Cmd(L"Edit Named Selections...", "edit.named_selections"),
@@ -104,10 +105,11 @@ const std::vector<MenuItem>& MainMenuSpec() {
             Cmd(L"&Save Active Perspective View", "views.save_active"),
             Cmd(L"Restore Active Perspective View", "views.restore_active"),
             Sub(L"&Grids", {
-                Cmd(L"&Show Home Grid", "views.grid_show_home"),
+                // r3.1-menu-grids.png: Show Home Grid ticked; the others greyed (no grid objects).
+                Check(L"&Show Home Grid", "views.grid_show_home"),
                 Cmd(L"&Activate Home Grid", "views.grid_activate_home"),
                 Cmd(L"Activate Grid &Object", "views.grid_activate_object"),
-                Cmd(L"Align Grid to &View", "views.grid_align_to_view"),
+                Cmd(L"Align To &View", "views.grid_align_to_view"),
             }),
             Sep(),
             Cmd(L"Viewport &Background...\tAlt+B", "views.background"),
@@ -236,6 +238,7 @@ bool MenuItemEnabled(const std::string& c, const MenuState& s) {
     // Nothing to act on yet (no animation, background image, cameras, lights to add,
     // renderings, saved Track / Schematic Views, groups): greyed, as R3 shows them.
     static const char* const kNever[] = {
+        "views.grid_activate_home", "views.grid_activate_object", "views.grid_align_to_view",   // 11.3: no grid objects
         "file.merge_animation", "views.undo", "views.redo", "views.update_background",
         "views.reset_background_transform", "views.match_camera", "views.add_default_lights",
         "render.show_last", "trackview.delete", "schematic.delete"};

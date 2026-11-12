@@ -69,6 +69,8 @@ public:
     }
     bool ShowGrid() const { return showGrid_; }
     void SetShowGrid(bool show);
+    // Edit > Region (11.3): Window picks only objects entirely inside the rectangle.
+    void SetRegionWindow(bool window) { regionWindow_ = window; }
 
     // Navigation (pure maths in view/Navigation.h).
     void Pan(int dx, int dy);
@@ -139,6 +141,13 @@ public:
     scene::move::Frame CurrentFrame() const;
     // The direction out of the screen, in world space (towards the viewer).
     math::Vec3 OutOfScreen() const { math::Vec3 r, u; OrthoBasis(r, u); return math::Normalize(math::Cross(r, u)); }
+    // The screen's axes in world space: X right, Y up, Z towards the viewer (11.2b).
+    scene::move::Frame ScreenFrame() const {
+        math::Vec3 r, u; OrthoBasis(r, u);
+        scene::move::Frame f;
+        f.axis[0] = math::Normalize(r); f.axis[1] = math::Normalize(u); f.axis[2] = math::Normalize(math::Cross(r, u));
+        return f;
+    }
     math::Vec3 TransformCenter() const;
     void SetTransformTool(bool on) { transformTool_ = on; }
     void SetAxesDisplay(view::AxesStyle style, const bool active[3]) {
@@ -187,6 +196,7 @@ private:
     ViewType type_ = ViewType::Top;
     Shading shading_ = Shading::Wireframe;  // stored and shown; used once objects exist
     bool showGrid_ = true;
+    bool regionWindow_ = false;               // Crossing by default (r3.1-menu-region.png)
     view::OrthoView ortho_;              // what an ortho view shows (pan/zoom in step 2.5)
     view::PerspectiveView perspective_;  // the perspective camera (orbit in step 2.5)
     TextPixels label_;                   // the view's name, as pixels

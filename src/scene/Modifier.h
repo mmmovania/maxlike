@@ -199,6 +199,12 @@ public:
     // Attach: `other` (already in this object's space) appended as added geometry.
     State AfterAttaching(const Mesh& input, const Mesh& other) const;
 
+    // Phase 11.1 (R3.1's labels above Vertex level). Divide at Edge level: each selected
+    // edge split at its midpoint (neighbours too; the new edges hidden). Bevel: Extrude by
+    // `height`, then the extruded vertices moved outwards in the faces' plane by `outline`.
+    State AfterDividingEdges(const Mesh& input) const;
+    State AfterBeveling(const Mesh& input, double height, double outline) const;
+
     // Interactive tools (10.9). Create: a vertex at `point` (selected), or a face from three
     // vertices, wound so its normal points along `towards` (the viewer).
     State AfterCreatingVertex(const Mesh& input, const math::Vec3& point) const;

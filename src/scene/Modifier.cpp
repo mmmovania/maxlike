@@ -333,6 +333,14 @@ BendModifier::BendModifier() {
 void BendModifier::Deform(Mesh& mesh) const {
     const double angle = params_.Float(kAngle) * kPi / 180;
     const Frame f = FrameFor(params_.Int(kAxis, 2));
+    // The bend plane's axes, with signs (11.4). Axis Z: a = X, b = Y (Phase 7, verified).
+    // Axis X: a = -Z, b = Y, measured: R3.1's bend.max (Angle 45, Direction 30, axis X)
+    // matches to 0.53 px on average in the Front view, where a = Y, b = Z was 86 px off.
+    // Axis Y: a = X, b = -Z, by the same rule (the bend frame turned onto the axis);
+    // NOTE: unverified, no sample bends about Y.
+    const int axis = params_.Int(kAxis, 2);
+    const int ia = axis == 0 ? 2 : axis == 1 ? 0 : f.a, ib = axis == 0 ? 1 : axis == 1 ? 2 : f.b;
+    const double sa = axis == 0 ? -1.0 : 1.0, sb = axis == 1 ? -1.0 : 1.0;
     const double L = Extent(mesh, f.h);
     if (std::fabs(angle) < 1e-12 || L <= 0) return;
     const double r = L / angle;
@@ -342,7 +350,7 @@ void BendModifier::Deform(Mesh& mesh) const {
     const double c = std::cos(dir), s = std::sin(dir);
     for (auto& v : mesh.verts) {
         // Turn the bend plane by Direction: work in (a', b') rotated about the axis.
-        const double a0 = Get(v, f.a), b0 = Get(v, f.b), h0 = Get(v, f.h);
+        const double a0 = sa * Get(v, ia), b0 = sb * Get(v, ib), h0 = Get(v, f.h);
         const double a = c * a0 + s * b0, b = -s * a0 + c * b0;
         double h = h0, extra = 0;
         if (limit) {
@@ -354,8 +362,8 @@ void BendModifier::Deform(Mesh& mesh) const {
         double nh = (r - a) * std::sin(phi);
         na += extra * std::sin(phi);      // straight on along the tangent
         nh += extra * std::cos(phi);
-        At(v, f.a) = c * na - s * b;
-        At(v, f.b) = s * na + c * b;
+        At(v, ia) = sa * (c * na - s * b);
+        At(v, ib) = sb * (s * na + c * b);
         At(v, f.h) = nh;
     }
     return;
@@ -943,6 +951,44 @@ EditMeshModifier::State EditMeshModifier::AfterCutting(const Mesh& input, uint32
         points[Key(a, b)] = AddVertex(s, inV, p.verts[a] + (p.verts[b] - p.verts[a]) * u);
     }
     SplitByEdgePoints(s, ext, live, inF, points, true, false, nullptr);
+    return s;
+}
+
+// ---- Divide and Bevel (11.1) ------------------------------------------------------------------
+
+EditMeshModifier::State EditMeshModifier::AfterDividingEdges(const Mesh& input) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    std::map<EdgeKey, uint32_t> points;
+    for (uint32_t e : selectedEdges_) {
+        uint32_t a, b;
+        if (!EdgeVertices(ext, e, a, b) || points.count(Key(a, b))) continue;
+        points[Key(a, b)] = AddVertex(s, input.verts.size(), (p.verts[a] + p.verts[b]) * 0.5);
+    }
+    SplitByEdgePoints(s, ext, live, input.faces.size(), points, false, false, nullptr);
+    s.selectedEdges.clear();
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterBeveling(const Mesh& input, double height, double outline) const {
+    State s = AfterExtruding(input, height);
+    if (outline == 0 || s.addedVertices.size() == addedVertices_.size()) return s;
+    // The extruded vertices: those Extrude just added. Out from their centre, within the
+    // plane of the faces (perpendicular to their averaged normal).
+    const size_t first = addedVertices_.size();
+    math::Vec3 c{0, 0, 0}, n{0, 0, 0};
+    for (size_t i = first; i < s.addedVertices.size(); ++i) c = c + s.addedVertices[i];
+    c = c * (1.0 / static_cast<double>(s.addedVertices.size() - first));
+    const Mesh p = Positions(input);
+    for (uint32_t f : selectedFaces_)
+        if (f < p.faces.size()) n = n + math::Cross(p.verts[p.faces[f].v[1]] - p.verts[p.faces[f].v[0]], p.verts[p.faces[f].v[2]] - p.verts[p.faces[f].v[0]]);
+    n = math::Length(n) > 1e-12 ? math::Normalize(n) : math::Vec3{0, 0, 1};
+    for (size_t i = first; i < s.addedVertices.size(); ++i) {
+        math::Vec3 d = s.addedVertices[i] - c;
+        d = d - n * math::Dot(d, n);
+        if (math::Length(d) > 1e-12) s.addedVertices[i] = s.addedVertices[i] + math::Normalize(d) * outline;
+    }
     return s;
 }
 

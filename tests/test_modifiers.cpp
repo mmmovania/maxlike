@@ -195,7 +195,8 @@ static void Deformers() {
         q.Apply(c);
         CHECK(Close(c.verts[0], {10, 10, 0}) && Close(c.verts[1], {10, 10, 100}) && Close(c.verts[2], {20, 20, 50}));
     }
-    // Another axis: Bend along X turns a row along X towards +Y.
+    // Another axis: Bend along X turns a row along X towards -Z (11.4: measured against
+    // R3.1's bend.max; Phase 7 had +Y, from maxlike's own formula, never checked in R3).
     {
         scene::Mesh m;
         for (int i = 0; i <= 4; ++i) m.verts.push_back({25.0 * i, 0, 0});
@@ -204,7 +205,7 @@ static void Deformers() {
         b.Params().Set(scene::BendModifier::kAxis, 0);
         b.Apply(m);
         const double r = 100 / (kPi / 2);
-        CHECK(Close(m.verts[4], {r, r, 0}));
+        CHECK(Close(m.verts[4], {r, 0, -r}));
     }
     // Against R3.1 (screenshot r3.1-modify-bend.png): Box 62.572 wide, 60.718 tall, Bend
     // 30.5 degrees about Z. R3 draws the top corners of the bent box's straight edges at

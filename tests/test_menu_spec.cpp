@@ -123,7 +123,9 @@ int main() {
             "edit.undo", "edit.redo", "edit.clone", "edit.select_all", "edit.select_none", "edit.select_invert", "edit.properties",
             "group.group", "group.open", "group.close", "group.ungroup", "group.explode", "group.detach", "group.attach",
             "views.undo", "views.redo", "views.restore_active", "views.update_background", "views.reset_background_transform",
-            "views.match_camera", "views.add_default_lights", "render.show_last", "trackview.delete", "schematic.delete"};
+            "views.match_camera", "views.add_default_lights", "render.show_last", "trackview.delete", "schematic.delete",
+            // Views > Grids (11.3, r3.1-menu-grids.png; that submenu was closed in 9.2's screenshots):
+            "views.grid_activate_home", "views.grid_activate_object", "views.grid_align_to_view"};
         std::vector<std::string> all;
         std::function<void(const std::vector<ui::MenuItem>&)> walk = [&](const std::vector<ui::MenuItem>& items) {
             for (const auto& it : items) { if (it.IsSubmenu()) walk(it.children); else if (!it.command.empty()) all.push_back(it.command); }

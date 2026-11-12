@@ -87,6 +87,8 @@ private:
     std::string name_;
     std::shared_ptr<Object> object_;
     uint32_t color_ = 0;
+    bool backfaceCull_ = true, hasMaterial_ = false;
+    uint32_t materialColor_ = 0;
     bool groupHead_ = false, groupOpen_ = false;
     PRS transform_, offset_;
     Node::Id parent_ = 0;

@@ -1,0 +1,161 @@
+# Phase 11 — List B: R3.1 evidence
+
+Branch: `phase/11-evidence` (from `main` after Phase 10). ✔ Done: v0.11.0.
+Technical documentation: `docs/tech/phase11-tech-docs.md`.
+
+Phase 11 works through list B of Phase 9's inventory with screenshots and sample files
+supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
+`docs/reference/samples/`): each item is compared with maxlike, corrected, and ticked off.
+
+## Evidence received
+- Batch 1: Edit Mesh at Edge, Face, Polygon and Element level (`r3.1-editmesh-*.png`),
+  Soft Selection open on the teapot, a face deleted; the Clone, New Scene, Reset, save-prompt
+  and Merge dialogs (`r3.1-dlg-*.png`).
+- Batch 2: the Transform Type-In, Mirror, Array, Align, Group, Detach and Explode dialogs; an
+  open group (`r3.1-group-open.png`).
+- Batch 3: `bend.max`, `taper.max`, `twist.max`, `bend-gizmo.max`, `group.max`,
+  `backface-off.max`, `material.max`; Bend's gizmo at Gizmo level.
+- Batch 4: the Select By, Region and Grids submenus (`r3.1-menu-*.png`).
+
+## Steps
+- [x] **11.1** Edit Mesh: the count wording ("Edge 16 Selected", "2 Faces Selected"); the
+      controls available at each level, measured (27 controls x 5 levels: all match);
+      Divide and Bevel; hidden edges of selected faces dotted; the Delete question only
+      when isolated vertices would remain; Soft Selection's measured layout with its
+      falloff curve graph; Edge Distance's spinner follows its check box
+- [x] **11.2a** Dialogs that change behaviour: New Scene (Keep Objects and Hierarchy / Keep
+      Objects / New All), Merge's object list (only the chosen objects merged), Clone laid
+      out from measurements with its (greyed) Controller group, the save prompt's wording,
+      Detach's "Mesh01" and Explode's "Mesh"
+- [x] **11.2b** Transform Type-In (offsets in the view's screen axes, arrows), Mirror (R3's
+      layout, Mirror IK Limits), Align (positions along the reference system, Apply), Array
+      (R3's layout: Totals, Re-Orient, Uniform, Total in Array, Reset All Parameters); the
+      system's name as R3 shows it (View: Screen in orthographic views)
+- [x] **11.3** Edit > Region: Window and Crossing as check items (Crossing by default) that
+      rectangle selection follows; Views > Grids: Show Home Grid ticked (the active view's
+      grid), "Align To View", three items greyed; the open group's outline #FF7FB2
+      (measured); the gizmo's yellow at Gizmo level confirmed
+- [x] **11.4a** Bend, Taper and Twist read from `.max` files (parameters, gizmo, centre);
+      Bend about X corrected (it bent the wrong way: found by comparing with R3.1)
+- [x] **11.4b** Groups, Backface Cull and a material's diffuse colour from `.max` files;
+      Backface Cull and the material colour as node properties (shaded views use the
+      colour; `.mlk` files keep both)
+- [x] **11.5** Wrap-up: technical documentation, documentation sweep, v0.11.0
+
+## Still wanted from R3.1
+- Edit Mesh with the panel scrolled to the bottom, at Edge and Face level.
+- `bend.max` with the box selected in Modify, Sub-Object off (the object-level gizmo).
+- Menus opened with Alt+letter (underlines); a far Perspective view; each primitive's
+  Creation Method and Keyboard Entry rollouts.
+
+## Step 11.4b verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_max_import`: group.max's Group01 is a closed, object-less group head with both
+      boxes under it, and a click on a box selects the group; backface-off.max's box has
+      Backface Cull off, every node of box.max and instances.max has it on; material.max's
+      box has the material colour 0xFD0000 (R3's diffuse 0.992, 0, 0). `test_native_file`:
+      both properties survive a save and a load
+- [x] Under Wine: material.max's box is shaded red in the Perspective view
+- [x] Measured from the node flags (chunk 0x0960's second word) of all 26 samples: 0x40
+      group head, 0x100 member, 0x00800000 Backface Cull. Found: my first reading took 0x800
+      for Backface Cull, which every created object has but cloned ones lack (0x1000
+      instead): instances.max's boxes would have lost their culling. Listing the flags of
+      every sample node first caught it; a test now guards it
+- [x] ParamBlock2 colour and point entries (types 2 and 3) are read
+- [ ] Unverified: the group-open bit 0x80 (Max's node flags; group.max is closed); the
+      flags 0x800 / 0x1000 (they follow created / cloned objects, unused); materials beyond
+      a Standard material's diffuse colour (maps, other material types)
+
+## Step 11.4a verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_max_import`: each sample's whole stack (taper.max is Bend under Taper,
+      twist.max Bend and Taper under Twist: the samples were built on one another, only the
+      top modifier carrying the values entered) has the right types and parameters, and
+      evaluates exactly as the same stack built in maxlike. bend-gizmo.max's gizmo is read
+      at (9.768, 0.232, 0.5), turned 30 degrees about Y (as stored; it was dragged, so not
+      the +10 / Z planned), its centre at the origin
+- [x] Against R3.1 (r3.1-bend-gizmo-object.png): bend.max opened in maxlike matches R3's
+      Front view on all 345 rows of the bent box's outline, to 0 px. Before the correction
+      it was 86 px off on average: maxlike bent about X towards +Y, R3 towards -Z. The right
+      mapping was chosen by fitting all eight candidates to R3's outline (0.53 px for
+      a = -Z, b = Y; the next best 20.6 px), after calibrating the view on maxlike's render
+- [x] `test_modifiers`: Phase 7's axis-X expectation came from maxlike's own formula, not
+      from R3; it now expects the measured direction (-Z)
+- [x] Found: a passing test run used a stale binary (a link error stopped the build); the
+      binaries' times are now checked. Two expectations of mine were wrong (the stacked
+      samples; the axis left out of one expectation), not the importer
+- [ ] Unverified: Bend about Y (derived by the same rule, no sample); Taper and Twist about
+      X or Y (their samples use Z); a gizmo scale axis or a modifier context transform
+      other than identity (reported, not applied)
+
+## Step 11.3 verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_picking`: Window picks only objects entirely inside (the rectangle that crosses
+      two squares picks the one it contains, not the one it cuts). `test_menu_spec`: the
+      greyed set gains the three Grids items (r3.1-menu-grids.png; that submenu was closed
+      in 9.2's screenshots)
+- [x] Under Wine on `instances.max`: a rectangle enclosing two boxes and cutting a third
+      selects 3 in Crossing, 2 after Edit > Region > Window. Group, Group > Open: the
+      outline is drawn in #FF7FB2 (1,678 px across the seven boxes), none in the old colour
+- [x] Measured: open group outline (255, 127, 178), a full box around the members (was
+      #FF80FF from memory); the gizmo lattice at Gizmo level (255, 255, 0), as built
+- [x] Found: my first Window test expected nothing picked, but one square lies entirely
+      inside that rectangle; the corrected test distinguishes contained from crossed
+- [ ] On Windows: the Region ticks; Show Home Grid per view
+- [ ] Unverified: the gizmo's colour at object level (the screenshot shows the box
+      unselected); Select By matched already
+
+## Step 11.2b verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_arrange`: aligning X pivots in a frame turned 90 degrees moves along world Y
+      only; Totals of 100 units over 5 copies is 25 a step, 160 % over 3 its square root;
+      Re-Orient off places the copy as with it on but keeps its orientation.
+      `test_typein`: a 10-unit Move offset in that frame goes along world Y; 90 degrees
+      about its X turns world X to -Z
+- [x] Under Wine on `box.max`, the box selected in the Front view: Type-In Offset Y = 10
+      raises it exactly 60 px (10 units) in the Front view, the Top view unchanged; Ctrl+Z
+      restores it. The floater measures 288 x 101, R3.1's client area within a pixel
+- [ ] On Windows: each dialog next to its screenshot; Array's arrows and Totals; Align's
+      Apply; the Type-In arrows
+- [ ] Unverified / not built: R3's spinners dragging (here a click steps by 1); Mirror IK
+      Limits has no effect (no IK); Reference cloning (no references); Array's Re-Orient
+      off keeps scale too; Array Totals for Scale as a root per step; Align's live preview
+
+## Step 11.2a verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_merge`: `instances.max` lists its 7 boxes; choosing the 1st and 3rd merges
+      exactly Box01 and Box03; `parent_child_link.max`'s child alone comes in at the top,
+      exactly where it was; choosing all equals a plain Merge
+- [x] Under Wine: `instances.max`, Select All, Group, File > New (the save prompt answered
+      No), Keep Objects: Select All finds the 7 boxes, the document is Untitled. The New
+      Scene dialog measures 255 x 153 px, exactly R3.1's client size (r3.1-dlg-new.png)
+- [ ] On Windows: each dialog next to its screenshot; Merge's name filter, Select Subtree
+      and List types; Keep Objects and Hierarchy
+- [ ] Unverified: R3's Keep Objects and Hierarchy beyond keeping the scene (it also drops
+      animation, which maxlike lacks); Merge's Sort (greyed, as in the screenshot) and its
+      duplicate-name question; the dialogs are laid out from measured pixels converted to
+      dialog units, not compared pixel by pixel (the test display does not paint them)
+
+## Step 11.1 verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_parameters_spec`: the count wording for one item (an index from 1), several,
+      none, and Element counting faces; the controls by level (Create not at Edge, Divide
+      and Bevel labels, By Vertex, Ignore Visible Edges, Hide, Refine Ends).
+      `test_edit_mesh`: Divide keeps the box closed (Euler 2); Bevel puts each corner 5
+      further out than a plain Extrude, closed
+- [x] Measured under Wine against `r3.1-editmesh-edge-a / face-a / polygon-a / element` and
+      the Vertex-level screenshot: whether each of 27 controls is drawn available or greyed,
+      at all five levels: no difference
+- [x] Dotted hidden edges measured: one red pixel every 4 along the edge (r3.1-editmesh-face-a)
+- [x] Soft Selection against `r3.1-editmesh-softsel-vertex.png`: check boxes and spinners
+      exact (apart from the digits' font); the graph's box 93.8 % pixel-identical, its curve
+      within 1 px of R3's on every row; the guide lines in the face colour
+- [x] Found while measuring: the Phase 7 panel comparison masks all text, so it never
+      checked which controls were greyed; the new enabled-state measurement does. A stale
+      capture (rewritten later than the others) first showed a false difference; fresh
+      captures of all five levels settle it
+- [ ] On Windows: the five levels' buttons; Divide and Bevel; Soft Selection's graph
+      following Falloff, Pinch and Bubble; the Delete question only when needed
+- [ ] Unverified: the Delete question's appearance (inferred from its absence when deleting
+      one teapot face); the curve's last rows near the baseline (up to 3 px apart); Bevel's
+      R3 behaviour (by dragging; here Extrude's and Bevel's amounts)

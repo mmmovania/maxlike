@@ -39,6 +39,7 @@ public:
     std::function<void(const std::vector<uint32_t>&, bool, bool, bool)> onVertexSelect;
     std::function<void(uint32_t, uint32_t)> onWeldTarget;
     std::function<void(const Viewport::ToolClick&)> onToolClick;
+    void SetRegionWindow(bool window) { for (auto& v : views_) v.SetRegionWindow(window); }   // 11.3
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
     void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
     // File > Reset: the startup types and views (Top, Front, Left, Perspective).

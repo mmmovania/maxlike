@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -17,7 +18,8 @@ namespace ui::params {
 enum class Kind { Float, Int, Check, Radio,
                   Button,     // a push button (left..right, height); clicking reports its label
                   Label,      // static text from `left` (or right-aligned to `right`); "{selection}" is replaced
-                  Levels };   // the five sub-object level icons (Edit Mesh)
+                  Levels,     // the five sub-object level icons (Edit Mesh)
+                  Graph };    // Soft Selection's falloff curve (11.1): paramIndex = Falloff
 
 // Measured geometry of a Parameters row (Create panel); rows may override the field,
 // checkbox and decimals (Bend's rollout: fields at x 81 and 87, one decimal).
@@ -48,6 +50,8 @@ struct Row {
     int checkLeft = kCheckLeft;       // checks: the box's left; the text starts 19 px after it
     std::vector<std::wstring> options;   // radios: labels, value = the option's index
     std::vector<int> optionLefts;        // radios: each circle's left (label 17 px after it)
+    int graphPinch = -1, graphBubble = -1;   // Graph: the Pinch and Bubble parameters
+    int enabledBy = -1;   // available only while this (on / off) parameter is on (11.1: Edge Distance)
 
     int FieldRight() const { return fieldLeft + fieldWidth - 1; }
     int ArrowsLeft() const { return arrowsLeft >= 0 ? arrowsLeft : FieldRight() + 3; }
@@ -76,6 +80,11 @@ struct Spec {
 // Parameters; Edit Mesh: Selection, Soft Selection, Edit Geometry).
 // `level`: Edit Mesh's sub-object level (0 Vertex .. 4 Element; 0 also with Sub-Object
 // off), which decides the Edit Geometry buttons that are available (Phase 10.7).
+// Edit Mesh's selection count (measured, r3.1-editmesh-*.png): one item shows its index
+// counted from 1 ("Edge 16 Selected", "Face 4 Selected"); otherwise a count ("2 Faces
+// Selected", "0 Faces Selected"). Polygon and Element count faces (Phase 11.1).
+std::wstring SubObjectCountText(int level, const std::vector<uint32_t>& selected);
+
 // `sliceMode`: Slice Plane is on, which makes Slice available (10.9).
 std::vector<Spec> ModifierRollouts(const std::string& className, int level = 0, bool sliceMode = false);
 

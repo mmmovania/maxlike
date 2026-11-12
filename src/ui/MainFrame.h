@@ -104,6 +104,9 @@ private:
     scene::Mesh EditMeshInput(const std::shared_ptr<scene::EditMeshModifier>& mod) const;   // the mesh coming into it
     // The vertices of the current sub-object selection (edges' and faces' too), by index.
     std::vector<uint32_t> SubObjectVertices(const std::shared_ptr<scene::EditMeshModifier>& mod) const;
+    // The reference system's name as R3 shows it in dialog titles (11.2b): View is "Screen"
+    // in orthographic views and "World" in Perspective (the 9.9 rule).
+    std::wstring SystemName();
     void UpdateModifyPanel();
     // The selected object's stack: its Derived Object (or null) and the entry shown.
     std::shared_ptr<scene::DerivedObject> SelectedStack(scene::Node** node = nullptr) const;
@@ -138,6 +141,7 @@ private:
     // vertices clicked so far for a face, the first edge of a cut, and the slice plane
     // (object space). `lastEditing_` is what the views were last given.
     int editTool_ = 0;
+    bool regionWindow_ = false;                        // Edit > Region (11.3): Crossing by default
     std::vector<uint32_t> pendingFace_;
     long long cutEdge_ = -1;
     double cutT_ = 0;

@@ -646,7 +646,7 @@ void CommandPanel::PaintRows(HDC dc, int titleTop, int slot) {
             }
         }
     for (size_t i = 0; i < rows.size(); ++i) {
-        const params::Row& row = rows[i];
+        const params::Row row = Effective(rows[i]);            // enabledBy applied (11.1)
         const int id = keyboard ? kKeyBase + static_cast<int>(i) : slot * 100 + static_cast<int>(i);
         const int T = titleTop + row.top;
         const double value = (id == spinRow_ && spinModel_) ? spinModel_->Value() : RowValue(id);
@@ -670,6 +670,48 @@ void CommandPanel::PaintRows(HDC dc, int titleTop, int slot) {
             px(R, T, R, B, k);       px(L + 1, B, R, B, k);
             px(R - 1, T + 1, R - 1, B - 1, sh);  px(L + 2, B - 1, R - 1, B - 1, sh);
             text(row.label, L, T, R + 1, B, DT_CENTER, row.enabled);
+            continue;
+        }
+        if (row.kind == params::Kind::Graph) {
+            // Soft Selection's falloff curve (measured, 11.1): a 2-px sunken frame, a white
+            // box, the affect-region curve across it (peak at the centre column, rows 171 to
+            // 212 for weights 1 to 0), and Falloff / 0.0 / Falloff beneath.
+            const int L = row.left, R = row.right, B = T + row.height - 1;
+            px(L, T, R, B, RGB(255, 255, 255));
+            px(L, T, R - 1, T, RGB(160, 160, 160));      px(L, T, L, B, RGB(160, 160, 160));   // the left edge runs the full height
+            px(L + 1, T + 1, R - 2, T + 1, RGB(0, 0, 0)); px(L + 1, T + 1, L + 1, B - 2, RGB(0, 0, 0));
+            px(R - 1, T + 1, R - 1, B - 1, face);         px(L + 1, B - 1, R - 1, B - 1, face);
+            params::Row p = row;
+            const double falloff = ParamValue(p);
+            p.paramIndex = row.graphPinch;
+            const double pinch = row.graphPinch >= 0 ? ParamValue(p) : 0;
+            p.paramIndex = row.graphBubble;
+            const double bubble = row.graphBubble >= 0 ? ParamValue(p) : 0;
+            // The weight-1 and weight-0 lines and the centre line, faint (measured: the face
+            // colour on white; rows 171 and 212, column 90). -Falloff..+Falloff spans the
+            // frame's full width (fitted: the curve meets the baseline at its outer columns).
+            px(L + 2, T + 20, R - 2, T + 20, face);
+            px(L + 2, T + 61, R - 2, T + 61, face);
+            px(L + 61, T + 2, L + 61, B - 2, face);
+            const int x0 = L + 2, x1 = R - 2;
+            const double c = (L + R) / 2.0, half = (R - L) / 2.0;
+            auto yAt = [&](int x) {
+                const double u = std::max(0.0, 1.0 - std::fabs(x - c) / half), s = 1.0 - u;
+                const double w = (3 * u * bubble * s + 3 * u * u * (1.0 - pinch)) * s + u * u * u;
+                return std::max(T + 2, std::min(B - 2, static_cast<int>(std::lround(T + 61 - 40 * w))));
+            };
+            // A one-pixel line (measured): each column from its own row towards its outer
+            // neighbour's, stopping one short, so a diagonal step is a single pixel.
+            for (int x = x0; x <= x1; ++x) {
+                const int y = yAt(x), outer = x < c ? (x > x0 ? yAt(x - 1) : y) : (x < x1 ? yAt(x + 1) : y);
+                const int a = outer > y ? y : outer < y ? outer + 1 : y, b = outer > y ? outer - 1 : y;
+                px(x, a, x, b, RGB(0, 0, 0));
+            }
+            wchar_t v[32];
+            std::swprintf(v, 32, L"%.1f", falloff);
+            text(v, 22, T + 84, 80, T + 100, DT_LEFT, row.enabled);
+            text(L"0.0", 64, T + 84, 124, T + 100, DT_CENTER, row.enabled);
+            text(v, 100, T + 84, 159, T + 100, DT_RIGHT, row.enabled);
             continue;
         }
         if (row.kind == params::Kind::Label) {
@@ -784,10 +826,10 @@ CommandPanel::Part CommandPanel::ParamPartAt(int x, int y, int& row) const {
         if (titleTop == kNoTitle) continue;
         const std::vector<params::Row>& rows = slot < 0 ? keyboard_.fields.rows : SpecAt(slot).rows;
         for (size_t i = 0; i < rows.size(); ++i) {
-            const params::Row& r = rows[i];
+            const params::Row r = Effective(rows[i]);
             const int id = slot < 0 ? kKeyBase + static_cast<int>(i) : slot * 100 + static_cast<int>(i);
             const int T = titleTop + r.top;
-            if (!r.enabled || r.kind == params::Kind::Label) continue;
+            if (!r.enabled || r.kind == params::Kind::Label || r.kind == params::Kind::Graph) continue;
             if (r.kind == params::Kind::Button) {
                 if (y >= T && y < T + r.height && x >= r.left && x <= r.right) { row = id; return Part::Button; }
                 continue;

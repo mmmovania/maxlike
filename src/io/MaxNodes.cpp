@@ -42,6 +42,45 @@ void ReadScale(const std::vector<uint8_t>& d, const Chunk* k, MaxTransform& t, b
 
 } // namespace
 
+bool ReadPRSController(const MaxScene& s, int controller, MaxTransform& t, std::vector<std::string>& notes) {
+    // A Position/Rotation/Scale controller over Bezier Position, TCB Rotation and Bezier
+    // Scale (the verified types); other sub-controllers are reported and their defaults kept.
+    const ClassEntry* ctl = controller >= 0 && static_cast<size_t>(controller) < s.ObjectCount() ? s.ClassOf(static_cast<size_t>(controller)) : nullptr;
+    if (!ctl || ctl->classIdA != 0x2005 || ctl->classIdB != 0) {
+        notes.push_back("controller \"" + (ctl ? ctl->name : std::string("?")) + "\" is not a Position/Rotation/Scale");
+        return false;
+    }
+    const std::vector<uint8_t>& d = s.SceneBytes();
+    const auto& sub = s.Refs(static_cast<size_t>(controller));
+    struct Part { uint32_t classId; uint16_t chunk; void (*read)(const std::vector<uint8_t>&, const Chunk*, MaxTransform&, bool&); };
+    const Part parts[3] = {{0x2008, 0x2503, ReadPosition}, {0x442313, 0x2504, ReadRotation}, {0x2010, 0x2505, ReadScale}};
+    for (size_t i = 0; i < 3; ++i) {
+        if (i >= sub.size() || sub[i] < 0 || static_cast<size_t>(sub[i]) >= s.ObjectCount()) continue;
+        const ClassEntry* sc = s.ClassOf(static_cast<size_t>(sub[i]));
+        if (!sc || sc->classIdA != parts[i].classId || sc->classIdB != 0) {
+            notes.push_back("controller \"" + (sc ? sc->name : std::string("?")) + "\" not supported; its default used");
+            continue;
+        }
+        bool readOk = true;
+        parts[i].read(d, Child(s.ObjectChunk(static_cast<size_t>(sub[i])), parts[i].chunk), t, readOk);
+        if (!readOk) notes.push_back(sc->name + ": no value chunk");
+    }
+    return true;
+}
+
+bool ReadPositionController(const MaxScene& s, int controller, math::Vec3& p, std::vector<std::string>& notes) {
+    const ClassEntry* c = controller >= 0 && static_cast<size_t>(controller) < s.ObjectCount() ? s.ClassOf(static_cast<size_t>(controller)) : nullptr;
+    if (!c || c->classIdA != 0x2008 || c->classIdB != 0) {
+        notes.push_back("position controller \"" + (c ? c->name : std::string("?")) + "\" not supported");
+        return false;
+    }
+    MaxTransform t;
+    bool ok = true;
+    ReadPosition(s.SceneBytes(), Child(s.ObjectChunk(static_cast<size_t>(controller)), 0x2503), t, ok);
+    if (ok) p = t.position;
+    return ok;
+}
+
 std::vector<MaxNode> ReadNodes(const MaxScene& s) {
     const std::vector<uint8_t>& d = s.SceneBytes();
     const std::vector<size_t> indices = s.FindByClassName("Node");
@@ -54,6 +93,7 @@ std::vector<MaxNode> ReadNodes(const MaxScene& s) {
         if (const Chunk* k = Child(c, 0x0962)) n.name = Utf16BytesToUtf8(d, k->begin, k->end);
         int parent = -1;
         if (const Chunk* k = Child(c, 0x0960); k && k->end - k->begin >= 4) std::memcpy(&parent, &d[k->begin], 4);
+        if (const Chunk* k = Child(c, 0x0960); k && k->end - k->begin >= 8) std::memcpy(&n.flags, &d[k->begin + 4], 4);
         parentIndex.push_back(parent);
         if (const Chunk* k = Child(c, 0x0974); k && k->end - k->begin >= 3) {
             n.hasWireColor = true;
@@ -62,6 +102,7 @@ std::vector<MaxNode> ReadNodes(const MaxScene& s) {
         const auto& refs = s.Refs(idx);
         if (refs.size() > 0) n.controller = refs[0];
         if (refs.size() > 1) n.object = refs[1];
+        if (refs.size() > 3) n.material = refs[3];
 
         // The object offset (always present in the samples; identity if absent).
         bool ok = true;
@@ -72,25 +113,8 @@ std::vector<MaxNode> ReadNodes(const MaxScene& s) {
 
         // The transform: a Position/Rotation/Scale controller over Bezier Position, TCB
         // Rotation and Bezier Scale (the verified types); others are reported.
-        const ClassEntry* ctl = n.controller >= 0 && static_cast<size_t>(n.controller) < s.ObjectCount() ? s.ClassOf(static_cast<size_t>(n.controller)) : nullptr;
-        if (!ctl || ctl->classIdA != 0x2005 || ctl->classIdB != 0) {
-            n.notes.push_back("transform controller \"" + (ctl ? ctl->name : std::string("?")) + "\" not supported; identity used");
-        } else {
-            const auto& sub = s.Refs(static_cast<size_t>(n.controller));
-            struct Part { uint32_t classId; uint16_t chunk; void (*read)(const std::vector<uint8_t>&, const Chunk*, MaxTransform&, bool&); };
-            const Part parts[3] = {{0x2008, 0x2503, ReadPosition}, {0x442313, 0x2504, ReadRotation}, {0x2010, 0x2505, ReadScale}};
-            for (size_t i = 0; i < 3; ++i) {
-                if (i >= sub.size() || sub[i] < 0 || static_cast<size_t>(sub[i]) >= s.ObjectCount()) continue;
-                const ClassEntry* sc = s.ClassOf(static_cast<size_t>(sub[i]));
-                if (!sc || sc->classIdA != parts[i].classId || sc->classIdB != 0) {
-                    n.notes.push_back("controller \"" + (sc ? sc->name : std::string("?")) + "\" not supported; its default used");
-                    continue;
-                }
-                bool readOk = true;
-                parts[i].read(d, Child(s.ObjectChunk(static_cast<size_t>(sub[i])), parts[i].chunk), n.transform, readOk);
-                if (!readOk) n.notes.push_back(sc->name + ": no value chunk");
-            }
-        }
+        if (!ReadPRSController(s, n.controller, n.transform, n.notes))
+            n.notes.push_back("transform controller not supported; identity used");
         if (!IsIdentity(n.transform.scaleAxis) || !IsIdentity(n.objectOffset.scaleAxis))
             n.notes.push_back("a scale axis other than identity is not applied");
         nodes.push_back(std::move(n));
