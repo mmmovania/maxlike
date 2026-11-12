@@ -36,7 +36,9 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
       (measured); the gizmo's yellow at Gizmo level confirmed
 - [x] **11.4a** Bend, Taper and Twist read from `.max` files (parameters, gizmo, centre);
       Bend about X corrected (it bent the wrong way: found by comparing with R3.1)
-- [ ] 11.4b Groups, Backface Cull and materials from `.max` files
+- [x] **11.4b** Groups, Backface Cull and a material's diffuse colour from `.max` files;
+      Backface Cull and the material colour as node properties (shaded views use the
+      colour; `.mlk` files keep both)
 - [ ] Wrap-up
 
 ## Still wanted from R3.1
@@ -44,6 +46,24 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
 - `bend.max` with the box selected in Modify, Sub-Object off (the object-level gizmo).
 - Menus opened with Alt+letter (underlines); a far Perspective view; each primitive's
   Creation Method and Keyboard Entry rollouts.
+
+## Step 11.4b verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_max_import`: group.max's Group01 is a closed, object-less group head with both
+      boxes under it, and a click on a box selects the group; backface-off.max's box has
+      Backface Cull off, every node of box.max and instances.max has it on; material.max's
+      box has the material colour 0xFD0000 (R3's diffuse 0.992, 0, 0). `test_native_file`:
+      both properties survive a save and a load
+- [x] Under Wine: material.max's box is shaded red in the Perspective view
+- [x] Measured from the node flags (chunk 0x0960's second word) of all 26 samples: 0x40
+      group head, 0x100 member, 0x00800000 Backface Cull. Found: my first reading took 0x800
+      for Backface Cull, which every created object has but cloned ones lack (0x1000
+      instead): instances.max's boxes would have lost their culling. Listing the flags of
+      every sample node first caught it; a test now guards it
+- [x] ParamBlock2 colour and point entries (types 2 and 3) are read
+- [ ] Unverified: the group-open bit 0x80 (Max's node flags; group.max is closed); the
+      flags 0x800 / 0x1000 (they follow created / cloned objects, unused); materials beyond
+      a Standard material's diffuse colour (maps, other material types)
 
 ## Step 11.4a verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)

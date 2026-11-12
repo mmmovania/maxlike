@@ -93,6 +93,7 @@ std::vector<MaxNode> ReadNodes(const MaxScene& s) {
         if (const Chunk* k = Child(c, 0x0962)) n.name = Utf16BytesToUtf8(d, k->begin, k->end);
         int parent = -1;
         if (const Chunk* k = Child(c, 0x0960); k && k->end - k->begin >= 4) std::memcpy(&parent, &d[k->begin], 4);
+        if (const Chunk* k = Child(c, 0x0960); k && k->end - k->begin >= 8) std::memcpy(&n.flags, &d[k->begin + 4], 4);
         parentIndex.push_back(parent);
         if (const Chunk* k = Child(c, 0x0974); k && k->end - k->begin >= 3) {
             n.hasWireColor = true;
@@ -101,6 +102,7 @@ std::vector<MaxNode> ReadNodes(const MaxScene& s) {
         const auto& refs = s.Refs(idx);
         if (refs.size() > 0) n.controller = refs[0];
         if (refs.size() > 1) n.object = refs[1];
+        if (refs.size() > 3) n.material = refs[3];
 
         // The object offset (always present in the samples; identity if absent).
         bool ok = true;

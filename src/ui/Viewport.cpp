@@ -319,7 +319,8 @@ void Viewport::DrawScene(int w, int h) {
             shown[i] = math::Dot(n, toViewer) > 0;
         }
         std::vector<Line> lines;
-        for (const auto& [a, b] : mesh.VisibleEdges(shading_ == Shading::BoundingBox ? nullptr : &shown)) {
+        // Backface Cull off (11.4b): every visible edge, front or back.
+        for (const auto& [a, b] : mesh.VisibleEdges(shading_ == Shading::BoundingBox || !node->BackfaceCull() ? nullptr : &shown)) {
             if (persp) {
                 lines.push_back({static_cast<float>(p[a].x), static_cast<float>(p[a].y), static_cast<float>(p[a].z),
                                  static_cast<float>(p[b].x), static_cast<float>(p[b].y), static_cast<float>(p[b].z)});
@@ -947,7 +948,7 @@ void Viewport::DrawShaded(int w, int h, bool facets, bool highlights) {
                                    static_cast<float>(n.x), static_cast<float>(n.y), static_cast<float>(n.z)});
             }
         }
-        const uint32_t c = node->WireColor();
+        const uint32_t c = node->HasMaterialColor() ? node->MaterialColor() : node->WireColor();   // a material's diffuse (11.4b)
         meshes_->Draw(v, toClip, ((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, light);
     }
     glDisable(GL_DEPTH_TEST);

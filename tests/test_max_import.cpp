@@ -5,6 +5,7 @@
 #include "io/MaxNodes.h"
 #include <cmath>
 #include <cstdio>
+#include "scene/Groups.h"
 #include "scene/Primitives.h"
 #include "scene/Modifier.h"
 #include <fstream>
@@ -138,6 +139,30 @@ int main() {
             CHECK(std::fabs(std::fabs(x.z) - 0.5) < 1e-5 && std::fabs(x.x - std::sqrt(3.0) / 2) < 1e-5);   // by 30 degrees
             CHECK(math::Length(gz.center) < 1e-9);
         }
+    }
+    // 11.4b: groups, Backface Cull and a material's colour from R3.1 files.
+    {
+        scene::Scene g;
+        io::ImportReport report;
+        std::string error;
+        CHECK(io::ImportMax(Load("group"), g, report, error) && g.Nodes().size() == 3);
+        const scene::Node* head = g.Find("Group01");
+        CHECK(head && head->IsGroupHead() && !head->GroupOpen() && !head->GetObject() && head->Children().size() == 2);
+        if (head && !head->Children().empty())
+            CHECK(scene::groups::SelectableFor(const_cast<scene::Node*>(head->Children()[0])) == head);   // a click selects the group
+        // Backface Cull: off only in backface-off.max; on in every node of the others (the
+        // bit is 0x00800000, not 0x800, which clones lack).
+        scene::Scene bf, box, inst;
+        CHECK(io::ImportMax(Load("backface-off"), bf, report, error) && bf.Nodes().size() == 1 && !bf.Nodes()[0]->BackfaceCull());
+        CHECK(io::ImportMax(Load("box"), box, report, error) && box.Nodes()[0]->BackfaceCull());
+        CHECK(io::ImportMax(Load("instances"), inst, report, error));
+        for (const auto& n : inst.Nodes()) CHECK(n->BackfaceCull());
+        // material.max: a Standard material with a red diffuse (0.992, 0, 0) -> 253, 0, 0.
+        scene::Scene mat;
+        CHECK(io::ImportMax(Load("material"), mat, report, error));
+        const scene::Node* m = mat.Find("Box01");
+        CHECK(m && m->HasMaterialColor() && m->MaterialColor() == 0xFD0000);
+        CHECK(!box.Nodes()[0]->HasMaterialColor());
     }
     if (failures == 0) std::printf("max import: all tests passed\n");
     return failures == 0 ? 0 : 1;

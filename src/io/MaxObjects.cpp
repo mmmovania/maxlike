@@ -38,6 +38,11 @@ bool Pb2Entry(const std::vector<uint8_t>& d, const Chunk& k, MaxParam& p, std::v
     case 0: case 5: case 6: case 7: p.type = MaxParam::Type::Float; p.value = LE<float>(d, k.begin + 11); return true;   // float, angle, percent, world
     case 1: p.type = MaxParam::Type::Int; p.value = LE<int32_t>(d, k.begin + 11); return true;
     case 4: p.type = MaxParam::Type::Bool; p.value = LE<int32_t>(d, k.begin + 11) != 0; return true;
+    case 2: case 3:                                         // RGB colour or point: three floats (11.4b)
+        if (k.end - k.begin < 23) { notes.push_back("ParamBlock2: a short colour entry"); return false; }
+        p.type = MaxParam::Type::Color;
+        p.color = {LE<float>(d, k.begin + 11), LE<float>(d, k.begin + 15), LE<float>(d, k.begin + 19)};
+        return true;
     default: notes.push_back("ParamBlock2: parameter " + std::to_string(p.index) + " of type " + std::to_string(type) + " not read"); return false;
     }
 }
@@ -280,6 +285,27 @@ std::shared_ptr<scene::Modifier> ObjectReader::ReadModifier(size_t object, const
     }
     if (!haveCount) { notes_.push_back("Edit Mesh: no local data; imported without edits"); }
     return std::make_shared<scene::EditMeshModifier>(expected, moves);
+}
+
+bool ReadStandardDiffuse(const MaxScene& s, size_t material, math::Vec3& diffuse, std::vector<std::string>& notes) {
+    const ClassEntry* c = material < s.ObjectCount() ? s.ClassOf(material) : nullptr;
+    if (!c || c->classIdA != 0x2 || c->classIdB != 0 || c->superClassId != 0xC00) {
+        notes.push_back("material \"" + (c ? c->name : std::string("?")) + "\" is not a Standard material; not read");
+        return false;
+    }
+    const auto& refs = s.Refs(material);
+    const int shader = refs.size() > 2 ? refs[2] : -1;
+    const ClassEntry* sc = shader >= 0 && static_cast<size_t>(shader) < s.ObjectCount() ? s.ClassOf(static_cast<size_t>(shader)) : nullptr;
+    if (!sc || sc->superClassId != 0x10B0 || s.Refs(static_cast<size_t>(shader)).empty()) {
+        notes.push_back("Standard material: no shader parameters; colour not read");
+        return false;
+    }
+    std::vector<MaxParam> params;
+    if (!ReadParamBlock(s, static_cast<size_t>(s.Refs(static_cast<size_t>(shader))[0]), params, notes)) return false;
+    for (const MaxParam& p : params)
+        if (p.index == 1 && p.type == MaxParam::Type::Color) { diffuse = p.color; return true; }
+    notes.push_back("Standard material: no diffuse colour");
+    return false;
 }
 
 } // namespace io

@@ -27,6 +27,11 @@ struct MaxNode {
     size_t index = 0;                // in the scene list
     std::string name;
     int parent = -1;                 // position in the ReadNodes result; -1 = under the root
+    // The node's flags (chunk 0x0960's second word, 11.4b): 0x40 group head, 0x80 open
+    // (NOTE: from Max's node flags; group.max is closed), 0x100 group member, 0x00800000
+    // Backface Cull (measured: set in every sample node but backface-off.max's).
+    uint32_t flags = 0x00800000;
+    int material = -1;               // reference 3: the node's material
     bool hasWireColor = false;
     uint8_t wire[3] = {0, 0, 0};     // R, G, B
     int controller = -1, object = -1;   // scene-list indices (reference slots 0 and 1)

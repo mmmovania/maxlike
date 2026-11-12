@@ -1,4 +1,6 @@
 #include "io/MaxImport.h"
+#include <cmath>
+#include <algorithm>
 #include "io/MaxNodes.h"
 #include "io/MaxObjects.h"
 #include <set>
@@ -18,6 +20,23 @@ bool ImportMax(const std::vector<uint8_t>& bytes, scene::Scene& scene, ImportRep
         scene::Node* node = scene.CreateNode(n.name.empty() ? scene.UniqueName("Object") : n.name);
         if (n.hasWireColor) node->SetWireColor((uint32_t{n.wire[0]} << 16) | (uint32_t{n.wire[1]} << 8) | n.wire[2]);
         for (const std::string& note : n.notes) report.notes.push_back(node->Name() + ": " + note);
+        node->SetBackfaceCull((n.flags & 0x00800000u) != 0);
+        if (n.material >= 0) {
+            math::Vec3 diffuse;
+            std::vector<std::string> notes;
+            if (ReadStandardDiffuse(file, static_cast<size_t>(n.material), diffuse, notes)) {
+                auto byte = [](double v) { return static_cast<uint32_t>(std::lround(std::max(0.0, std::min(1.0, v)) * 255)); };
+                node->SetMaterialColor(true, (byte(diffuse.x) << 16) | (byte(diffuse.y) << 8) | byte(diffuse.z));
+            }
+            for (const std::string& note : notes) report.notes.push_back(node->Name() + ": " + note);
+        }
+        // A group head (0x40): an object-less node (its Dummy is R3's own; maxlike draws a
+        // group's bracket box itself), its members linked under it.
+        if (n.flags & 0x40u) {
+            node->SetGroup(true, (n.flags & 0x80u) != 0);
+            created.push_back(node);
+            continue;
+        }
         if (n.object >= 0) {
             const size_t before = reader.Notes().size();
             if (auto obj = reader.Read(static_cast<size_t>(n.object))) {
