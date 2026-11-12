@@ -82,6 +82,32 @@ int main() {
     CHECK(KeyboardEntryFor(2).fields.rows.size() == 4);              // Sphere: X, Y, Z, Radius
     CHECK(KeyboardEntryFor(6).fields.rows.size() == 5);              // Torus: no angles
     CHECK(KeyboardEntryFor(42).fields.rows.empty());
+    // Edit Mesh's count wording (11.1, measured): an index counted from 1 for one item.
+    {
+        using ui::params::SubObjectCountText;
+        CHECK(SubObjectCountText(0, {5}) == L"Vertex 6 Selected");
+        CHECK(SubObjectCountText(0, {1, 2, 3}) == L"3 Vertices Selected");
+        CHECK(SubObjectCountText(1, {15}) == L"Edge 16 Selected");
+        CHECK(SubObjectCountText(2, {3}) == L"Face 4 Selected");
+        CHECK(SubObjectCountText(3, {2, 3}) == L"2 Faces Selected");
+        CHECK(SubObjectCountText(4, std::vector<uint32_t>(12, 0)) == L"12 Faces Selected");
+        CHECK(SubObjectCountText(2, {}) == L"0 Faces Selected");
+    }
+    // Edit Geometry by level (11.1, measured): Create not at Edge; Divide and Bevel labels.
+    {
+        auto find = [](int level, const wchar_t* label) {
+            for (const auto& spec : ui::params::ModifierRollouts("Edit Mesh", level))
+                for (const auto& r : spec.rows) if (r.label == label) return std::make_pair(true, r.enabled);
+            return std::make_pair(false, false);
+        };
+        CHECK(find(0, L"Create").second && !find(1, L"Create").second && find(2, L"Create").second);
+        CHECK(find(0, L"Break").first && !find(1, L"Break").first && find(1, L"Divide").second && find(2, L"Divide").second);
+        CHECK(find(1, L"Chamfer").first && find(2, L"Bevel").second && !find(2, L"Chamfer").first);
+        CHECK(!find(0, L"By Vertex").second && find(1, L"By Vertex").second);
+        CHECK(find(3, L"Ignore Visible Edges").second && !find(2, L"Ignore Visible Edges").second);
+        CHECK(!find(1, L"Hide").second && find(2, L"Hide").second && find(0, L"Hide").second);
+        CHECK(!find(0, L"Refine Ends").second && find(1, L"Refine Ends").second);
+    }
     if (failures == 0) std::printf("parameters spec: all tests passed\n");
     return failures == 0 ? 0 : 1;
 }

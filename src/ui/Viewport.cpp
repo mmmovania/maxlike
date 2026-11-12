@@ -623,12 +623,25 @@ void Viewport::DrawVertices(int w, int h) {
                 if (std::binary_search(sel.begin(), sel.end(), v.segEdge[s])) add(v.segs[s].a, v.segs[s].b);
         } else {
             const auto& sel = vertexEditing_.mod->SelectedFaces();
+            std::vector<float> dots;
             for (size_t f = 0; f < v.tris.size(); ++f) {
                 if (!std::binary_search(sel.begin(), sel.end(), v.faceMap[f])) continue;
                 const uint32_t idx[3] = {v.tris[f].a, v.tris[f].b, v.tris[f].c};
-                for (int k = 0; k < 3; ++k)
-                    if (level == 2 || (v.mesh.faces[f].edgeVisible & (1u << k))) add(idx[k], idx[(k + 1) % 3]);
+                for (int k = 0; k < 3; ++k) {
+                    const bool visible = (v.mesh.faces[f].edgeVisible & (1u << k)) != 0;
+                    if (visible) { add(idx[k], idx[(k + 1) % 3]); continue; }
+                    if (level != 2) continue;
+                    // Face level: hidden edges dotted, a pixel every 4 along the line
+                    // (measured, r3.1-editmesh-face-a.png).
+                    const view::Point2 &a = pts[idx[k]], &b = pts[idx[(k + 1) % 3]];
+                    const double len = std::hypot(b.x - a.x, b.y - a.y);
+                    for (double t = 0; t <= len; t += 4) {
+                        const double x = a.x + (b.x - a.x) * t / len, y = a.y + (b.y - a.y) * t / len;
+                        dots.insert(dots.end(), {static_cast<float>(std::floor(x)) + 0.5f, static_cast<float>(std::floor(y)) + 0.5f, 0.0f});
+                    }
+                }
             }
+            if (!dots.empty()) lines_->DrawPoints(dots, toClip, 1.0f, 0.0f, 0.0f);
         }
         if (!lines.empty()) lines_->Draw(lines, toClip, 1.0f, 0.0f, 0.0f);
         return;

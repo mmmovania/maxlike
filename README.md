@@ -24,6 +24,7 @@ This is how it looks so far
 | 8 `.max` import (open R3-era files, saved viewports; maxlike's own `.mlk` files) | ✔ samples verified against R3.1 | 0.8.0 |
 | 9 Deferred items (menus and shortcuts as R3.1, File / Edit commands, all Edit Mesh levels, Transform Type-In, coordinate systems, Mirror, Array) | ✔ menus verified against R3.1 | 0.9.0 |
 | 10 Groups, Align, modifier gizmos, views in files, Soft Selection, Edit Mesh's Edit Geometry tools | ✔ Edit Mesh panel verified against R3.1 | 0.10.0 |
+| 11 List B: R3.1 evidence (`docs/phases/phase-11-evidence.md`) | in progress | |
 
 Details: `docs/spec/02-plan.md`; per-phase checklists in `docs/phases/`.
 
@@ -59,7 +60,7 @@ use estimated sizes and colours — open the sample itself for the real scene.
 |---|---|
 | `main` | Integrated, always-building code. Phases land here when done. |
 | `spec` | The original specification. Since Phase 1, spec updates travel with the phase that measured or decided them; use `spec` only for spec-only edits between phases. |
-| `phase/0-skeleton` … `phase/10-groups` | One branch per phase of the plan in `docs/spec/02-plan.md`. |
+| `phase/0-skeleton` … `phase/11-evidence` | One branch per phase of the plan in `docs/spec/02-plan.md`. |
 
 ## Workflow
 

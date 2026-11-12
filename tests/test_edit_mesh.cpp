@@ -353,6 +353,29 @@ int main() {
         out = at.Edited(box);
         CHECK(out.verts.size() == 16 && out.FaceCount() == 24 && out.verts[8].x == box.verts[0].x + 50);
     }
+    // Divide and Bevel (11.1).
+    {
+        // Divide one top edge: one new vertex, its two faces become four, still closed.
+        scene::EditMeshModifier dv(8, {});
+        dv.SetSelectedEdges({scene::EdgeId(2, 0)});
+        dv.SetState(dv.AfterDividingEdges(box));
+        scene::Mesh out = dv.Edited(box);
+        CHECK(out.verts.size() == 9 && out.FaceCount() == 14 && ClosedConsistent(out) && Euler(out) == 2);
+        // Bevel the top: height 10, outline 5; closed, top at 30, each corner 5 further out
+        // from the top's centre than a plain Extrude puts it.
+        scene::EditMeshModifier bv(8, {}), ex(8, {});
+        bv.SetSelectedFaces({2, 3});
+        ex.SetSelectedFaces({2, 3});
+        bv.SetState(bv.AfterBeveling(box, 10, 5));
+        ex.SetState(ex.AfterExtruding(box, 10));
+        const scene::Mesh b = bv.Edited(box), e = ex.Edited(box);
+        CHECK(ClosedConsistent(b) && Euler(b) == 2 && b.verts.size() == 12);
+        for (size_t i = 8; i < 12; ++i) {
+            CHECK(std::fabs(b.verts[i].z - 30) < 1e-9);
+            const double rb = std::hypot(b.verts[i].x, b.verts[i].y), re = std::hypot(e.verts[i].x, e.verts[i].y);
+            CHECK(std::fabs(rb - re - 5) < 1e-9);
+        }
+    }
     // Interactive tools (10.9).
     {
         // Slice the closed box at z = 10: still closed, Euler 2, 8 new vertices (4 vertical

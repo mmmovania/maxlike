@@ -132,10 +132,16 @@ void MainFrame::DeleteSelection() {
         if (subLevel_ >= 1) {
             // Edges delete the faces on both sides; faces, polygons and elements themselves.
             if ((subLevel_ == 1 ? mod->SelectedEdges() : mod->SelectedFaces()).empty()) return;
-            // NOTE: R3's question and its wording are unverified.
-            const int answer = MessageBoxW(Hwnd(), L"Delete isolated vertices?", kAppName, MB_YESNOCANCEL | MB_ICONQUESTION);
-            if (answer == IDCANCEL) return;
+            // R3.1 asks only when deleting would leave isolated vertices (r3.1-editmesh-
+            // delete-face.png: deleting one teapot face asked nothing). NOTE: its wording.
             const scene::Mesh input = EditMeshInput(mod);
+            const auto keep = subLevel_ == 1 ? mod->AfterDeletingEdges(input, false) : mod->AfterDeletingFaces(input, false);
+            const auto drop = subLevel_ == 1 ? mod->AfterDeletingEdges(input, true) : mod->AfterDeletingFaces(input, true);
+            int answer = IDNO;
+            if (drop.deletedVertices.size() != keep.deletedVertices.size()) {
+                answer = MessageBoxW(Hwnd(), L"Delete isolated vertices?", kAppName, MB_YESNOCANCEL | MB_ICONQUESTION);
+                if (answer == IDCANCEL) return;
+            }
             after = subLevel_ == 1 ? mod->AfterDeletingEdges(input, answer == IDYES) : mod->AfterDeletingFaces(input, answer == IDYES);
         } else {
             if (mod->SelectedVertices().empty()) return;
@@ -275,9 +281,8 @@ void MainFrame::UpdateModifyPanel() {
             // NOTE: R3's wording for one vertex or none is unverified.
             // NOTE: R3's wording at Face level is unverified.
             // (Polygon and Element count faces here; NOTE: R3's wording at those levels too.)
-            info.selectionText = subLevel_ == 0 ? std::to_wstring(em->SelectedVertices().size()) + L" Vertices Selected"
-                               : subLevel_ == 1 ? std::to_wstring(em->SelectedEdges().size()) + L" Edges Selected"
-                                                : std::to_wstring(em->SelectedFaces().size()) + L" Faces Selected";
+            info.selectionText = ui::params::SubObjectCountText(subLevel_, subLevel_ == 0 ? em->SelectedVertices()
+                                                                       : subLevel_ == 1 ? em->SelectedEdges() : em->SelectedFaces());
         }
     }
     commandPanel_.SetModifyInfo(info);
@@ -949,7 +954,7 @@ bool MainFrame::CreateRegions() {
         // Edit Geometry, topology (10.8).
         if (const auto mod = VertexEditingMod(); mod && (label == L"Break" || label == L"Turn" || label == L"Tessellate" ||
                                                           label == L"Extrude" || label == L"Chamfer" || label == L"Explode" ||
-                                                          label == L"Attach")) {
+                                                          label == L"Attach" || label == L"Divide" || label == L"Bevel")) {
             const scene::Mesh input = EditMeshInput(mod);
             const auto& prm = mod->Params();
             if (label == L"Attach") {
@@ -960,6 +965,12 @@ bool MainFrame::CreateRegions() {
             scene::EditMeshModifier::State after;
             std::unique_ptr<scene::MacroCommand> macro;
             if (label == L"Break") after = mod->AfterBreaking(input);
+            else if (label == L"Divide") after = subLevel_ == 1 ? mod->AfterDividingEdges(input) : mod->AfterTessellating(input, true);
+            else if (label == L"Bevel") {
+                // NOTE: R3 bevels by dragging; here Extrude's amount, then Bevel's as the outline.
+                after = mod->AfterBeveling(input, prm.Float(scene::EditMeshModifier::kExtrudeAmount, 0),
+                                           prm.Float(scene::EditMeshModifier::kChamferAmount, 0));
+            }
             else if (label == L"Turn") after = mod->AfterTurning(input);
             else if (label == L"Tessellate") after = mod->AfterTessellating(input, prm.Int(scene::EditMeshModifier::kTessByFace, 0) != 0);
             else if (label == L"Extrude") {

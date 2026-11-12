@@ -946,6 +946,44 @@ EditMeshModifier::State EditMeshModifier::AfterCutting(const Mesh& input, uint32
     return s;
 }
 
+// ---- Divide and Bevel (11.1) ------------------------------------------------------------------
+
+EditMeshModifier::State EditMeshModifier::AfterDividingEdges(const Mesh& input) const {
+    State s = GetState();
+    const Mesh p = Positions(input), ext = Extended(input);
+    const std::vector<char> live = LiveFaces(ext, s);
+    std::map<EdgeKey, uint32_t> points;
+    for (uint32_t e : selectedEdges_) {
+        uint32_t a, b;
+        if (!EdgeVertices(ext, e, a, b) || points.count(Key(a, b))) continue;
+        points[Key(a, b)] = AddVertex(s, input.verts.size(), (p.verts[a] + p.verts[b]) * 0.5);
+    }
+    SplitByEdgePoints(s, ext, live, input.faces.size(), points, false, false, nullptr);
+    s.selectedEdges.clear();
+    return s;
+}
+
+EditMeshModifier::State EditMeshModifier::AfterBeveling(const Mesh& input, double height, double outline) const {
+    State s = AfterExtruding(input, height);
+    if (outline == 0 || s.addedVertices.size() == addedVertices_.size()) return s;
+    // The extruded vertices: those Extrude just added. Out from their centre, within the
+    // plane of the faces (perpendicular to their averaged normal).
+    const size_t first = addedVertices_.size();
+    math::Vec3 c{0, 0, 0}, n{0, 0, 0};
+    for (size_t i = first; i < s.addedVertices.size(); ++i) c = c + s.addedVertices[i];
+    c = c * (1.0 / static_cast<double>(s.addedVertices.size() - first));
+    const Mesh p = Positions(input);
+    for (uint32_t f : selectedFaces_)
+        if (f < p.faces.size()) n = n + math::Cross(p.verts[p.faces[f].v[1]] - p.verts[p.faces[f].v[0]], p.verts[p.faces[f].v[2]] - p.verts[p.faces[f].v[0]]);
+    n = math::Length(n) > 1e-12 ? math::Normalize(n) : math::Vec3{0, 0, 1};
+    for (size_t i = first; i < s.addedVertices.size(); ++i) {
+        math::Vec3 d = s.addedVertices[i] - c;
+        d = d - n * math::Dot(d, n);
+        if (math::Length(d) > 1e-12) s.addedVertices[i] = s.addedVertices[i] + math::Normalize(d) * outline;
+    }
+    return s;
+}
+
 // ---- the gizmo (Phase 10.3) ---------------------------------------------------------------
 
 namespace {

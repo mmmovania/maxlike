@@ -198,6 +198,13 @@ Spec ModifierParametersFor(const std::string& name) {
     return {};
 }
 
+std::wstring SubObjectCountText(int level, const std::vector<uint32_t>& selected) {
+    const wchar_t* one = level == 0 ? L"Vertex" : level == 1 ? L"Edge" : L"Face";
+    const wchar_t* many = level == 0 ? L"Vertices" : level == 1 ? L"Edges" : L"Faces";
+    if (selected.size() == 1) return std::wstring(one) + L" " + std::to_wstring(selected[0] + 1) + L" Selected";
+    return std::to_wstring(selected.size()) + L" " + many + L" Selected";
+}
+
 std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool sliceMode) {
     if (name != "Edit Mesh") {
         Spec s = ModifierParametersFor(name);
@@ -244,19 +251,21 @@ std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool slic
     Spec soft;
     soft.title = L"Soft Selection";
     soft.startsOpen = false;                 // closed, as in R3.1's screenshot
-    // NOTE: the contents are from memory (the rollout was only ever seen closed); R3's
-    // falloff curve display is not built.
-    // Row tops are measured from the rollout's title, as in the other rollouts (the first
-    // row below the title starts at 24 or later).
-    soft.rows = {check(L"Use Soft Selection", EditMeshModifier::kUseSoftSelection, 26, 12, true),
-                 check(L"Edge Distance:", EditMeshModifier::kEdgeDistance, 46, 12, true),
-                 [] { Row r{L"", EditMeshModifier::kEdgeIterations, Kind::Int, 1, 999, 1, 44};
-                      r.fieldLeft = 104; r.fieldWidth = 40; r.arrowsLeft = 145; return r; }(),
-                 check(L"Affect Backfacing", EditMeshModifier::kAffectBackfacing, 66, 12, true),
-                 spinner(L"Falloff:", EditMeshModifier::kFalloff, 88, 92, 52, 145, true, 0, 1e6),
-                 spinner(L"Pinch:", EditMeshModifier::kPinch, 108, 92, 52, 145, true, -10, 10),
-                 spinner(L"Bubble:", EditMeshModifier::kBubble, 128, 92, 52, 145, true, -10, 10)};
-    soft.contentHeight = 150;
+    // Measured (11.1, r3.1-editmesh-softsel-vertex.png): rows, fields, arrows, and the
+    // falloff curve's box (x 29..150, rows 151..231) with its labels beneath.
+    soft.rows = {check(L"Use Soft Selection", EditMeshModifier::kUseSoftSelection, 24, 18, true),
+                 check(L"Edge Distance:", EditMeshModifier::kEdgeDistance, 43, 23, true),
+                 [] { Row r{L"", EditMeshModifier::kEdgeIterations, Kind::Int, 1, 999, 1, 42};
+                      r.fieldLeft = 119; r.fieldWidth = 27; r.arrowsLeft = 149;
+                      r.enabledBy = EditMeshModifier::kEdgeDistance; return r; }(),
+                 check(L"Affect Backfacing", EditMeshModifier::kAffectBackfacing, 63, 23, true),
+                 spinner(L"Falloff:", EditMeshModifier::kFalloff, 83, 77, 56, 134, true, 0, 1e6),
+                 spinner(L"Pinch:", EditMeshModifier::kPinch, 104, 77, 56, 134, true, -10, 10),
+                 spinner(L"Bubble:", EditMeshModifier::kBubble, 125, 77, 56, 134, true, -10, 10),
+                 [] { Row r{L"", EditMeshModifier::kFalloff, Kind::Graph, 0, 0, 0, 151};
+                      r.left = 29; r.right = 150; r.height = 81;
+                      r.graphPinch = EditMeshModifier::kPinch; r.graphBubble = EditMeshModifier::kBubble; return r; }()};
+    soft.contentHeight = 238;                // measured: the next title at title + 260
     Spec geo;
     geo.title = L"Edit Geometry";
     geo.groups = {{90, 157, L"", 0, 14, 165}, {163, 233, L"", 0, 14, 165}, {243, 298, L"Weld", 49, 14, 166, 21, 23},
@@ -311,9 +320,12 @@ std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool slic
     // needs Slice Plane's mode (not built yet).
     {
         constexpr int V = 1, E = 2, F = 4, P = 8, L = 16, All = 31;
+        // Edge, Face, Polygon and Element measured too (Phase 11.1, r3.1-editmesh-edge /
+        // face / polygon / element): Create is unavailable at Edge level; Break is "Divide"
+        // above Vertex level, Chamfer "Bevel" at the face levels (renamed below).
         const std::pair<const wchar_t*, int> kAvailable[] = {
-            {L"Create", All}, {L"Delete", All}, {L"Attach", All}, {L"Detach", V | F | P | L}, {L"Break", V}, {L"Turn", E},
-            {L"Extrude", E | F | P | L}, {L"Chamfer", V | E}, {L"Slice Plane", All}, {L"Slice", 0}, {L"Cut", E | F | P | L},
+            {L"Create", V | F | P | L}, {L"Delete", All}, {L"Attach", All}, {L"Detach", V | F | P | L}, {L"Break", All}, {L"Turn", E},
+            {L"Extrude", E | F | P | L}, {L"Chamfer", All}, {L"Slice Plane", All}, {L"Slice", 0}, {L"Cut", E | F | P | L},
             {L"Selected", V}, {L"Target", V}, {L"Tessellate", F | P | L}, {L"Explode", F | P | L},
             {L"Remove Isolated Vertices", All}, {L"Select Open Edges", E}, {L"Create Shape from Edges", 0},
             {L"View Align", All}, {L"Grid Align", All}, {L"Make Planar", All}, {L"Collapse", All}};
@@ -325,11 +337,12 @@ std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool slic
         // The spinners, options and labels that belong to those buttons (10.8).
         const std::pair<int, int> kParams[] = {
             {EditMeshModifier::kExtrudeAmount, E | F | P | L}, {EditMeshModifier::kNormalLocal, E | F | P | L},
-            {EditMeshModifier::kChamferAmount, V | E}, {EditMeshModifier::kTessTension, F | P | L},
+            {EditMeshModifier::kChamferAmount, All}, {EditMeshModifier::kTessTension, F | P | L},
             {EditMeshModifier::kTessByFace, F | P | L}, {EditMeshModifier::kExplodeAngle, F | P | L},
             {EditMeshModifier::kExplodeToElements, F | P | L}, {EditMeshModifier::kWeldThreshold, V},
             {EditMeshModifier::kWeldTargetPixels, V}};
-        const std::pair<const wchar_t*, int> kLabels[] = {{L"Normal:", E | F | P | L}, {L"by:", F | P | L}, {L"to:", F | P | L}};
+        const std::pair<const wchar_t*, int> kLabels[] = {{L"Normal:", All}, {L"by:", F | P | L}, {L"to:", F | P | L},
+                                                          {L"Refine Ends", E | F | P | L}};
         for (Row& r : geo.rows) {
             if (r.kind != Kind::Button && r.kind != Kind::Label)
                 for (const auto& [index, levels] : kParams)
@@ -337,6 +350,21 @@ std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool slic
             if (r.kind == Kind::Label)
                 for (const auto& [text, levels] : kLabels)
                     if (r.label == text) r.enabled = (levels & bit) != 0;
+        }
+        // Check boxes by label (Refine Ends follows Cut); labels that change by level.
+        for (Row& r : geo.rows) {
+            if (r.kind == Kind::Check)
+                for (const auto& [text, levels] : kLabels)
+                    if (r.label == text) r.enabled = (levels & bit) != 0;
+            if (r.kind == Kind::Button && r.label == L"Break" && level >= 1) r.label = L"Divide";
+            if (r.kind == Kind::Button && r.label == L"Chamfer" && level >= 2) r.label = L"Bevel";
+        }
+        // The Selection rollout (measured likewise): By Vertex above Vertex level, Ignore
+        // Visible Edges and Planar Thresh at Polygon level, Hide / Unhide All not at Edge.
+        for (Row& r : sel.rows) {
+            if (r.label == L"By Vertex") r.enabled = level >= 1;
+            if (r.label == L"Ignore Visible Edges" || r.label == L"Planar Thresh:") r.enabled = level == 3;
+            if (r.label == L"Hide" || r.label == L"Unhide All") r.enabled = level != 1;
         }
     }
     return {sel, soft, geo, surface};
