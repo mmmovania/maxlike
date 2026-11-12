@@ -2,6 +2,7 @@
 #include <windows.h>          // first: the scene headers must see its GetObject macro (as everywhere else)
 #include "scene/Summary.h"
 #include <string>
+#include <vector>
 #include <functional>
 #include "math/Mat4.h"
 
@@ -68,6 +69,15 @@ AlignChoice ShowAlignDialog(HWND parent, const std::wstring& targetName);
 // A name asked for in a small dialog (Group > Group: "Group name:"; NOTE: from memory).
 // Empty if cancelled.
 std::wstring AskName(HWND parent, const std::wstring& title, const std::wstring& label, const std::wstring& suggested);
+
+// Phase 11.2, laid out from R3.1's screenshots (r3.1-dlg-new.png, r3.1-dlg-merge.png).
+// File > New's "New Scene": 0 cancelled, 1 Keep Objects and Hierarchy, 2 Keep Objects,
+// 3 New All.
+int ShowNewSceneDialog(HWND parent);
+// File > Merge's object list: the names (with their depth below the top, whether each is a
+// group, and its parent's index); returns the chosen indices (empty: cancelled).
+struct MergeItem { std::wstring name; int depth = 0; bool group = false; int parent = -1; };
+std::vector<int> ShowMergeDialog(HWND parent, const std::wstring& fileName, const std::vector<MergeItem>& items);
 
 // The Summary as text (Save to File...).
 std::wstring SummaryText(const scene::Summary& summary, const std::wstring& description);

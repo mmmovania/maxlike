@@ -1,4 +1,5 @@
 #include "ui/Dialogs.h"
+#include <cwctype>
 #include "win/App.h"
 #include <commctrl.h>
 #include <commdlg.h>
@@ -486,6 +487,169 @@ std::wstring AskName(HWND parent, const std::wstring& title, const std::wstring&
     return choice.ok ? (choice.name.empty() ? suggested : choice.name) : std::wstring();
 }
 
+// ---- New Scene and Merge (11.2) ----------------------------------------------------------
+
+namespace {
+constexpr WORD kNewKeepHier = 801, kNewKeepObj = 802, kNewAll = 803, kNewIcon = 804;
+INT_PTR CALLBACK NewSceneProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
+    switch (msg) {
+    case WM_INITDIALOG:
+        SetWindowLongPtrW(dlg, DWLP_USER, lp);
+        CheckRadioButton(dlg, kNewKeepHier, kNewAll, kNewAll);            // New All (measured)
+        SendDlgItemMessageW(dlg, kNewIcon, STM_SETICON, reinterpret_cast<WPARAM>(LoadIconW(nullptr, IDI_QUESTION)), 0);
+        return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wp) == IDOK) {
+            int* choice = reinterpret_cast<int*>(GetWindowLongPtrW(dlg, DWLP_USER));
+            *choice = IsDlgButtonChecked(dlg, kNewKeepHier) == BST_CHECKED ? 1 : IsDlgButtonChecked(dlg, kNewKeepObj) == BST_CHECKED ? 2 : 3;
+            EndDialog(dlg, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDCANCEL) { EndDialog(dlg, IDCANCEL); return TRUE; }
+        break;
+    }
+    return FALSE;
+}
+
+constexpr WORD kMgName = 901, kMgList = 902, kMgAll = 903, kMgNone = 904, kMgInvert = 905, kMgSubtree = 906, kMgCase = 907,
+               kMgSelSubtree = 908, kMgSortA = 909, kMgTypes = 912, kMgTypesAll = 919, kMgTypesNone = 920, kMgTypesInvert = 921;
+// List types: Geometry, Shapes, Lights, Cameras, Helpers, Space Warps, Groups (912..918).
+struct MergeState {
+    const std::vector<MergeItem>* items;
+    std::vector<int> shown;          // list row -> item index
+    std::vector<int> chosen;
+};
+void FillMergeList(HWND dlg, MergeState& st) {
+    const HWND list = GetDlgItem(dlg, kMgList);
+    // Keep what is selected, by item.
+    std::vector<char> was(st.items->size(), 0);
+    for (int r = 0; r < static_cast<int>(st.shown.size()); ++r)
+        if (SendMessageW(list, LB_GETSEL, r, 0) > 0) was[static_cast<size_t>(st.shown[static_cast<size_t>(r)])] = 1;
+    SendMessageW(list, LB_RESETCONTENT, 0, 0);
+    st.shown.clear();
+    const bool subtree = IsDlgButtonChecked(dlg, kMgSubtree) == BST_CHECKED;
+    const bool geometry = IsDlgButtonChecked(dlg, kMgTypes) == BST_CHECKED, groups = IsDlgButtonChecked(dlg, kMgTypes + 6) == BST_CHECKED;
+    for (size_t i = 0; i < st.items->size(); ++i) {
+        const MergeItem& it = (*st.items)[i];
+        if (it.group ? !groups : !geometry) continue;
+        const std::wstring text = std::wstring(subtree ? static_cast<size_t>(it.depth) * 3 : 0, L' ') + it.name;
+        const LRESULT row = SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text.c_str()));
+        st.shown.push_back(static_cast<int>(i));
+        if (was[i]) SendMessageW(list, LB_SETSEL, TRUE, row);
+    }
+}
+INT_PTR CALLBACK MergeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* st = reinterpret_cast<MergeState*>(GetWindowLongPtrW(dlg, DWLP_USER));
+    switch (msg) {
+    case WM_INITDIALOG:
+        SetWindowLongPtrW(dlg, DWLP_USER, lp);
+        st = reinterpret_cast<MergeState*>(lp);
+        CheckDlgButton(dlg, kMgSubtree, BST_CHECKED);
+        CheckRadioButton(dlg, kMgSortA, kMgSortA + 2, kMgSortA);
+        for (WORD t = kMgTypes; t < kMgTypes + 7; ++t) CheckDlgButton(dlg, t, BST_CHECKED);
+        FillMergeList(dlg, *st);
+        return TRUE;
+    case WM_COMMAND: {
+        const WORD id = LOWORD(wp);
+        const HWND list = GetDlgItem(dlg, kMgList);
+        const int rows = static_cast<int>(SendMessageW(list, LB_GETCOUNT, 0, 0));
+        if (id == kMgAll || id == kMgNone) { SendMessageW(list, LB_SETSEL, id == kMgAll, -1); return TRUE; }
+        if (id == kMgInvert) {
+            for (int r = 0; r < rows; ++r) SendMessageW(list, LB_SETSEL, SendMessageW(list, LB_GETSEL, r, 0) <= 0, r);
+            return TRUE;
+        }
+        if (id == kMgTypesAll || id == kMgTypesNone || id == kMgTypesInvert) {
+            for (WORD t = kMgTypes; t < kMgTypes + 7; ++t)
+                CheckDlgButton(dlg, t, id == kMgTypesAll ? BST_CHECKED : id == kMgTypesNone ? BST_UNCHECKED
+                                                         : (IsDlgButtonChecked(dlg, t) == BST_CHECKED ? BST_UNCHECKED : BST_CHECKED));
+            FillMergeList(dlg, *st);
+            return TRUE;
+        }
+        if ((id >= kMgTypes && id < kMgTypes + 7) || id == kMgSubtree) { FillMergeList(dlg, *st); return TRUE; }
+        if (id == kMgName && HIWORD(wp) == EN_CHANGE) {
+            // Typing selects the names that start with the text (Case Sensitive optional).
+            wchar_t buf[256] = L"";
+            GetDlgItemTextW(dlg, kMgName, buf, 256);
+            std::wstring want = buf;
+            const bool cs = IsDlgButtonChecked(dlg, kMgCase) == BST_CHECKED;
+            auto fold = [&](std::wstring v) { if (!cs) for (auto& c : v) c = static_cast<wchar_t>(towlower(c)); return v; };
+            want = fold(want);
+            for (int r = 0; r < rows; ++r) {
+                const std::wstring n = fold((*st->items)[static_cast<size_t>(st->shown[static_cast<size_t>(r)])].name);
+                SendMessageW(list, LB_SETSEL, !want.empty() && n.compare(0, want.size(), want) == 0, r);
+            }
+            return TRUE;
+        }
+        if (id == kMgList && HIWORD(wp) == LBN_SELCHANGE && IsDlgButtonChecked(dlg, kMgSelSubtree) == BST_CHECKED) {
+            // Select Subtree: a selected object's descendants are selected too.
+            for (int r = 0; r < rows; ++r) {
+                int item = st->shown[static_cast<size_t>(r)];
+                for (int p = (*st->items)[static_cast<size_t>(item)].parent; p >= 0; p = (*st->items)[static_cast<size_t>(p)].parent)
+                    for (int q = 0; q < rows; ++q)
+                        if (st->shown[static_cast<size_t>(q)] == p && SendMessageW(list, LB_GETSEL, q, 0) > 0) SendMessageW(list, LB_SETSEL, TRUE, r);
+            }
+            return TRUE;
+        }
+        if (id == IDOK) {
+            for (int r = 0; r < rows; ++r)
+                if (SendMessageW(list, LB_GETSEL, r, 0) > 0) st->chosen.push_back(st->shown[static_cast<size_t>(r)]);
+            EndDialog(dlg, IDOK);
+            return TRUE;
+        }
+        if (id == IDCANCEL) { EndDialog(dlg, IDCANCEL); return TRUE; }
+        break;
+    }
+    }
+    return FALSE;
+}
+} // namespace
+
+int ShowNewSceneDialog(HWND parent) {
+    // Measured (r3.1-dlg-new.png), in dialog units.
+    Template t(L"New Scene", 170, 94);
+    t.Add(L"Static", L"", kNewIcon, SS_ICON, 13, 20, 21, 20);
+    t.Add(L"Button", L"Options:", 0xFFFF, BS_GROUPBOX, 40, 4, 121, 55);
+    t.Add(L"Button", L"Keep Objects and Hierarchy", kNewKeepHier, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 52, 18, 105, 10);
+    t.Add(L"Button", L"Keep Objects", kNewKeepObj, BS_AUTORADIOBUTTON, 52, 32, 105, 10);
+    t.Add(L"Button", L"New All", kNewAll, BS_AUTORADIOBUTTON, 52, 45, 105, 10);
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP, 40, 71, 51, 14);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 97, 71, 51, 14);
+    int choice = 0;
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, NewSceneProc, reinterpret_cast<LPARAM>(&choice));
+    return choice;
+}
+
+std::vector<int> ShowMergeDialog(HWND parent, const std::wstring& fileName, const std::vector<MergeItem>& items) {
+    // Measured (r3.1-dlg-merge.png), in dialog units. NOTE: Sort is shown greyed, as in the
+    // screenshot; the list keeps the file's order.
+    const std::wstring title = L"Merge - " + fileName;
+    Template t(title.c_str(), 265, 212);
+    t.Add(L"Edit", L"", kMgName, ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 5, 10, 155, 11);
+    t.Add(L"ListBox", L"", kMgList, LBS_EXTENDEDSEL | LBS_NOINTEGRALHEIGHT | LBS_NOTIFY | WS_VSCROLL | WS_HSCROLL | WS_BORDER | WS_TABSTOP, 5, 23, 155, 136);
+    t.Add(L"Button", L"All", kMgAll, BS_PUSHBUTTON | WS_TABSTOP, 20, 164, 37, 11);
+    t.Add(L"Button", L"None", kMgNone, BS_PUSHBUTTON | WS_TABSTOP, 62, 164, 37, 11);
+    t.Add(L"Button", L"Invert", kMgInvert, BS_PUSHBUTTON | WS_TABSTOP, 104, 164, 37, 11);
+    t.Add(L"Button", L"Display Subtree", kMgSubtree, BS_AUTOCHECKBOX | WS_TABSTOP, 13, 184, 68, 10);
+    t.Add(L"Button", L"Case Sensitive", kMgCase, BS_AUTOCHECKBOX | WS_TABSTOP, 83, 184, 68, 10);
+    t.Add(L"Button", L"Select Subtree", kMgSelSubtree, BS_AUTOCHECKBOX | WS_TABSTOP, 13, 197, 68, 10);
+    t.Add(L"Button", L"Sort", 0xFFFF, BS_GROUPBOX | WS_DISABLED, 165, 5, 95, 47);
+    const wchar_t* sorts[3] = {L"Alphabetical", L"By Type", L"By Color"};
+    for (int i = 0; i < 3; ++i)
+        t.Add(L"Button", sorts[i], static_cast<WORD>(kMgSortA + i), BS_AUTORADIOBUTTON | WS_DISABLED | (i == 0 ? WS_GROUP : 0), 175, static_cast<short>(17 + 11 * i), 70, 10);
+    t.Add(L"Button", L"List types", 0xFFFF, BS_GROUPBOX, 165, 57, 95, 115);
+    const wchar_t* types[7] = {L"Geometry", L"Shapes", L"Lights", L"Cameras", L"Helpers", L"Space Warps", L"Groups"};
+    for (int i = 0; i < 7; ++i)
+        t.Add(L"Button", types[i], static_cast<WORD>(kMgTypes + i), BS_AUTOCHECKBOX | WS_TABSTOP | (i == 0 ? WS_GROUP : 0), 175, static_cast<short>(70 + 14 * i), 55, 10);
+    t.Add(L"Button", L"All", kMgTypesAll, BS_PUSHBUTTON | WS_TABSTOP, 227, 69, 27, 11);
+    t.Add(L"Button", L"None", kMgTypesNone, BS_PUSHBUTTON | WS_TABSTOP, 227, 83, 27, 11);
+    t.Add(L"Button", L"Invert", kMgTypesInvert, BS_PUSHBUTTON | WS_TABSTOP, 227, 97, 27, 11);
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP, 170, 190, 48, 13);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 225, 190, 35, 13);
+    MergeState st{&items, {}, {}};
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, MergeProc, reinterpret_cast<LPARAM>(&st));
+    return st.chosen;
+}
+
 DetachChoice ShowDetachDialog(HWND parent, const std::wstring& suggestedName) {
     Template t(L"Detach", 160, 70);
     t.Add(L"Static", L"Detach as:", 0xFFFF, SS_LEFT, 7, 9, 36, 9);
@@ -501,15 +665,20 @@ DetachChoice ShowDetachDialog(HWND parent, const std::wstring& suggestedName) {
 }
 
 CloneChoice ShowCloneDialog(HWND parent, const std::wstring& suggestedName, bool singleObject) {
-    Template t(L"Clone Options", 150, 104);
-    t.Add(L"Button", L"Object", 0xFFFF, BS_GROUPBOX, 7, 5, 136, 46);
-    t.Add(L"Button", L"Copy", kCopy, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 16, 60, 10);
-    t.Add(L"Button", L"Instance", kInstance, BS_AUTORADIOBUTTON, 14, 27, 60, 10);
-    t.Add(L"Button", L"Reference", kReference, BS_AUTORADIOBUTTON, 14, 38, 60, 10);
-    t.Add(L"Static", L"Name:", 0xFFFF, SS_LEFT, 7, 59, 24, 9);
-    t.Add(L"Edit", L"", kName, ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP | WS_GROUP, 33, 57, 110, 12);
-    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP, 36, 82, 50, 14);
-    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 93, 82, 50, 14);
+    // Measured (11.2, r3.1-dlg-clone.png), in dialog units; the Controller group is greyed
+    // (maxlike has no animation controllers).
+    Template t(L"Clone Options", 143, 113);
+    t.Add(L"Button", L"Controller", 0xFFFF, BS_GROUPBOX | WS_DISABLED, 72, 5, 61, 42);
+    t.Add(L"Button", L"Copy", 0xFFFF, BS_AUTORADIOBUTTON | WS_DISABLED | WS_GROUP, 85, 18, 40, 10);
+    t.Add(L"Button", L"Instance", 0xFFFF, BS_AUTORADIOBUTTON | WS_DISABLED, 85, 31, 44, 10);
+    t.Add(L"Button", L"Object", 0xFFFF, BS_GROUPBOX, 8, 5, 59, 56);
+    t.Add(L"Button", L"Copy", kCopy, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 20, 18, 40, 10);
+    t.Add(L"Button", L"Instance", kInstance, BS_AUTORADIOBUTTON, 20, 31, 44, 10);
+    t.Add(L"Button", L"Reference", kReference, BS_AUTORADIOBUTTON, 20, 44, 44, 10);
+    t.Add(L"Static", L"Name:", 0xFFFF, SS_RIGHT, 20, 69, 26, 9);
+    t.Add(L"Edit", L"", kName, ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP | WS_GROUP, 48, 67, 68, 12);
+    t.Add(L"Button", L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP, 9, 90, 41, 13);
+    t.Add(L"Button", L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 91, 90, 42, 13);
     CloneChoice choice;
     CloneState st{&choice, suggestedName, singleObject};
     DialogBoxIndirectParamW(GetModuleHandleW(nullptr), t.Get(), parent, CloneProc, reinterpret_cast<LPARAM>(&st));

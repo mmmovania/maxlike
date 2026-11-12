@@ -503,7 +503,7 @@ bool MainFrame::SaveAs() {
 bool MainFrame::ConfirmDiscard() {
     if (undo_.IsClean()) return true;
     // NOTE: R3's wording for this question is unverified.
-    const std::wstring text = L"The scene " + docName_ + L" has been modified.\nDo you want to save your changes?";
+    const std::wstring text = L"The scene has been modified.\nDo you want to save your changes?";   // R3.1's words (r3.1-dlg-save-prompt.png)
     switch (MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_YESNOCANCEL | MB_ICONQUESTION)) {
     case IDYES: return docPath_.empty() ? SaveAs() : SaveFile(docPath_);
     case IDNO: return true;
@@ -561,7 +561,18 @@ bool MainFrame::MergeFile(const std::wstring& path) {
     io::ImportReport report;
     std::vector<scene::Node::Id> ids;
     std::string error;
-    if (!io::MergeScene(bytes, scene_, report, ids, error)) {
+    // R3.1's Merge dialog (r3.1-dlg-merge.png): the file's objects listed; the chosen ones merged.
+    std::vector<io::MergeCandidate> candidates;
+    if (!io::ListMergeCandidates(bytes, candidates, error)) {
+        const std::wstring text = L"Could not merge " + fileName + L":\n" + std::wstring(error.begin(), error.end());
+        MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    std::vector<ui::MergeItem> items;
+    for (const auto& c : candidates) items.push_back({std::wstring(c.name.begin(), c.name.end()), c.depth, c.groupHead, c.parent});
+    const std::vector<int> chosen = ui::ShowMergeDialog(Hwnd(), fileName, items);
+    if (chosen.empty()) return false;
+    if (!io::MergeChosen(bytes, chosen, scene_, report, ids, error)) {
         const std::wstring text = L"Could not merge " + fileName + L":\n" + std::wstring(error.begin(), error.end());
         MessageBoxW(Hwnd(), text.c_str(), kAppName, MB_OK | MB_ICONWARNING);
         return false;
@@ -862,7 +873,7 @@ bool MainFrame::CreateRegions() {
             scene::Node* node = nullptr;
             SelectedStack(&node);
             if (!node) return;
-            const std::string suggested = scene_.UniqueName("Object");
+            const std::string suggested = scene_.UniqueName("Mesh");      // R3.1's "Mesh01" (r3.1-dlg-detach.png)
             const ui::DetachChoice choice = ui::ShowDetachDialog(Hwnd(), std::wstring(suggested.begin(), suggested.end()));
             if (!choice.ok) return;
             std::string name;
@@ -993,7 +1004,7 @@ bool MainFrame::CreateRegions() {
                     scene::Node* node = nullptr;
                     SelectedStack(&node);
                     if (!node) return;
-                    const std::wstring base = ui::AskName(Hwnd(), L"Explode to Objects", L"Object Name:", L"Object");
+                    const std::wstring base = ui::AskName(Hwnd(), L"Explode", L"Object Name:", L"Mesh");   // r3.1-dlg-explode.png
                     if (base.empty()) return;
                     std::string b8;
                     for (wchar_t c : base) b8 += static_cast<char>(c < 0x80 ? c : '?');
@@ -1596,9 +1607,31 @@ void MainFrame::OnCommand(const std::string& command) {
     }
     if (command == "file.save_as") { SaveAs(); return; }
     if (command == "file.new") {
-        // NOTE: R3 first asks Keep Objects and Hierarchy / Keep Objects / New All (dialog
-        // not built); this is New All, keeping the views.
-        if (ConfirmDiscard()) { ResetScene(); statusArea_.SetPrompt(1, L"New scene"); }
+        // R3.1's "New Scene" (r3.1-dlg-new.png). New All empties the scene (the views stay);
+        // Keep Objects and Hierarchy keeps everything as a new, untitled document; Keep
+        // Objects also removes every link (and so the groups).
+        if (!ConfirmDiscard()) return;
+        const int choice = ui::ShowNewSceneDialog(Hwnd());
+        if (choice == 0) return;
+        if (choice == 3) ResetScene();
+        else {
+            if (choice == 2) {
+                for (const auto& n : scene_.Nodes())
+                    if (n->Parent()) scene_.Link(n.get(), nullptr);
+                std::vector<scene::Node*> heads;
+                for (const auto& n : scene_.Nodes()) if (n->IsGroupHead()) heads.push_back(n.get());
+                for (scene::Node* h : heads) scene_.DeleteNode(h);
+            }
+            creation_.Cancel();
+            undo_.Clear();
+            undo_.MarkClean();
+            docPath_.clear();
+            SetDocumentName(L"Untitled");
+            UpdateSelectionStatus();
+            UpdateModifyPanel();
+            viewports_.Redraw();
+        }
+        statusArea_.SetPrompt(1, L"New scene");
         return;
     }
     if (command == "file.reset") {

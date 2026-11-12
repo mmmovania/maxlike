@@ -22,8 +22,11 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
       Divide and Bevel; hidden edges of selected faces dotted; the Delete question only
       when isolated vertices would remain; Soft Selection's measured layout with its
       falloff curve graph; Edge Distance's spinner follows its check box
-- [ ] 11.2 The dialogs: Clone, New Scene, the save prompt, Merge's object list, Transform
-      Type-In, Mirror, Array, Align, Detach and Explode names
+- [x] **11.2a** Dialogs that change behaviour: New Scene (Keep Objects and Hierarchy / Keep
+      Objects / New All), Merge's object list (only the chosen objects merged), Clone laid
+      out from measurements with its (greyed) Controller group, the save prompt's wording,
+      Detach's "Mesh01" and Explode's "Mesh"
+- [ ] 11.2b Transform Type-In, Mirror, Array, Align
 - [ ] 11.3 Menus and displays: Region's check marks, the Grids items, the open group's
       colour, the gizmo's colours
 - [ ] 11.4 Reading the new `.max` samples: Bend / Taper / Twist, gizmos, groups, Backface
@@ -35,6 +38,21 @@ supplied from R3.1 (saved under `docs/reference/screenshots/r3.1-*.png` and
 - `bend.max` with the box selected in Modify, Sub-Object off (the object-level gizmo).
 - Menus opened with Alt+letter (underlines); a far Perspective view; each primitive's
   Creation Method and Keyboard Entry rollouts.
+
+## Step 11.2a verification
+- [x] Builds warning-free; forty test programs pass (MinGW + Wine)
+- [x] `test_merge`: `instances.max` lists its 7 boxes; choosing the 1st and 3rd merges
+      exactly Box01 and Box03; `parent_child_link.max`'s child alone comes in at the top,
+      exactly where it was; choosing all equals a plain Merge
+- [x] Under Wine: `instances.max`, Select All, Group, File > New (the save prompt answered
+      No), Keep Objects: Select All finds the 7 boxes, the document is Untitled. The New
+      Scene dialog measures 255 x 153 px, exactly R3.1's client size (r3.1-dlg-new.png)
+- [ ] On Windows: each dialog next to its screenshot; Merge's name filter, Select Subtree
+      and List types; Keep Objects and Hierarchy
+- [ ] Unverified: R3's Keep Objects and Hierarchy beyond keeping the scene (it also drops
+      animation, which maxlike lacks); Merge's Sort (greyed, as in the screenshot) and its
+      duplicate-name question; the dialogs are laid out from measured pixels converted to
+      dialog units, not compared pixel by pixel (the test display does not paint them)
 
 ## Step 11.1 verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)
