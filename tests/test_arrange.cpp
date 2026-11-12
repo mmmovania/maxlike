@@ -171,10 +171,10 @@ int main() {
         // on, but the copy keeps its orientation.
         ArrayStep turn;
         turn.rotateDegrees = {0, 0, 90};
-        const scene::move::Frame world;
+        const scene::move::Frame worldFrame;
         const math::Vec3 p{10, 0, 0};
-        const math::Mat4 on = ArrayCopyChange(turn, world, {0, 0, 0}, 1, true, p);
-        const math::Mat4 off = ArrayCopyChange(turn, world, {0, 0, 0}, 1, false, p);
+        const math::Mat4 on = ArrayCopyChange(turn, worldFrame, {0, 0, 0}, 1, true, p);
+        const math::Mat4 off = ArrayCopyChange(turn, worldFrame, {0, 0, 0}, 1, false, p);
         CHECK(Near(math::TransformPoint(on, p), {0, 10, 0}) && Near(math::TransformPoint(off, p), {0, 10, 0}));
         CHECK(Near(math::TransformPoint(off, p + math::Vec3{1, 0, 0}), {1, 10, 0}));   // not turned
         CHECK(Near(math::TransformPoint(on, p + math::Vec3{1, 0, 0}), {0, 11, 0}));    // turned

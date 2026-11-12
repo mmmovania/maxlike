@@ -87,8 +87,8 @@ int main() {
     // Twist; only the top modifier carries the values entered.
     {
         using Params = std::vector<std::pair<int, double>>;
-        struct Expect { std::shared_ptr<scene::DeformModifier> mod; Params params; };
-        auto check = [&](const char* file, std::vector<Expect> stack) {
+        struct StackEntry { std::shared_ptr<scene::DeformModifier> mod; Params params; };
+        auto check = [&](const char* file, std::vector<StackEntry> stack) {
             scene::Scene scene;
             io::ImportReport report;
             std::string error;

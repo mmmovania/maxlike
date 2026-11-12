@@ -332,8 +332,8 @@ std::vector<Spec> ModifierRollouts(const std::string& name, int level, bool slic
         const int bit = 1 << std::max(0, std::min(4, level));
         for (Row& r : geo.rows)
             if (r.kind == Kind::Button)
-                for (const auto& [label, levels] : kAvailable)
-                    if (r.label == label) r.enabled = (levels & bit) != 0 || (sliceMode && r.label == L"Slice");
+                for (const auto& [entry, levels] : kAvailable)
+                    if (r.label == entry) r.enabled = (levels & bit) != 0 || (sliceMode && r.label == L"Slice");
         // The spinners, options and labels that belong to those buttons (10.8).
         const std::pair<int, int> kParams[] = {
             {EditMeshModifier::kExtrudeAmount, E | F | P | L}, {EditMeshModifier::kNormalLocal, E | F | P | L},

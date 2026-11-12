@@ -9,6 +9,11 @@ project owner found using the program on Windows.
   constraint from it; the cursor does not change for Move (or Rotate, Scale).
 - The gizmo is missing after an object is created.
 - Right-click should end object creation.
+- MSVC level-4 warnings (C4456 / C4457 hidden names, C4706 assignments in conditions,
+  C4244 a narrowing), not reported by the MinGW build's -Wall -Wextra.
+- During creation the other views lag behind the one drawn in; the axes appear only when
+  the object is finished (R3 shows them from the first click).
+- Separate gizmos for Move, Rotate and Scale.
 
 ## Steps
 - [x] **12.1** Flicker-free painting (`win::PaintBuffer`: the command panel, status bar, tab
@@ -18,6 +23,24 @@ project owner found using the program on Windows.
       the selection even off the object; cursors for Select, Move, Rotate and Scale;
       right-click ends creation mode (a second right-click after cancelling an object
       being built)
+
+- [x] **12.2** All MSVC warnings fixed in the code (hidden names renamed within their
+      scope, assignments taken out of conditions, the narrowing made explicit); GCC now
+      builds with -Wshadow=local, which reports what C4456 / C4457 do; every view repainted
+      immediately during drags; the object being created is selected from the first click
+- [ ] 12.3 Separate gizmos for Rotate and Scale
+
+## Step 12.2 verification
+- [x] 0 warnings with -Wall -Wextra -Wshadow=local (it also found hidden names MSVC does not
+      report: lambda parameters, a local struct); no assignment inside a condition left in
+      the tree (searched)
+- [x] Forty test programs pass; default window unchanged; Edit Mesh panel 0 px from R3.1
+- [x] Under Wine, with the mouse button still held while dragging out a box: the Top view
+      shows its axes (281 tripod pixels), the Front and Perspective views already show it
+- [x] Found: two of my own fixes needed fixing (a binding named after the function's
+      parameter, then after a helper; an earlier build killed by the time limit left a
+      truncated object file)
+- [ ] On Windows: no MSVC warnings; the other views keep up while creating
 
 ## Step 12.1 verification
 - [x] Builds warning-free; forty test programs pass (MinGW + Wine)

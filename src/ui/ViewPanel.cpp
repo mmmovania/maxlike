@@ -44,9 +44,9 @@ bool ViewPanel::Create(HWND parent) {
         v.onActivate = [this, i] { SetActive(i); };
         v.SetIndex(i);
         v.creationActive = [this] { return creationActive && creationActive(); };
-        v.onCreateEvent = [this](scene::Creator::Event e, int owner, const scene::ConstructionPlane& p,
+        v.onCreateEvent = [this](scene::Creator::Event e, int owner, const scene::ConstructionPlane& plane,
                                  double u, double vv, int y, double upp) {
-            return onCreateEvent && onCreateEvent(e, owner, p, u, vv, y, upp);
+            return onCreateEvent && onCreateEvent(e, owner, plane, u, vv, y, upp);
         };
         v.onCreateCancel = [this] { return onCreateCancel && onCreateCancel(); };
         v.onCreateExit = [this] { if (onCreateExit) onCreateExit(); };
@@ -57,7 +57,7 @@ bool ViewPanel::Create(HWND parent) {
         v.onMoveBegin = [this] { if (onMoveBegin) onMoveBegin(); };
         v.onMoveDrag = [this](const math::Vec3& d, int up) { if (onMoveDrag) onMoveDrag(d, up); };
         v.onMoveEnd = [this](bool commit) { if (onMoveEnd) onMoveEnd(commit); };
-        v.onCursorWorld = [this](bool ok, const math::Vec3& p) { if (onCursorWorld) onCursorWorld(ok, p); };
+        v.onCursorWorld = [this](bool ok, const math::Vec3& point) { if (onCursorWorld) onCursorWorld(ok, point); };
         v.onVertexSelect = [this](const std::vector<uint32_t>& vs, bool region, bool ctrl, bool alt) {
             if (onVertexSelect) onVertexSelect(vs, region, ctrl, alt);
         };

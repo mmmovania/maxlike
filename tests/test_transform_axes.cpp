@@ -61,21 +61,21 @@ int main() {
     }
     // 12.2: the part under the mouse. Top view: X right, Y up, Z at the viewer.
     {
-        const double top[3][2] = {{1, 0}, {0, 1}, {0, 0}};
+        const double topAxes[3][2] = {{1, 0}, {0, 1}, {0, 0}};
         const int ox = 200, oy = 200;
-        CHECK(view::GizmoPartAt(top, ox, oy, ox + 40, oy) == 1);         // on X's shaft
-        CHECK(view::GizmoPartAt(top, ox, oy, ox + 80, oy + 3) == 1);     // X's arrowhead, 3 px off
-        CHECK(view::GizmoPartAt(top, ox, oy, ox, oy - 40) == 2);         // Y (up the screen)
-        CHECK(view::GizmoPartAt(top, ox, oy, ox + 78, oy - 78) == 3);    // inside the XY corner
-        CHECK(view::GizmoPartAt(top, ox, oy, ox + 40, oy - 40) == 0);    // between, outside the corner
-        CHECK(view::GizmoPartAt(top, ox, oy, ox + 8, oy) == 0);          // the gap at the pivot (shafts start at 17)
-        CHECK(view::GizmoPartAt(top, ox, oy, ox + 140, oy) == 0);        // beyond the tip
-        CHECK(view::GizmoPartAt(top, ox, oy, ox, oy) == 0);              // Z points at the viewer: never
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox + 40, oy) == 1);         // on X's shaft
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox + 80, oy + 3) == 1);     // X's arrowhead, 3 px off
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox, oy - 40) == 2);         // Y (up the screen)
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox + 78, oy - 78) == 3);    // inside the XY corner
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox + 40, oy - 40) == 0);    // between, outside the corner
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox + 8, oy) == 0);          // the gap at the pivot (shafts start at 17)
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox + 140, oy) == 0);        // beyond the tip
+        CHECK(view::GizmoPartAt(topAxes, ox, oy, ox, oy) == 0);              // Z points at the viewer: never
         // Every pixel the drawing gives an axis's shaft is a hit on that axis.
         const bool none[3] = {false, false, false};
-        for (const auto& p : view::TransformAxesPixels(view::AxesStyle::MoveGizmo, top, ox, oy, none))
+        for (const auto& p : view::TransformAxesPixels(view::AxesStyle::MoveGizmo, topAxes, ox, oy, none))
             if (p.rgb == view::kAxisColor[0] && p.y == oy && p.x > ox + 20 && p.x < ox + 58)
-                CHECK(view::GizmoPartAt(top, ox, oy, p.x + 0.5, p.y + 0.5) == 1);
+                CHECK(view::GizmoPartAt(topAxes, ox, oy, p.x + 0.5, p.y + 0.5) == 1);
     }
     if (failures == 0) std::printf("transform axes: all tests passed\n");
     return failures == 0 ? 0 : 1;

@@ -560,7 +560,7 @@ std::vector<uint32_t> ReplaceFace(EditMeshModifier::State& s, size_t inputFaces,
 Face MakeFace(const Face& like, uint32_t a, uint32_t b, uint32_t c, uint32_t visible) {
     Face f = like;
     f.v[0] = a; f.v[1] = b; f.v[2] = c;
-    f.edgeVisible = visible;
+    f.edgeVisible = static_cast<uint8_t>(visible & 7u);   // three bits, one per side
     return f;
 }
 math::Vec3 FaceNormal(const Mesh& p, const Face& f) {

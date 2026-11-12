@@ -51,7 +51,9 @@ int main() {
     // Undo the group: members back at the top, in place; the head gone. Redo: back, closed.
     CHECK(undo.Undo(s) && !s.Find("Group01") && !s.FindById(ia)->Parent());
     CHECK(Near(Pivot(s.FindById(ia)), {0, 0, 0}) && Near(Pivot(s.FindById(ib)), {30, 0, 0}));
-    CHECK(undo.Redo(s) && (head = s.Find("Group01")) && head->IsGroupHead() && head->Children().size() == 2);
+    CHECK(undo.Redo(s));
+    head = s.Find("Group01");
+    CHECK(head && head->IsGroupHead() && head->Children().size() == 2);
     // Nest: group Group01 with Box03 into Group02, then Explode: no groups left, all in place.
     undo.Execute(MakeGroup(s, {head->GetId(), ic}, "Group02"), s);
     scene::Node* outer = s.Find("Group02");

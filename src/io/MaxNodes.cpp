@@ -26,15 +26,18 @@ bool IsIdentity(const math::Quat& q) { return std::fabs(q.x) < 1e-6 && std::fabs
 // controllers and the node's object offset).
 void ReadPosition(const std::vector<uint8_t>& d, const Chunk* k, MaxTransform& t, bool& ok) {
     float f[3];
-    if ((ok = Floats(d, k, f, 3))) t.position = {f[0], f[1], f[2]};
+    ok = Floats(d, k, f, 3);
+    if (ok) t.position = {f[0], f[1], f[2]};
 }
 void ReadRotation(const std::vector<uint8_t>& d, const Chunk* k, MaxTransform& t, bool& ok) {
     float f[4];
-    if ((ok = Floats(d, k, f, 4))) t.rotation = math::Quat::FromMaxFile(f[0], f[1], f[2], f[3]);
+    ok = Floats(d, k, f, 4);
+    if (ok) t.rotation = math::Quat::FromMaxFile(f[0], f[1], f[2], f[3]);
 }
 void ReadScale(const std::vector<uint8_t>& d, const Chunk* k, MaxTransform& t, bool& ok) {
     float f[7];
-    if ((ok = Floats(d, k, f, 7))) {
+    ok = Floats(d, k, f, 7);
+    if (ok) {
         t.scale = {f[0], f[1], f[2]};
         t.scaleAxis = math::Quat::FromMaxFile(f[3], f[4], f[5], f[6]);
     }

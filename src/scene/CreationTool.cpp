@@ -109,6 +109,7 @@ bool CreationTool::Feed(Creator::Event e, int owner, const ConstructionPlane& pl
         n->SetObject(object_);
         n->SetWireColor(color_);
         liveId_ = n->GetId();
+        scene_.SetSelection({liveId_});   // selected from the first click, so its axes show (12.2; as R3)
     }
     creator_->Feed(e, u, v, screenY);
     if (creator_->Cancelled()) { Cancel(); return true; }

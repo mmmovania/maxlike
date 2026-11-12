@@ -1764,13 +1764,13 @@ void MainFrame::OnCommand(const std::string& command) {
             }
             return out;
         };
-        const scene::move::Frame frame = viewports_.ActiveView().CurrentFrame();
+        const scene::move::Frame refFrame = viewports_.ActiveView().CurrentFrame();
         const math::Vec3 centre = viewports_.ActiveView().TransformCenter();
         const std::vector<scene::Node::Id> selection = scene::groups::WithMembers(scene_, scene_.Selection());
         if (command == "tools.mirror") {
             const ui::MirrorChoice c = ui::ShowMirrorDialog(Hwnd(), SystemName());
             if (!c.ok) return;
-            const math::Mat4 m = scene::tools::MirrorMatrix(frame, static_cast<scene::tools::MirrorAxis>(c.axis), centre, c.offset);
+            const math::Mat4 m = scene::tools::MirrorMatrix(refFrame, static_cast<scene::tools::MirrorAxis>(c.axis), centre, c.offset);
             auto macro = std::make_unique<scene::MacroCommand>("Mirror");
             if (c.clone == 0) {
                 for (scene::Node* n : topmost(selection))
@@ -1798,7 +1798,7 @@ void MainFrame::OnCommand(const std::string& command) {
             step.rotateDegrees = c.totals[1] ? fromTotals.rotateDegrees : c.rotate;
             step.scalePercent = c.totals[2] ? fromTotals.scalePercent : c.scale;
             if (c.uniform) step.scalePercent = {step.scalePercent.x, step.scalePercent.x, step.scalePercent.x};
-            auto inFrame = [&](const math::Vec3& v) { return frame.axis[0] * v.x + frame.axis[1] * v.y + frame.axis[2] * v.z; };
+            auto inFrame = [&](const math::Vec3& v) { return refFrame.axis[0] * v.x + refFrame.axis[1] * v.y + refFrame.axis[2] * v.z; };
             if (static_cast<long long>(n1) * n2 * n3 > 10000) { statusArea_.SetPrompt(1, L"Array: too many copies (10,000 at most)"); return; }
             std::vector<scene::Node::Id> all;
             for (int k = 0; k < n3; ++k)
@@ -1810,7 +1810,7 @@ void MainFrame::OnCommand(const std::string& command) {
                         for (scene::Node* n : topmost(ids)) {
                             // step^i (Re-Orient off: only the pivot moves), then the row and layer offsets
                             const math::Vec3 pivot = math::TransformPoint(n->WorldMatrix(), {0, 0, 0});
-                            n->Transform() = scene::tools::Changed(*n, rows * scene::tools::ArrayCopyChange(step, frame, centre, i, c.reorient, pivot));
+                            n->Transform() = scene::tools::Changed(*n, rows * scene::tools::ArrayCopyChange(step, refFrame, centre, i, c.reorient, pivot));
                         }
                         all.insert(all.end(), ids.begin(), ids.end());
                     }

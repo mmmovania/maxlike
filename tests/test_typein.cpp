@@ -71,14 +71,14 @@ int main() {
     }
     // 11.2b: offsets in a frame's axes. A frame turned 90 degrees about Z (its X is world Y).
     {
-        scene::Scene s;
-        scene::Node* n = s.CreateNode("N");
+        scene::Scene scene2;
+        scene::Node* n = scene2.CreateNode("N");
         scene::move::Frame f;
         f.axis[0] = {0, 1, 0}; f.axis[1] = {-1, 0, 0}; f.axis[2] = {0, 0, 1};
         n->Transform() = scene::typein::WithOffset(scene::typein::Tool::Move, *n, {10, 0, 0}, {0, 0, 0}, f);
         CHECK(Near(math::TransformPoint(n->WorldMatrix(), {0, 0, 0}), {0, 10, 0}));
-        // 90 degrees about the frame's X (world Y) turns world X towards world -Z.
-        scene::Node* m = s.CreateNode("M");
+        // 90 degrees about the frame'scene2 X (world Y) turns world X towards world -Z.
+        scene::Node* m = scene2.CreateNode("M");
         m->Transform() = scene::typein::WithOffset(scene::typein::Tool::Rotate, *m, {90, 0, 0}, {0, 0, 0}, f);
         CHECK(Near(math::TransformPoint(m->WorldMatrix(), {1, 0, 0}), {0, 0, -1}));
     }

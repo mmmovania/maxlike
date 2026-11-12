@@ -43,7 +43,10 @@ public:
     std::function<void(const Viewport::ToolClick&)> onToolClick;
     void SetRegionWindow(bool window) { for (auto& v : views_) v.SetRegionWindow(window); }   // 11.3
     scene::ConstructionPlane ActivePlane() const { return views_[static_cast<size_t>(active_)].CreationPlane(); }
-    void Redraw() { for (auto& v : views_) if (v.Hwnd()) InvalidateRect(v.Hwnd(), nullptr, FALSE); }
+    // Every view repainted now (12.2): only invalidating leaves the views not under the mouse
+    // waiting, since Windows sends WM_PAINT only when no input is queued, so during a drag
+    // they lagged behind the one being dragged in.
+    void Redraw() { for (auto& v : views_) if (v.Hwnd()) RedrawWindow(v.Hwnd(), nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW); }
     // File > Reset: the startup types and views (Top, Front, Left, Perspective).
     void ResetAllViews();
     // A viewport (0..3 in layout order) restored from a file: its type and its view.

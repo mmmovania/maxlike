@@ -684,10 +684,10 @@ void Viewport::DrawVertices(int w, int h) {
     const auto& sp = vertexEditing_.mod->Params();
     if (sp.Int(scene::EditMeshModifier::kUseSoftSelection, 0) != 0 && !selOut.empty()) {
         const int edges = sp.Int(scene::EditMeshModifier::kEdgeDistance, 0) != 0 ? sp.Int(scene::EditMeshModifier::kEdgeIterations, 1) : -1;
-        const auto w = scene::soft::Weights(v.mesh, selOut, sp.Float(scene::EditMeshModifier::kFalloff, 20),
+        const auto weights = scene::soft::Weights(v.mesh, selOut, sp.Float(scene::EditMeshModifier::kFalloff, 20),
                                             sp.Float(scene::EditMeshModifier::kPinch, 0), sp.Float(scene::EditMeshModifier::kBubble, 0), edges);
-        for (size_t i = 0; i < pts.size() && i < w.size(); ++i)
-            if (group[i] == 0 && w[i] > 0) group[i] = 1 + std::min(15, static_cast<int>(w[i] * 16));
+        for (size_t i = 0; i < pts.size() && i < weights.size(); ++i)
+            if (group[i] == 0 && weights[i] > 0) group[i] = 1 + std::min(15, static_cast<int>(weights[i] * 16));
     }
     for (int g = 0; g <= 17; ++g) {
         std::vector<float> run;
@@ -773,8 +773,10 @@ scene::move::Frame Viewport::CurrentFrame() const {
     OrthoBasis(right, up);
     const scene::Node* first = nullptr;
     if (scene_)
-        for (scene::Node::Id id : scene_->Selection())
-            if ((first = scene_->FindById(id))) break;
+        for (scene::Node::Id id : scene_->Selection()) {
+            first = scene_->FindById(id);
+            if (first) break;
+        }
     math::Quat parentQ, localQ;
     math::Vec3 parentPivot{0, 0, 0}, localPivot{0, 0, 0};
     const bool hasParent = first && first->Parent();

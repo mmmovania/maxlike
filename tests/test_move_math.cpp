@@ -55,9 +55,9 @@ int main() {
         const math::Quat parentRot = math::Quat::FromAxisAngle({0, 0, 1}, 3.14159265358979323846 / 2);
         const math::Quat start = math::Quat::FromAxisAngle({1, 0, 0}, 0.3);
         const math::Quat delta = DragRotation(0, 60);
-        const math::Quat local = RotateInParent(parentRot, delta, start);
+        const math::Quat localRot = RotateInParent(parentRot, delta, start);
         const math::Vec3 v{0.2, 0.5, 0.7};
-        CHECK(Near((parentRot * local).Rotate(v), (delta * parentRot * start).Rotate(v)));
+        CHECK(Near((parentRot * localRot).Rotate(v), (delta * parentRot * start).Rotate(v)));
     }
     // Scale: uniform; non-uniform (constrained axes only); squash keeps the volume.
     CHECK(Near(DragScale(ScaleMode::Uniform, xy, 50), {1.5, 1.5, 1.5}));
@@ -94,19 +94,19 @@ int main() {
         CHECK(Near(screen.axis[1], {0, 0.6, 0.8}));
         // Local: the object's rotation (90 degrees about Z), at its pivot; its X is world Y.
         const math::Quat q = math::Quat::FromAxisAngle({0, 0, 1}, 3.14159265358979323846 / 2);
-        const Frame local = MakeFrame(RefCoord::Local, false, {1, 0, 0}, {0, 1, 0}, nullptr, {}, &q, {7, 8, 9});
-        CHECK(Near(local.axis[0], {0, 1, 0}) && Near(local.origin, {7, 8, 9}));
-        CHECK(Near(ConstrainInFrame({3, 4, 5}, onlyX, local), {0, 4, 0}));
+        const Frame localFrame = MakeFrame(RefCoord::Local, false, {1, 0, 0}, {0, 1, 0}, nullptr, {}, &q, {7, 8, 9});
+        CHECK(Near(localFrame.axis[0], {0, 1, 0}) && Near(localFrame.origin, {7, 8, 9}));
+        CHECK(Near(ConstrainInFrame({3, 4, 5}, onlyX, localFrame), {0, 4, 0}));
         // Parent without a parent: the world.
-        const Frame parent = MakeFrame(RefCoord::Parent, false, {1, 0, 0}, {0, 1, 0}, nullptr, {}, &q, {});
-        CHECK(Near(parent.axis[0], {1, 0, 0}));
+        const Frame parentFrame = MakeFrame(RefCoord::Parent, false, {1, 0, 0}, {0, 1, 0}, nullptr, {}, &q, {});
+        CHECK(Near(parentFrame.axis[0], {1, 0, 0}));
         // Rotation about the frame's axis: Local X (world Y) turns world X towards -Z.
-        const math::Quat turn = DragRotationInFrame(0, 180, local);   // 90 degrees
+        const math::Quat turn = DragRotationInFrame(0, 180, localFrame);   // 90 degrees
         CHECK(Near(turn.Rotate({1, 0, 0}), {0, 0, -1}));
         // A drag plane in the frame: Front's "Y" constraint in perspective gives a plane
         // containing world Z.
-        math::Vec3 n;
-        CHECK(DragPlaneNormalInFrame(onlyY, {0, 1, 0}, front, n) && std::fabs(math::Dot(n, {0, 0, 1})) < 1e-9);
+        math::Vec3 normal;
+        CHECK(DragPlaneNormalInFrame(onlyY, {0, 1, 0}, front, normal) && std::fabs(math::Dot(normal, {0, 0, 1})) < 1e-9);
     }
     if (failures == 0) std::printf("move math: all tests passed\n");
     return failures == 0 ? 0 : 1;
